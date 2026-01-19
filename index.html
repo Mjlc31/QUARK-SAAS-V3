@@ -6,7 +6,7 @@
     <title>Quark Energia | Enterprise</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
         darkMode: 'class',
@@ -18,16 +18,16 @@
             },
             colors: {
               quark: {
-                bg: '#050b14', // Darker, richer blue/black
-                surface: '#0f172a',
+                bg: '#09090b', // Zinc 950 - Darker, cleaner
+                card: '#18181b', // Zinc 900
                 border: 'rgba(255, 255, 255, 0.08)',
-                brand: '#84cc16', // Lime 500
-                brandHover: '#65a30d', // Lime 600
-                accent: '#0ea5e9', // Sky 500
+                brand: '#a3e635', // Lime 400 - More electric
+                brandHover: '#84cc16', // Lime 500
               }
             },
-            backdropBlur: {
-              xs: '2px',
+            backgroundImage: {
+              'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+              'glass': 'linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%)'
             }
           }
         }
@@ -35,55 +35,84 @@
     </script>
     <style>
       body {
-        background-color: #050b14;
-        color: #f1f5f9;
-        background-image: 
-          radial-gradient(circle at 15% 50%, rgba(132, 204, 22, 0.08) 0%, transparent 25%),
-          radial-gradient(circle at 85% 30%, rgba(14, 165, 233, 0.08) 0%, transparent 25%);
+        background-color: #09090b;
+        color: #e4e4e7; /* Zinc 200 */
         font-feature-settings: "cv11", "ss01";
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
       }
-      /* Custom Scrollbar - Slim & Sleek */
+
+      /* Subtle Ambient Background */
+      body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: 
+          radial-gradient(circle at 50% 0%, rgba(163, 230, 53, 0.03) 0%, transparent 40%),
+          radial-gradient(circle at 100% 0%, rgba(59, 130, 246, 0.03) 0%, transparent 40%);
+        pointer-events: none;
+        z-index: -1;
+      }
+
+      /* Custom Scrollbar - Minimalist */
       ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
+        width: 5px;
+        height: 5px;
       }
       ::-webkit-scrollbar-track {
         background: transparent;
       }
       ::-webkit-scrollbar-thumb {
-        background: #334155;
-        border-radius: 3px;
+        background: #27272a;
+        border-radius: 4px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #475569;
+        background: #3f3f46;
       }
       
       .glass-panel {
-        background: rgba(15, 23, 42, 0.6);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        background: rgba(24, 24, 27, 0.6); /* Zinc 900 with opacity */
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        box-shadow: 0 0 0 1px rgba(0,0,0,0.2), 0 8px 20px -6px rgba(0, 0, 0, 0.4);
       }
       
-      .input-field {
-        background: rgba(0, 0, 0, 0.2);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        transition: all 0.2s ease;
+      .glass-card-hover {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       }
-      .input-field:focus {
-        border-color: #84cc16;
-        box-shadow: 0 0 0 1px rgba(132, 204, 22, 0.2);
-        outline: none;
+      .glass-card-hover:hover {
+        background: rgba(39, 39, 42, 0.6);
+        border-color: rgba(163, 230, 53, 0.2);
+        transform: translateY(-2px);
+      }
+
+      .btn-primary {
+        background: #a3e635;
+        color: #000;
+        font-weight: 600;
+        transition: all 0.2s;
+      }
+      .btn-primary:hover {
+        background: #bef264;
+        box-shadow: 0 0 15px rgba(163, 230, 53, 0.3);
       }
 
       /* Animation Utilities */
       .animate-enter {
-        animation: enter 0.4s ease-out forwards;
+        animation: enter 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       }
       @keyframes enter {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
+        from { opacity: 0; transform: translateY(8px) scale(0.98); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+      }
+
+      .custom-scrollbar {
+        scrollbar-width: thin;
+        scrollbar-color: #27272a transparent;
       }
     </style>
   <script type="importmap">

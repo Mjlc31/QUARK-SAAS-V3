@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, MapPin, Search, X, Clock, Send, Edit2, Trash2, Save } from 'lucide-react';
+import { Plus, MapPin, Search, X, Clock, Send, Edit2, Trash2, Save, MoreHorizontal } from 'lucide-react';
 import { Lead, LeadStatus } from '../types';
 import { useApp } from '../contexts/AppContext';
 
@@ -84,14 +84,20 @@ Atenciosamente,
     if (!selectedLead) return;
     await updateLead(selectedLead.id, editFormData);
     setIsEditing(false);
-    // Atualiza o objeto selecionado visualmente
     setSelectedLead({ ...selectedLead, ...editFormData } as Lead);
   };
 
-  const handleDelete = async () => {
-     if (!selectedLead) return;
-     await deleteLead(selectedLead.id);
-     setSelectedLead(null);
+  // Fixed Delete Handler
+  const handleDelete = async (e?: React.MouseEvent, idOverride?: string) => {
+     if (e) e.stopPropagation();
+     
+     const idToDelete = idOverride || selectedLead?.id;
+     if (!idToDelete) return;
+
+     if (window.confirm("Atenção: A exclusão deste Lead é permanente. Deseja continuar?")) {
+        await deleteLead(idToDelete);
+        setSelectedLead(null); // Close the panel immediately
+     }
   };
 
   const filteredLeads = leads.filter(l => 
@@ -102,14 +108,14 @@ Atenciosamente,
   return (
     <div className="h-[calc(100vh-6rem)] md:h-[calc(100vh-2rem)] flex flex-col relative animate-enter pb-10">
       {/* Header Actions */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <div className="flex items-center gap-4 bg-white/5 p-1 rounded-xl border border-white/5 w-full md:w-96">
-           <div className="w-full px-4 py-2 bg-slate-800 rounded-lg text-sm font-medium text-white flex items-center gap-2">
-             <Search size={16} className="text-slate-400" />
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div className="flex items-center gap-4 w-full md:w-auto">
+           <div className="relative w-full md:w-96">
+             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
              <input 
                type="text" 
-               placeholder="Buscar Lead..." 
-               className="bg-transparent border-none outline-none text-white w-full placeholder-slate-500"
+               placeholder="Buscar Lead por nome ou cidade..." 
+               className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl py-3 pl-12 pr-4 text-zinc-200 focus:border-lime-500/50 focus:ring-1 focus:ring-lime-500/50 outline-none transition-all placeholder-zinc-600"
                value={searchTerm}
                onChange={(e) => setSearchTerm(e.target.value)}
              />
@@ -117,9 +123,10 @@ Atenciosamente,
         </div>
         <button 
           onClick={() => setIsFormOpen(true)}
-          className="bg-lime-500 hover:bg-lime-400 text-black px-5 py-2.5 rounded-xl flex items-center gap-2 font-bold shadow-lg shadow-lime-500/20 transition-all transform hover:scale-105 w-full md:w-auto justify-center"
+          className="btn-primary px-6 py-3 rounded-xl flex items-center gap-2 shadow-lg shadow-lime-500/10 active:scale-95 w-full md:w-auto justify-center"
         >
-          <Plus size={20} /> Novo Lead
+          <Plus size={20} strokeWidth={2.5} /> 
+          <span>Novo Lead</span>
         </button>
       </div>
 
@@ -129,13 +136,13 @@ Atenciosamente,
           {STATUS_COLUMNS.map(column => (
             <div 
               key={column.id}
-              className="flex-1 min-w-full md:min-w-[300px] flex flex-col group"
+              className="flex-1 min-w-full md:min-w-[300px] flex flex-col group/col"
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, column.id)}
             >
-              <div className={`flex items-center justify-between p-4 rounded-t-2xl glass-panel border-t-4 ${column.color} mb-3`}>
-                <h3 className="font-bold text-white tracking-wide">{column.label}</h3>
-                <span className="bg-slate-800 border border-white/10 px-2.5 py-1 rounded-md text-xs font-bold text-slate-300">
+              <div className={`flex items-center justify-between p-4 rounded-t-2xl glass-panel border-t-2 ${column.color} mb-3 bg-zinc-900/40`}>
+                <h3 className="font-bold text-zinc-200 tracking-wide font-display">{column.label}</h3>
+                <span className="bg-zinc-800 border border-white/5 px-2.5 py-0.5 rounded-full text-xs font-bold text-zinc-400">
                   {filteredLeads.filter(l => l.status === column.id).length}
                 </span>
               </div>
@@ -147,35 +154,46 @@ Atenciosamente,
                     draggable
                     onDragStart={(e) => handleDragStart(e, lead.id)}
                     onClick={() => setSelectedLead(lead)}
-                    className="glass-panel p-5 rounded-2xl cursor-pointer hover:bg-white/10 hover:border-lime-500/50 transition-all group relative active:scale-95 duration-200"
+                    className="glass-panel p-5 rounded-2xl cursor-pointer glass-card-hover group relative active:scale-95"
                   >
+                    {/* Quick Delete Action on Card */}
+                    <button 
+                      onClick={(e) => handleDelete(e, lead.id)}
+                      className="absolute top-3 right-3 p-1.5 text-zinc-600 hover:text-red-400 hover:bg-red-500/10 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                      title="Excluir"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+
                     <div className="flex justify-between items-start mb-3">
-                      <div className="flex-1 min-w-0 pr-4">
-                        <h4 className="font-bold text-white truncate text-base mb-1">{lead.name}</h4>
-                        <div className="flex items-center gap-2 text-xs text-slate-400">
+                      <div className="flex-1 min-w-0 pr-6">
+                        <h4 className="font-bold text-white truncate text-base mb-1 tracking-tight">{lead.name}</h4>
+                        <div className="flex items-center gap-2 text-xs text-zinc-500 font-medium">
                           <MapPin size={12} /> {lead.city}
                         </div>
-                      </div>
-                      <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-xs font-bold text-slate-300 border border-white/10">
-                        {lead.assignee?.substring(0,2).toUpperCase()}
                       </div>
                     </div>
                     
                     <div className="grid grid-cols-2 gap-2 mb-4">
-                       <div className="bg-white/5 rounded-lg p-2 border border-white/5">
-                         <p className="text-[10px] text-slate-500 uppercase font-bold">Consumo</p>
-                         <p className="text-sm font-display font-semibold text-white">{lead.monthlyConsumption} kWh</p>
+                       <div className="bg-zinc-900/50 rounded-lg p-2 border border-white/5">
+                         <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Consumo</p>
+                         <p className="text-sm font-display font-semibold text-zinc-200">{lead.monthlyConsumption} kWh</p>
                        </div>
-                       <div className="bg-white/5 rounded-lg p-2 border border-white/5">
-                         <p className="text-[10px] text-slate-500 uppercase font-bold">Valor</p>
+                       <div className="bg-zinc-900/50 rounded-lg p-2 border border-white/5">
+                         <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Valor</p>
                          <p className="text-sm font-display font-semibold text-lime-400">{(lead.value / 1000).toFixed(0)}k</p>
                        </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-3 border-t border-white/10">
-                      <span className="text-xs text-slate-500 flex items-center gap-1">
-                        <Clock size={12} /> {new Date(lead.updatedAt).toLocaleDateString()}
-                      </span>
+                    <div className="flex items-center justify-between pt-3 border-t border-white/5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-400 border border-white/5">
+                          {lead.assignee?.substring(0,2).toUpperCase()}
+                        </div>
+                        <span className="text-[10px] text-zinc-600 font-medium">
+                           {new Date(lead.updatedAt).toLocaleDateString(undefined, {month:'short', day:'numeric'})}
+                        </span>
+                      </div>
                       <button 
                         onClick={(e) => { e.stopPropagation(); handleSmartWhatsApp(lead); }}
                         className="text-green-400 hover:text-green-300 bg-green-500/10 hover:bg-green-500/20 p-2 rounded-lg transition-colors"
@@ -194,37 +212,39 @@ Atenciosamente,
 
       {/* Slide-Over Detail Panel */}
       {selectedLead && (
-        <div className="fixed inset-y-0 right-0 w-full md:w-[500px] glass-panel border-l border-white/10 shadow-2xl z-[60] animate-enter flex flex-col backdrop-blur-xl bg-slate-900/90">
-          <div className="p-6 border-b border-white/10 flex justify-between items-start bg-slate-900/50">
-            <div className="flex-1">
+        <>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[55] lg:hidden" onClick={() => setSelectedLead(null)}></div>
+        <div className="fixed inset-y-0 right-0 w-full md:w-[500px] bg-[#09090b] border-l border-white/10 shadow-2xl z-[60] animate-enter flex flex-col">
+          <div className="p-6 border-b border-white/10 flex justify-between items-start bg-zinc-900/50 backdrop-blur-md">
+            <div className="flex-1 pr-4">
               {isEditing ? (
                  <input 
                    type="text" 
                    value={editFormData.name} 
                    onChange={(e) => setEditFormData({...editFormData, name: e.target.value})}
-                   className="bg-black/40 border border-white/20 rounded p-2 text-xl font-bold text-white w-full mb-2"
+                   className="bg-zinc-800 border border-zinc-700 rounded p-2 text-xl font-bold text-white w-full mb-2 outline-none focus:border-lime-500"
                  />
               ) : (
-                 <h2 className="text-2xl font-bold text-white mb-1 truncate pr-4">{selectedLead.name}</h2>
+                 <h2 className="text-2xl font-bold text-white mb-2 font-display tracking-tight">{selectedLead.name}</h2>
               )}
               
               <div className="flex gap-2">
-                <span className="px-2 py-0.5 rounded text-xs bg-lime-500/20 text-lime-400 border border-lime-500/20 font-medium">{selectedLead.status}</span>
+                <span className="px-2.5 py-1 rounded-md text-xs bg-lime-500/10 text-lime-400 border border-lime-500/10 font-bold uppercase tracking-wide">{selectedLead.status}</span>
                 {isEditing ? (
                    <input 
                      type="text" 
                      value={editFormData.city} 
                      onChange={(e) => setEditFormData({...editFormData, city: e.target.value})}
-                     className="bg-black/40 border border-white/20 rounded p-1 text-xs text-white w-32"
+                     className="bg-zinc-800 border border-zinc-700 rounded p-1 text-xs text-white w-32 outline-none"
                    />
                 ) : (
-                   <span className="px-2 py-0.5 rounded text-xs bg-white/10 text-slate-300 border border-white/10">{selectedLead.city}</span>
+                   <span className="px-2.5 py-1 rounded-md text-xs bg-zinc-800 text-zinc-400 border border-white/5 font-medium">{selectedLead.city}</span>
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
                {!isEditing && (
-                 <button onClick={() => setIsEditing(true)} className="p-2 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors" title="Editar">
+                 <button onClick={() => setIsEditing(true)} className="p-2 text-zinc-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors" title="Editar">
                     <Edit2 size={20} />
                  </button>
                )}
@@ -233,10 +253,10 @@ Atenciosamente,
                     <Save size={20} />
                  </button>
                )}
-               <button onClick={handleDelete} className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Excluir">
+               <button onClick={(e) => handleDelete(e)} className="p-2 text-zinc-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Excluir">
                   <Trash2 size={20} />
                </button>
-               <button onClick={() => setSelectedLead(null)} className="p-2 text-slate-400 hover:text-white ml-2">
+               <button onClick={() => setSelectedLead(null)} className="p-2 text-zinc-400 hover:text-white ml-2">
                  <X size={24} />
                </button>
             </div>
@@ -245,99 +265,126 @@ Atenciosamente,
           <div className="flex-1 overflow-y-auto p-6 space-y-8">
             {/* Lead Info */}
             <div className="grid grid-cols-2 gap-4">
-               <div className="p-4 rounded-xl bg-white/5 border border-white/5">
-                 <label className="text-xs text-slate-500 uppercase font-bold">Telefone</label>
+               <div className="p-4 rounded-xl bg-zinc-900/50 border border-white/5">
+                 <label className="text-xs text-zinc-500 uppercase font-bold tracking-wider">Telefone</label>
                  {isEditing ? (
                     <input 
                        type="text" 
                        value={editFormData.phone} 
                        onChange={(e) => setEditFormData({...editFormData, phone: e.target.value})}
-                       className="bg-black/40 border border-white/20 rounded p-1 text-white w-full mt-1"
+                       className="bg-zinc-800 border border-zinc-700 rounded p-1 text-white w-full mt-1 outline-none"
                     />
                  ) : (
-                    <p className="text-white font-display text-lg">{selectedLead.phone}</p>
+                    <p className="text-zinc-200 font-display text-lg mt-1">{selectedLead.phone}</p>
                  )}
                </div>
-               <div className="p-4 rounded-xl bg-white/5 border border-white/5">
-                 <label className="text-xs text-slate-500 uppercase font-bold">Valor (R$)</label>
+               <div className="p-4 rounded-xl bg-zinc-900/50 border border-white/5">
+                 <label className="text-xs text-zinc-500 uppercase font-bold tracking-wider">Valor (R$)</label>
                  {isEditing ? (
                     <input 
                        type="number" 
                        value={editFormData.value} 
                        onChange={(e) => setEditFormData({...editFormData, value: Number(e.target.value)})}
-                       className="bg-black/40 border border-white/20 rounded p-1 text-lime-400 w-full mt-1"
+                       className="bg-zinc-800 border border-zinc-700 rounded p-1 text-lime-400 w-full mt-1 outline-none"
                     />
                  ) : (
-                    <p className="text-lime-400 font-display text-lg">R$ {selectedLead.value.toLocaleString()}</p>
+                    <p className="text-lime-400 font-display text-lg mt-1 font-bold">R$ {selectedLead.value.toLocaleString()}</p>
                  )}
                </div>
-               <div className="p-4 rounded-xl bg-white/5 border border-white/5 col-span-2">
-                 <label className="text-xs text-slate-500 uppercase font-bold">Consumo (kWh)</label>
+               <div className="p-4 rounded-xl bg-zinc-900/50 border border-white/5 col-span-2">
+                 <label className="text-xs text-zinc-500 uppercase font-bold tracking-wider">Consumo (kWh)</label>
                  {isEditing ? (
                     <input 
                        type="number" 
                        value={editFormData.monthlyConsumption} 
                        onChange={(e) => setEditFormData({...editFormData, monthlyConsumption: Number(e.target.value)})}
-                       className="bg-black/40 border border-white/20 rounded p-1 text-white w-full mt-1"
+                       className="bg-zinc-800 border border-zinc-700 rounded p-1 text-white w-full mt-1 outline-none"
                     />
                  ) : (
-                    <p className="text-white font-display text-lg">{selectedLead.monthlyConsumption} kWh</p>
+                    <p className="text-zinc-200 font-display text-lg mt-1">{selectedLead.monthlyConsumption} kWh</p>
                  )}
                </div>
             </div>
 
             {/* Audit Log / Timeline */}
             <div>
-              <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                <Clock size={16} className="text-slate-400" />
-                Histórico de Interações
+              <h3 className="text-sm font-bold text-white mb-6 flex items-center gap-2">
+                <Clock size={16} className="text-lime-400" />
+                Linha do Tempo
               </h3>
-              <div className="relative border-l border-white/10 ml-2 space-y-6">
+              <div className="relative border-l border-zinc-800 ml-2 space-y-8">
                 {selectedLead.history.map((log) => (
-                  <div key={log.id} className="ml-6 relative">
-                    <div className="absolute -left-[29px] top-1 w-3 h-3 rounded-full bg-slate-800 border-2 border-lime-500"></div>
-                    <div className="flex justify-between items-start">
-                      <p className="text-sm font-semibold text-white">{log.action}</p>
-                      <span className="text-[10px] text-slate-500">{new Date(log.timestamp).toLocaleDateString()} {new Date(log.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                  <div key={log.id} className="ml-8 relative">
+                    <div className="absolute -left-[37px] top-1.5 w-4 h-4 rounded-full bg-zinc-900 border-2 border-lime-500/50 shadow-[0_0_10px_rgba(163,230,53,0.2)]"></div>
+                    <div className="flex flex-col">
+                      <div className="flex justify-between items-baseline">
+                         <p className="text-sm font-bold text-zinc-200">{log.action}</p>
+                         <span className="text-[10px] text-zinc-600 font-mono">{new Date(log.timestamp).toLocaleDateString()}</span>
+                      </div>
+                      <p className="text-xs text-zinc-400 mt-1 leading-relaxed">{log.details}</p>
+                      <div className="flex items-center gap-2 mt-2">
+                         <div className="w-4 h-4 rounded-full bg-zinc-800 flex items-center justify-center text-[8px] text-zinc-400">
+                            {log.author.substring(0,1)}
+                         </div>
+                         <p className="text-[10px] text-zinc-600 font-medium uppercase tracking-wide">{log.author}</p>
+                      </div>
                     </div>
-                    <p className="text-xs text-slate-400 mt-1">{log.details}</p>
-                    <p className="text-[10px] text-slate-600 mt-1 font-medium uppercase">{log.author}</p>
                   </div>
                 ))}
               </div>
             </div>
           </div>
           
-          <div className="p-6 border-t border-white/10 bg-slate-900/50">
+          <div className="p-6 border-t border-white/10 bg-zinc-900/80">
              <button 
                 onClick={() => handleSmartWhatsApp(selectedLead)}
-                className="w-full py-3 rounded-xl bg-green-600 hover:bg-green-500 text-white font-bold transition-all shadow-lg flex justify-center gap-2"
+                className="w-full py-4 rounded-xl bg-lime-500 hover:bg-lime-400 text-black font-bold transition-all shadow-lg shadow-lime-500/20 active:scale-95 flex justify-center gap-2"
              >
                <Send size={18} /> Iniciar Conversa WhatsApp
              </button>
           </div>
         </div>
+        </>
       )}
 
       {/* New Lead Modal */}
       {isFormOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="glass-panel w-full max-w-lg rounded-2xl p-8 border border-white/20 shadow-2xl animate-enter">
-            <h2 className="text-2xl font-bold text-white mb-6">Cadastrar Novo Lead</h2>
-            <div className="space-y-4">
-              <input type="text" placeholder="Nome da Empresa / Cliente" className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white focus:border-lime-500 outline-none" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-              <div className="grid grid-cols-2 gap-4">
-                <input type="text" placeholder="Telefone" className="bg-black/40 border border-white/10 rounded-xl p-4 text-white focus:border-lime-500 outline-none" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-                <input type="text" placeholder="Cidade" className="bg-black/40 border border-white/10 rounded-xl p-4 text-white focus:border-lime-500 outline-none" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} />
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+          <div className="glass-panel w-full max-w-lg rounded-3xl p-8 border border-white/10 shadow-2xl animate-enter">
+            <div className="flex justify-between items-center mb-8">
+               <h2 className="text-2xl font-bold text-white font-display">Novo Lead</h2>
+               <button onClick={() => setIsFormOpen(false)} className="text-zinc-500 hover:text-white transition-colors"><X size={24}/></button>
+            </div>
+            
+            <div className="space-y-5">
+              <div>
+                <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 block">Cliente</label>
+                <input type="text" placeholder="Nome da Empresa / Cliente" className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 text-white focus:border-lime-500 outline-none transition-all placeholder-zinc-600" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <input type="number" placeholder="Consumo (kWh)" className="bg-black/40 border border-white/10 rounded-xl p-4 text-white focus:border-lime-500 outline-none" value={formData.consumption} onChange={e => setFormData({...formData, consumption: e.target.value})} />
-                <input type="number" placeholder="Valor Estimado (R$)" className="bg-black/40 border border-white/10 rounded-xl p-4 text-white focus:border-lime-500 outline-none" value={formData.value} onChange={e => setFormData({...formData, value: e.target.value})} />
+              <div className="grid grid-cols-2 gap-5">
+                <div>
+                   <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 block">Contato</label>
+                   <input type="text" placeholder="Telefone" className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 text-white focus:border-lime-500 outline-none transition-all placeholder-zinc-600" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+                </div>
+                <div>
+                   <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 block">Local</label>
+                   <input type="text" placeholder="Cidade" className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 text-white focus:border-lime-500 outline-none transition-all placeholder-zinc-600" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-5">
+                <div>
+                  <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 block">Energia</label>
+                  <input type="number" placeholder="kWh/mês" className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 text-white focus:border-lime-500 outline-none transition-all placeholder-zinc-600" value={formData.consumption} onChange={e => setFormData({...formData, consumption: e.target.value})} />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 block">Orçamento</label>
+                  <input type="number" placeholder="R$ Estimado" className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 text-white focus:border-lime-500 outline-none transition-all placeholder-zinc-600" value={formData.value} onChange={e => setFormData({...formData, value: e.target.value})} />
+                </div>
               </div>
             </div>
-            <div className="flex gap-4 mt-8">
-              <button onClick={() => setIsFormOpen(false)} className="flex-1 py-3 text-slate-400 hover:text-white font-medium">Cancelar</button>
-              <button onClick={submitNewLead} className="flex-1 py-3 bg-lime-500 hover:bg-lime-400 text-black font-bold rounded-xl shadow-lg shadow-lime-500/20">Salvar Lead</button>
+            <div className="flex gap-4 mt-10">
+              <button onClick={() => setIsFormOpen(false)} className="flex-1 py-4 text-zinc-400 hover:text-white font-medium transition-colors">Cancelar</button>
+              <button onClick={submitNewLead} className="flex-1 btn-primary py-4 rounded-xl shadow-lg active:scale-95">Salvar Lead</button>
             </div>
           </div>
         </div>
