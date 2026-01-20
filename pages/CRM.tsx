@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, MapPin, Search, X, Clock, Send, Edit2, Trash2, Save, Sparkles, Copy, Check, Loader2, Pencil, DollarSign } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Plus, MapPin, Search, X, Clock, Send, Edit2, Trash2, Save, Sparkles, Copy, Check, Loader2, Pencil, DollarSign, GripVertical } from 'lucide-react';
 import { Lead, LeadStatus } from '../types';
 import { useApp } from '../contexts/AppContext';
 import { ai } from '../lib/ai';
@@ -14,7 +14,14 @@ const COLUMN_CONFIG: { id: LeadStatus; defaultLabel: string; color: string }[] =
 
 const CRM: React.FC = () => {
   const { leads, updateLeadStatus, addLead, addLeadLog, updateLead, deleteLead } = useApp();
+  
+  // Drag & Drop States
   const [draggedLead, setDraggedLead] = useState<string | null>(null);
+  
+  // Touch Drag State (Mobile)
+  const [touchDrag, setTouchDrag] = useState<{ id: string; x: number; y: number; width: number; height: number; lead: Lead } | null>(null);
+  const ghostRef = useRef<HTMLDivElement>(null);
+
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null); 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -51,6 +58,7 @@ const CRM: React.FC = () => {
     }
   }, [selectedLead]);
 
+  // --- DESKTOP DRAG HANDLERS ---
   const handleDragStart = (e: React.DragEvent, id: string) => {
     setDraggedLead(id);
     e.dataTransfer.effectAllowed = 'move';
@@ -65,6 +73,58 @@ const CRM: React.FC = () => {
   };
 
   const handleDragOver = (e: React.DragEvent) => e.preventDefault();
+
+  // --- MOBILE TOUCH HANDLERS ---
+  const handleTouchStart = (e: React.TouchEvent, lead: Lead) => {
+    // Only allow drag from the Grip handle to prevent conflict with scrolling
+    const touch = e.touches[0];
+    const target = e.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
+
+    setTouchDrag({
+      id: lead.id,
+      lead: lead,
+      x: touch.clientX,
+      y: touch.clientY,
+      width: rect.width,
+      height: rect.height
+    });
+    
+    // Prevent scrolling when starting to drag
+    document.body.style.overflow = 'hidden';
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchDrag || !ghostRef.current) return;
+    const touch = e.touches[0];
+    
+    // Move visual ghost
+    ghostRef.current.style.transform = `translate(${touch.clientX - touchDrag.width / 2}px, ${touch.clientY - touchDrag.height / 2}px)`;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchDrag) return;
+    
+    const touch = e.changedTouches[0];
+    
+    // Temporarily hide ghost to see what's underneath
+    if (ghostRef.current) ghostRef.current.style.display = 'none';
+    
+    // Check which element is below the finger
+    const elements = document.elementsFromPoint(touch.clientX, touch.clientY);
+    const columnEl = elements.find(el => el.getAttribute('data-column-id'));
+    
+    if (columnEl) {
+      const status = columnEl.getAttribute('data-column-id') as LeadStatus;
+      if (status !== touchDrag.lead.status) {
+        updateLeadStatus(touchDrag.id, status);
+      }
+    }
+    
+    // Reset
+    setTouchDrag(null);
+    document.body.style.overflow = '';
+  };
 
   // --- Column Renaming Logic ---
   const startEditingColumn = (id: string, currentTitle: string) => {
@@ -196,6 +256,27 @@ Atenciosamente,
 
   return (
     <div className="h-[calc(100vh-6rem)] md:h-[calc(100vh-2rem)] flex flex-col relative animate-enter pb-10">
+      
+      {/* Mobile Touch Ghost Element */}
+      {touchDrag && (
+        <div 
+          ref={ghostRef}
+          className="fixed pointer-events-none z-[9999] opacity-90 glass-panel p-5 rounded-2xl border border-lime-500 shadow-2xl"
+          style={{ 
+            width: touchDrag.width, 
+            height: touchDrag.height,
+            top: 0,
+            left: 0,
+            transform: `translate(${touchDrag.x - touchDrag.width/2}px, ${touchDrag.y - touchDrag.height/2}px)`
+          }}
+        >
+           <h4 className="font-bold text-white truncate text-base mb-1 tracking-tight">{touchDrag.lead.name}</h4>
+           <div className="flex items-center gap-2 text-xs text-zinc-500 font-medium">
+              <MapPin size={12} /> {touchDrag.lead.city}
+           </div>
+        </div>
+      )}
+
       {/* Header Actions */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div className="flex items-center gap-4 w-full md:w-auto">
@@ -220,7 +301,7 @@ Atenciosamente,
       </div>
 
       {/* Kanban Board */}
-      <div className="flex-1 overflow-x-auto pb-4 -mx-4 md:mx-0 px-4 md:px-0">
+      <div className="flex-1 overflow-x-auto pb-4 -mx-4 md:mx-0 px-4 md:px-0" onTouchMove={touchDrag ? handleTouchMove : undefined} onTouchEnd={touchDrag ? handleTouchEnd : undefined}>
         <div className="flex flex-col md:flex-row gap-6 md:min-w-[1200px] h-full">
           {COLUMN_CONFIG.map(column => {
             const columnLeads = filteredLeads.filter(l => l.status === column.id);
@@ -229,7 +310,8 @@ Atenciosamente,
             return (
               <div 
                 key={column.id}
-                className="flex-1 min-w-full md:min-w-[300px] flex flex-col group/col"
+                data-column-id={column.id}
+                className={`flex-1 min-w-full md:min-w-[300px] flex flex-col group/col transition-colors ${touchDrag && touchDrag.lead.status !== column.id ? 'bg-white/5 rounded-2xl' : ''}`}
                 onDragOver={handleDragOver}
                 onDrop={(e) => handleDrop(e, column.id)}
               >
@@ -280,8 +362,16 @@ Atenciosamente,
                       draggable
                       onDragStart={(e) => handleDragStart(e, lead.id)}
                       onClick={() => setSelectedLead(lead)}
-                      className="glass-panel p-5 rounded-2xl cursor-pointer glass-card-hover group relative active:scale-95"
+                      className="glass-panel p-5 rounded-2xl cursor-pointer glass-card-hover group relative active:scale-95 touch-manipulation"
                     >
+                      {/* Mobile Drag Handle */}
+                      <div 
+                        className="lg:hidden absolute top-0 left-0 bottom-0 w-12 flex items-center justify-center text-zinc-600 active:text-lime-400 z-20"
+                        onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(e, lead); }}
+                      >
+                         <GripVertical size={20} />
+                      </div>
+
                       <button 
                         onClick={(e) => handleDelete(e, lead.id)}
                         className="absolute top-3 right-3 p-1.5 text-zinc-600 hover:text-red-400 hover:bg-red-500/10 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10"
@@ -290,7 +380,7 @@ Atenciosamente,
                         <Trash2 size={14} />
                       </button>
 
-                      <div className="flex justify-between items-start mb-3">
+                      <div className="flex justify-between items-start mb-3 pl-6 lg:pl-0">
                         <div className="flex-1 min-w-0 pr-6">
                           <h4 className="font-bold text-white truncate text-base mb-1 tracking-tight">{lead.name}</h4>
                           <div className="flex items-center gap-2 text-xs text-zinc-500 font-medium">
@@ -299,7 +389,7 @@ Atenciosamente,
                         </div>
                       </div>
                       
-                      <div className="grid grid-cols-2 gap-2 mb-4">
+                      <div className="grid grid-cols-2 gap-2 mb-4 pl-6 lg:pl-0">
                          <div className="bg-zinc-900/50 rounded-lg p-2 border border-white/5">
                            <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Consumo</p>
                            <p className="text-sm font-display font-semibold text-zinc-200">{lead.monthlyConsumption} kWh</p>
@@ -310,7 +400,7 @@ Atenciosamente,
                          </div>
                       </div>
 
-                      <div className="flex items-center justify-between pt-3 border-t border-white/5">
+                      <div className="flex items-center justify-between pt-3 border-t border-white/5 pl-6 lg:pl-0">
                         <div className="flex items-center gap-2">
                           <div className="w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-400 border border-white/5">
                             {lead.assignee?.substring(0,2).toUpperCase()}
@@ -355,7 +445,17 @@ Atenciosamente,
               )}
               
               <div className="flex gap-2">
-                <span className="px-2.5 py-1 rounded-md text-xs bg-lime-500/10 text-lime-400 border border-lime-500/10 font-bold uppercase tracking-wide">{selectedLead.status}</span>
+                {isEditing ? (
+                   <select
+                     value={editFormData.status}
+                     onChange={(e) => setEditFormData({...editFormData, status: e.target.value as LeadStatus})}
+                     className="bg-zinc-800 border border-zinc-700 rounded p-1 text-xs text-lime-400 font-bold uppercase tracking-wide outline-none"
+                   >
+                     {COLUMN_CONFIG.map(col => <option key={col.id} value={col.id}>{col.defaultLabel}</option>)}
+                   </select>
+                ) : (
+                  <span className="px-2.5 py-1 rounded-md text-xs bg-lime-500/10 text-lime-400 border border-lime-500/10 font-bold uppercase tracking-wide">{columnTitles[selectedLead.status]}</span>
+                )}
                 {isEditing ? (
                    <input 
                      type="text" 
@@ -389,7 +489,7 @@ Atenciosamente,
           </div>
 
           <div className="flex-1 overflow-y-auto p-6 space-y-8">
-            {/* AI Assistant Section - NEW */}
+            {/* AI Assistant Section */}
             <div className="glass-panel p-5 rounded-2xl border border-lime-500/20 bg-gradient-to-b from-lime-900/5 to-transparent">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -525,7 +625,7 @@ Atenciosamente,
         </>
       )}
 
-      {/* New Lead Modal - KEEP EXISTING CONTENT */}
+      {/* New Lead Modal */}
       {isFormOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
           <div className="glass-panel w-full max-w-lg rounded-3xl p-8 border border-white/10 shadow-2xl animate-enter">

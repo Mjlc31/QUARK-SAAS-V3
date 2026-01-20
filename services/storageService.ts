@@ -22,7 +22,28 @@ const INITIAL_TASKS: Task[] = [
 ];
 
 const INITIAL_PRODUCTS: Product[] = [
-  { id: '1', name: 'Painel Canadian 550W', type: 'Painel', price: 650, power: 550 }
+  { 
+    id: '1', 
+    name: 'HiKu6 Mono PERC', 
+    brand: 'Canadian Solar',
+    category: 'Módulo', 
+    price: 650, 
+    power: 550,
+    powerUnit: 'W',
+    stock: 120,
+    description: 'Painel Monocristalino de alta eficiência.'
+  },
+  { 
+    id: '2', 
+    name: 'SUN2000-50KTL', 
+    brand: 'Huawei',
+    category: 'Inversor', 
+    price: 12500, 
+    power: 50,
+    powerUnit: 'kW',
+    stock: 5,
+    description: 'Inversor String Trifásico inteligente.'
+  }
 ];
 
 // Fallback user if DB is empty

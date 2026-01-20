@@ -69,7 +69,7 @@ const Calculator: React.FC = () => {
   // Set default module if available and none selected
   useEffect(() => {
     if (products.length > 0 && !selectedModuleId) {
-      const panel = products.find(p => p.type === 'Painel');
+      const panel = products.find(p => p.category === 'Módulo');
       if (panel) setSelectedModuleId(panel.id);
     }
   }, [products]);
@@ -351,11 +351,11 @@ const Calculator: React.FC = () => {
                    className="w-full bg-black/40 border border-white/10 rounded-xl p-3 pl-10 text-white text-sm focus:border-lime-500 outline-none appearance-none"
                  >
                    <option value="" disabled>Selecione um painel...</option>
-                   {products.filter(p => p.type === 'Painel').map(p => (
+                   {products.filter(p => p.category === 'Módulo').map(p => (
                      <option key={p.id} value={p.id}>{p.name} ({p.power || DEFAULT_MODULE_POWER}W)</option>
                    ))}
                    {/* Fallback if no products */}
-                   {products.filter(p => p.type === 'Painel').length === 0 && (
+                   {products.filter(p => p.category === 'Módulo').length === 0 && (
                      <option value="default">Genérico 550W</option>
                    )}
                  </select>

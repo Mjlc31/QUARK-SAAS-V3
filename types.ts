@@ -68,10 +68,17 @@ export interface Task {
   priority: 'High' | 'Medium' | 'Low';
 }
 
+export type ProductCategory = 'Módulo' | 'Inversor' | 'Estrutura' | 'Cabo' | 'String Box' | 'Disjuntor' | 'Outros';
+
 export interface Product {
   id: string;
-  name: string;
-  type: string;
+  name: string; // Model name usually
+  brand: string;
+  category: ProductCategory;
   price: number;
-  power?: number;
+  power?: number; // Numeric value
+  powerUnit?: string; // W, kW, A, m
+  stock: number;
+  image?: string;
+  description?: string;
 }
