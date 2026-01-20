@@ -4,25 +4,15 @@ import { createClient } from '@supabase/supabase-js';
 const YOUR_PROJECT_URL = 'https://sumydaewtszecrvdgoku.supabase.co';
 const YOUR_ANON_KEY = 'sb_publishable_YSHgrXjsvOroxDokhAZavg_GBQY8Hha';
 
-// Verifica se existem variáveis de ambiente (Vite/Netlify), senão usa as constantes acima
-const getEnv = (key: string) => {
-  try {
-    if (typeof import.meta !== 'undefined' && import.meta.env) return import.meta.env[key];
-  } catch (e) {}
-  try {
-    if (typeof process !== 'undefined' && process.env) return process.env[key];
-  } catch (e) {}
-  return '';
-};
-
-const envUrl = getEnv('VITE_SUPABASE_URL');
-const envKey = getEnv('VITE_SUPABASE_ANON_KEY');
+// Acessamos via import.meta.env com verificação de segurança (optional chaining)
+// para evitar erros caso o objeto env não esteja definido no ambiente atual.
+const envUrl = import.meta.env?.VITE_SUPABASE_URL;
+const envKey = import.meta.env?.VITE_SUPABASE_ANON_KEY;
 
 const finalUrl = (envUrl && envUrl.length > 5) ? envUrl : YOUR_PROJECT_URL;
 const finalKey = (envKey && envKey.length > 5) ? envKey : YOUR_ANON_KEY;
 
 // Validação de Segurança no Console
-// Ajustado para aceitar chaves 'sb_' (formato novo) ou 'ey' (JWT padrão)
 if (finalKey === YOUR_ANON_KEY && !finalKey.startsWith('ey') && !finalKey.startsWith('sb_')) {
   console.warn('%c⚠️ ALERTA SUPABASE:', 'background: yellow; color: black; font-size: 14px; font-weight: bold;');
   console.warn('A chave API fornecida não parece ter um formato padrão (nem JWT "ey...", nem Publishable "sb_...").');
