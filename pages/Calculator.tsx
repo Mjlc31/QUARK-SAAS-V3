@@ -3,6 +3,7 @@ import { Calculator as CalcIcon, Sun, Zap, FileText, MapPin, AlertTriangle, Tren
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line, ComposedChart, Area } from 'recharts';
 import { CityData, SolarSystemResult } from '../types';
 import { useApp } from '../contexts/AppContext';
+import { jsPDF } from 'jspdf';
 
 // Dados geoespaciais completos de Alagoas
 const ALAGOAS_TARIFF_DEFAULT = 0.98;
@@ -230,7 +231,9 @@ const Calculator: React.FC = () => {
   const generatePDF = () => {
     if (!result) return;
     const city = CITIES.find(c => c.name === selectedCity);
-    const doc = new (window as any).jspdf.jsPDF();
+    
+    // Use the imported jsPDF class
+    const doc = new jsPDF();
 
     // -- PDF GENERATION LOGIC (Simplified for brevity, matches existing style) --
     // Header

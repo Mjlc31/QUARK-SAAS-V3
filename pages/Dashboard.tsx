@@ -38,8 +38,9 @@ const Dashboard: React.FC = () => {
 
   // --- Chart Data Generation based on Leads ---
   const chartData = useMemo(() => {
-    // 1. Initialize last 6 months
-    const months = [];
+    // 1. Initialize last 6 months with Explicit Type to fix Build Error
+    const months: { dateObj: Date; name: string; revenue: number; pipeline: number }[] = [];
+    
     for (let i = 5; i >= 0; i--) {
       const d = new Date();
       d.setMonth(d.getMonth() - i);
