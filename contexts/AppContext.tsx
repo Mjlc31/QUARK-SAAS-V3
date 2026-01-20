@@ -1,12 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Lead, Task, User, LeadHistoryLog } from '../types';
+import { storageService } from '../services/storageService';
 import { supabase } from '../lib/supabaseClient';
-
-// Usuários atualizados
-const USERS: User[] = [
-  { id: '1', name: 'Arthur Duda', email: 'arthur@quark.com', role: 'Admin', avatarInitials: 'AD' },
-  { id: '2', name: 'Anderson Alves', email: 'anderson@quark.com', role: 'Sales', avatarInitials: 'AA' },
-];
 
 export interface Activity {
   id: string;
@@ -21,10 +16,15 @@ interface AppContextType {
   leads: Lead[];
   tasks: Task[];
   users: User[];
-  activities: Activity[]; // New global activity feed
+  activities: Activity[];
   isLoading: boolean;
-  login: (email: string) => boolean;
-  logout: () => void;
+  isRecoveryMode: boolean;
+  isSupabaseConnected: boolean;
+  login: (email: string, password: string) => Promise<{ error: any }>;
+  signUp: (name: string, email: string, password: string) => Promise<{ error: any }>;
+  resetPassword: (email: string) => Promise<{ error: any }>;
+  updatePassword: (password: string) => Promise<{ error: any }>;
+  logout: () => Promise<void>;
   addLead: (lead: Partial<Lead>) => Promise<void>;
   updateLead: (id: string, updates: Partial<Lead>) => Promise<void>;
   deleteLead: (id: string) => Promise<void>;
@@ -43,72 +43,235 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [directoryUsers, setDirectoryUsers] = useState<User[]>([]);
+  const [isRecoveryMode, setIsRecoveryMode] = useState(false);
+  const [isSupabaseConnected, setIsSupabaseConnected] = useState(false);
 
-  // Initial Fetch from Supabase
+  // Initialize Auth Listener & Check for Offline Session
   useEffect(() => {
-    fetchData();
+    // 0. Immediate URL Check for Recovery (Prevents Flash)
+    if (window.location.hash && window.location.hash.includes('type=recovery')) {
+      setIsRecoveryMode(true);
+    }
+
+    // 1. Connection Health Check
+    checkSupabaseConnection();
+
+    // 2. Check Supabase Session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        const currentUser: User = {
+          id: session.user.id,
+          email: session.user.email!,
+          name: session.user.user_metadata.name || 'Usuário',
+          role: 'Sales',
+          avatarInitials: (session.user.user_metadata.name || 'U').substring(0, 2).toUpperCase()
+        };
+        setUser(currentUser);
+        fetchData();
+      } else {
+        // 3. Check Local Fallback Session (if Supabase failed previously)
+        const offlineUserStr = localStorage.getItem('quark_offline_user');
+        if (offlineUserStr) {
+          const offlineUser: User = JSON.parse(offlineUserStr);
+          setUser(offlineUser);
+          fetchData();
+        }
+      }
+    });
+
+    // Listen for Supabase changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsRecoveryMode(true);
+      }
+
+      if (session?.user) {
+        // Real session detected
+        const newUser: User = {
+          id: session.user.id,
+          email: session.user.email!,
+          name: session.user.user_metadata.name || 'Usuário',
+          role: 'Sales',
+          avatarInitials: (session.user.user_metadata.name || 'U').substring(0, 2).toUpperCase()
+        };
+        setUser(newUser);
+        localStorage.removeItem('quark_offline_user'); // Clear offline if real exists
+        fetchData();
+        checkSupabaseConnection(); // Re-check connection on auth change
+      } else if (!localStorage.getItem('quark_offline_user')) {
+        // Only clear user if no offline fallback exists
+        setUser(null);
+        setLeads([]);
+        setTasks([]);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
+
+  const checkSupabaseConnection = async () => {
+    try {
+      // Simple lightweight query to check connectivity
+      const { error } = await supabase.from('leads').select('id').limit(1);
+      // It's connected if there's no network error (even if table is empty or permission denied, the connection itself worked)
+      if (!error || (error.code !== 'PGRST301' && !error.message.includes('fetch'))) {
+        setIsSupabaseConnected(true);
+      } else {
+        setIsSupabaseConnected(false);
+      }
+    } catch (err) {
+      console.warn("Supabase Connectivity Check Failed");
+      setIsSupabaseConnected(false);
+    }
+  };
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      // Fetch Leads
-      const { data: leadsData, error: leadsError } = await supabase
-        .from('leads')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (leadsData) {
-        const mappedLeads: Lead[] = leadsData.map((l: any) => ({
-          id: l.id,
-          name: l.name,
-          phone: l.phone || '',
-          city: l.city || '',
-          value: Number(l.value),
-          monthlyConsumption: Number(l.monthly_consumption),
-          status: l.status,
-          createdAt: l.created_at,
-          updatedAt: l.updated_at,
-          assignee: l.assignee,
-          history: l.history || []
-        }));
-        setLeads(mappedLeads);
-      }
-
-      // Fetch Tasks
-      const { data: tasksData, error: tasksError } = await supabase
-        .from('tasks')
-        .select('*')
-        .order('deadline', { ascending: true });
-
-      if (tasksData) {
-        setTasks(tasksData as Task[]);
-      }
-
-      // Mock Initial Activities (In a real app, this would be a table)
-      setActivities([
-        { id: '1', user: 'Arthur', action: 'criou o lead', target: 'Supermercado Silva', time: '10 min' },
-        { id: '2', user: 'Anderson', action: 'concluiu', target: 'Validar Projeto', time: '1h' },
-        { id: '3', user: 'Arthur', action: 'moveu para Proposta', target: 'Fazenda Sta. Rita', time: '3h' },
+      const [loadedLeads, loadedTasks, loadedUsers] = await Promise.all([
+        storageService.getLeads(),
+        storageService.getTasks(),
+        storageService.getUsers()
       ]);
 
+      setLeads(loadedLeads);
+      setTasks(loadedTasks);
+      setDirectoryUsers(loadedUsers);
+      
+      setActivities([
+        { id: '1', user: 'Sistema', action: 'sincronizou', target: 'Dados Cloud', time: 'Agora' },
+      ]);
     } catch (error) {
-      console.error('Erro geral na conexão:', error);
+      console.error('Erro ao buscar dados:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const login = (email: string) => {
-    const found = USERS.find(u => u.email === email);
-    if (found) {
-      setUser(found);
-      return true;
+  const login = async (email: string, password: string) => {
+    setIsLoading(true);
+    try {
+      // Try Real Login
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        const isAuthError = error.message.includes('Invalid login credentials') || 
+                            error.message.includes('not found') ||
+                            error.status === 400 || 
+                            error.status === 422;
+
+        if (isAuthError) {
+          return { error };
+        }
+
+        console.warn("Supabase Network/Config Failed (using offline fallback):", error.message);
+        setIsSupabaseConnected(false);
+        
+        const fallbackUser: User = {
+          id: 'offline-user-id',
+          email: email,
+          name: 'Modo Offline',
+          role: 'Admin',
+          avatarInitials: email.substring(0,2).toUpperCase()
+        };
+        
+        setUser(fallbackUser);
+        localStorage.setItem('quark_offline_user', JSON.stringify(fallbackUser));
+        fetchData();
+        
+        return { error: null };
+      }
+      
+      setIsSupabaseConnected(true);
+      return { error };
+    } catch (err) {
+       console.error("Critical Auth Error:", err);
+       return { error: err };
+    } finally {
+      setIsLoading(false);
     }
-    return false;
   };
 
-  const logout = () => setUser(null);
+  const signUp = async (name: string, email: string, password: string) => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { name }
+        }
+      });
+      
+      if (error) {
+         if (error.message.includes('already registered') || error.status === 422) {
+            return { error };
+         }
+
+         console.warn("Supabase SignUp Failed (using offline fallback):", error.message);
+         setIsSupabaseConnected(false);
+         const fallbackUser: User = {
+          id: 'offline-user-id',
+          email: email,
+          name: name,
+          role: 'Admin',
+          avatarInitials: name.substring(0,2).toUpperCase()
+        };
+        setUser(fallbackUser);
+        localStorage.setItem('quark_offline_user', JSON.stringify(fallbackUser));
+        fetchData();
+        return { error: null };
+      }
+
+      setIsSupabaseConnected(true);
+      return { error };
+    } catch (err) {
+      return { error: err };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resetPassword = async (email: string) => {
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin,
+      });
+      return { error };
+    } catch (err) {
+      return { error: err };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updatePassword = async (password: string) => {
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (!error) {
+        setIsRecoveryMode(false);
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+      return { error };
+    } catch (err) {
+      return { error: err };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const logout = async () => {
+    localStorage.removeItem('quark_offline_user');
+    await supabase.auth.signOut();
+    setUser(null);
+    setIsRecoveryMode(false);
+  };
 
   const addActivity = (action: string, target: string) => {
     if (!user) return;
@@ -126,66 +289,45 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const defaultHistory = [{
       id: Date.now().toString(),
       action: 'Criação',
-      details: 'Lead cadastrado manualmente',
+      details: 'Lead cadastrado',
       timestamp: new Date().toISOString(),
       author: user?.name || 'Sistema'
     }];
 
-    const dbLead = {
+    const newLead: Lead = {
+      id: crypto.randomUUID(),
       name: leadData.name || 'Novo Lead',
-      phone: leadData.phone,
-      city: leadData.city,
-      value: leadData.value,
-      monthly_consumption: leadData.monthlyConsumption,
+      phone: leadData.phone || '',
+      city: leadData.city || '',
+      value: Number(leadData.value) || 0,
+      monthlyConsumption: Number(leadData.monthlyConsumption) || 0,
       status: 'Lead',
       assignee: user?.name.split(' ')[0] || 'Unassigned',
       history: defaultHistory,
-      created_at: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
-    const { data, error } = await supabase.from('leads').insert([dbLead]).select().single();
-
-    if (data) {
-      const newLead: Lead = {
-        id: data.id,
-        name: data.name,
-        phone: data.phone,
-        city: data.city,
-        value: Number(data.value),
-        monthlyConsumption: Number(data.monthly_consumption),
-        status: data.status,
-        createdAt: data.created_at,
-        updatedAt: data.created_at || new Date().toISOString(),
-        assignee: data.assignee,
-        history: data.history
-      };
-      setLeads(prev => [newLead, ...prev]);
-      addActivity('cadastrou lead', data.name);
-    }
+    setLeads(prev => [newLead, ...prev]);
+    await storageService.syncLead(newLead);
+    addActivity('cadastrou lead', newLead.name);
   };
 
   const updateLead = async (id: string, updates: Partial<Lead>) => {
-     setLeads(prev => prev.map(lead => lead.id === id ? { ...lead, ...updates } : lead));
-
-     const dbUpdates: any = {};
-     if (updates.name) dbUpdates.name = updates.name;
-     if (updates.phone) dbUpdates.phone = updates.phone;
-     if (updates.city) dbUpdates.city = updates.city;
-     if (updates.value) dbUpdates.value = updates.value;
-     if (updates.monthlyConsumption) dbUpdates.monthly_consumption = updates.monthlyConsumption;
-     dbUpdates.updated_at = new Date().toISOString();
-
-     await supabase.from('leads').update(dbUpdates).eq('id', id);
+     const leadToUpdate = leads.find(l => l.id === id);
+     if (!leadToUpdate) return;
+     
+     const updatedLead = { ...leadToUpdate, ...updates, updatedAt: new Date().toISOString() };
+     
+     setLeads(prev => prev.map(l => l.id === id ? updatedLead : l));
+     await storageService.syncLead(updatedLead);
   };
 
   const deleteLead = async (id: string) => {
-    // Removed the 'confirm' from here to let the UI handle UX
     const leadToDelete = leads.find(l => l.id === id);
     setLeads(prev => prev.filter(l => l.id !== id));
-    
+    await storageService.deleteLead(id);
     if (leadToDelete) addActivity('excluiu lead', leadToDelete.name);
-
-    await supabase.from('leads').delete().eq('id', id);
   };
 
   const updateLeadStatus = async (id: string, newStatus: Lead['status']) => {
@@ -200,19 +342,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       author: user?.name || 'Sistema'
     };
 
-    const updatedHistory = [newLog, ...currentLead.history];
-    const updatedAt = new Date().toISOString();
+    const updatedLead = { 
+      ...currentLead, 
+      status: newStatus, 
+      updatedAt: new Date().toISOString(), 
+      history: [newLog, ...currentLead.history] 
+    };
 
-    setLeads(prev => prev.map(lead => {
-      if (lead.id === id) {
-        return { ...lead, status: newStatus, updatedAt, history: updatedHistory };
-      }
-      return lead;
-    }));
-
+    setLeads(prev => prev.map(l => l.id === id ? updatedLead : l));
+    await storageService.syncLead(updatedLead);
     addActivity(`moveu para ${newStatus}`, currentLead.name);
-
-    await supabase.from('leads').update({ status: newStatus, history: updatedHistory, updated_at: updatedAt }).eq('id', id);
   };
 
   const addLeadLog = async (leadId: string, action: string, details: string) => {
@@ -226,45 +365,48 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       timestamp: new Date().toISOString(),
       author: user?.name || 'Sistema'
     };
-    const updatedHistory = [newLog, ...currentLead.history];
-    setLeads(prev => prev.map(lead => lead.id === leadId ? { ...lead, history: updatedHistory } : lead));
-    await supabase.from('leads').update({ history: updatedHistory }).eq('id', leadId);
+
+    const updatedLead = { ...currentLead, history: [newLog, ...currentLead.history] };
+    
+    setLeads(prev => prev.map(l => l.id === leadId ? updatedLead : l));
+    await storageService.syncLead(updatedLead);
   };
 
   const addTask = async (taskData: Partial<Task>) => {
-    const dbTask = {
-      title: taskData.title,
-      assignee: taskData.assignee,
-      deadline: taskData.deadline,
-      priority: taskData.priority,
+    const newTask: Task = {
+      id: crypto.randomUUID(),
+      title: taskData.title!,
+      assignee: taskData.assignee || 'Unassigned',
+      deadline: taskData.deadline || new Date().toISOString(),
+      priority: taskData.priority || 'Medium',
       completed: false
     };
-
-    const { data } = await supabase.from('tasks').insert([dbTask]).select().single();
-    if (data) {
-      setTasks(prev => [...prev, data as Task]);
-      addActivity('criou tarefa', taskData.title || '');
-    }
+    
+    setTasks(prev => [...prev, newTask]);
+    await storageService.syncTask(newTask);
+    addActivity('criou tarefa', newTask.title);
   };
 
   const toggleTask = async (id: string) => {
     const task = tasks.find(t => t.id === id);
     if (!task) return;
-    const newCompleted = !task.completed;
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: newCompleted } : t));
-    if (newCompleted) addActivity('concluiu tarefa', task.title);
-    await supabase.from('tasks').update({ completed: newCompleted }).eq('id', id);
+    
+    const updatedTask = { ...task, completed: !task.completed };
+    setTasks(prev => prev.map(t => t.id === id ? updatedTask : t));
+    await storageService.syncTask(updatedTask);
+    
+    if (!updatedTask.completed) addActivity('concluiu tarefa', task.title);
   };
 
   const deleteTask = async (id: string) => {
     setTasks(prev => prev.filter(t => t.id !== id));
-    await supabase.from('tasks').delete().eq('id', id);
+    await storageService.deleteTask(id);
   };
 
   return (
     <AppContext.Provider value={{ 
-      user, leads, tasks, users: USERS, activities, isLoading,
-      login, logout, addLead, updateLead, deleteLead, updateLeadStatus, addLeadLog, addTask, toggleTask, deleteTask
+      user, leads, tasks, users: directoryUsers, activities, isLoading, isRecoveryMode, isSupabaseConnected,
+      login, signUp, resetPassword, updatePassword, logout, addLead, updateLead, deleteLead, updateLeadStatus, addLeadLog, addTask, toggleTask, deleteTask
     }}>
       {children}
     </AppContext.Provider>

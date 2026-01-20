@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Users, Calculator, CheckSquare, Package, Zap, LogOut, PieChart, X } from 'lucide-react';
+import { LayoutDashboard, Users, Calculator, CheckSquare, Package, Zap, LogOut, PieChart, X, Wifi, WifiOff } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 
 interface SidebarProps {
@@ -10,7 +10,7 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, isOpen, onClose }) => {
-  const { user, logout } = useApp();
+  const { user, logout, isSupabaseConnected } = useApp();
   
   const menuItems = [
     { id: 'dashboard', label: 'Visão Geral', icon: LayoutDashboard },
@@ -45,7 +45,15 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, isOpen, onCl
             <div className="w-8 h-8 rounded-lg bg-lime-400 flex items-center justify-center text-black shadow-[0_0_15px_rgba(163,230,53,0.3)]">
               <Zap size={18} strokeWidth={3} fill="black" />
             </div>
-            <h1 className="text-xl font-display font-bold tracking-tight text-white">Quark<span className="text-lime-400">.</span></h1>
+            <div>
+              <h1 className="text-xl font-display font-bold tracking-tight text-white leading-none">Quark<span className="text-lime-400">.</span></h1>
+              <div className="flex items-center gap-1.5 mt-1">
+                <div className={`w-1.5 h-1.5 rounded-full ${isSupabaseConnected ? 'bg-green-500 shadow-[0_0_5px_#22c55e]' : 'bg-red-500 shadow-[0_0_5px_#ef4444]'}`}></div>
+                <span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">
+                  {isSupabaseConnected ? 'Online' : 'Offline'}
+                </span>
+              </div>
+            </div>
           </div>
           <button onClick={onClose} className="lg:hidden text-zinc-500 hover:text-white">
             <X size={24} />
@@ -98,8 +106,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, isOpen, onCl
 
         <div className="p-4 mt-auto border-t border-white/5">
           <div className="rounded-xl p-3 flex items-center gap-3 hover:bg-zinc-900/50 transition-colors cursor-pointer group">
-            <div className="w-9 h-9 rounded-full bg-zinc-800 flex items-center justify-center border border-white/5 text-xs font-bold text-white">
+            <div className="w-9 h-9 rounded-full bg-zinc-800 flex items-center justify-center border border-white/5 text-xs font-bold text-white relative">
               {user?.avatarInitials}
+              <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-[#18181b] ${isSupabaseConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-white truncate">{user?.name}</p>

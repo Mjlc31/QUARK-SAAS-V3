@@ -9,10 +9,10 @@ const Products: React.FC = () => {
   const [formData, setFormData] = useState({ name: '', type: 'Painel', price: '', power: '' });
 
   useEffect(() => {
-    setProducts(storageService.getProducts());
+    storageService.getProducts().then(setProducts);
   }, []);
 
-  const handleAddProduct = () => {
+  const handleAddProduct = async () => {
     const newProduct: Product = {
       id: Date.now().toString(),
       name: formData.name,
@@ -20,18 +20,18 @@ const Products: React.FC = () => {
       price: Number(formData.price),
       power: formData.power ? Number(formData.power) : undefined
     };
-    const updated = [...products, newProduct];
-    setProducts(updated);
-    storageService.saveProducts(updated);
+    // Optimistic
+    setProducts(prev => [...prev, newProduct]);
     setIsFormOpen(false);
     setFormData({ name: '', type: 'Painel', price: '', power: '' });
+    
+    await storageService.syncProduct(newProduct);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Tem certeza que deseja remover este produto?')) {
-      const updated = products.filter(p => p.id !== id);
-      setProducts(updated);
-      storageService.saveProducts(updated);
+      setProducts(prev => prev.filter(p => p.id !== id));
+      await storageService.deleteProduct(id);
     }
   };
 

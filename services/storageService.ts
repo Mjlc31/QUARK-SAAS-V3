@@ -1,6 +1,7 @@
-import { Lead, Task, Product } from '../types';
+import { Lead, Task, Product, User } from '../types';
+import { supabase } from '../lib/supabaseClient';
 
-// Initial Mock Data
+// Initial Mock Data (Fallback only)
 const INITIAL_LEADS: Lead[] = [
   { 
     id: '1', 
@@ -13,65 +14,219 @@ const INITIAL_LEADS: Lead[] = [
     monthlyConsumption: 1200,
     updatedAt: new Date().toISOString(),
     history: []
-  },
-  { 
-    id: '2', 
-    name: 'Residência Dr. Roberto', 
-    phone: '5511988888888', 
-    value: 22000, 
-    status: 'Qualificacao', 
-    createdAt: new Date().toISOString(),
-    city: 'Campinas',
-    monthlyConsumption: 800,
-    updatedAt: new Date().toISOString(),
-    history: []
-  },
-  { 
-    id: '3', 
-    name: 'Fazenda Santa Rita', 
-    phone: '5511977777777', 
-    value: 120000, 
-    status: 'Proposta', 
-    createdAt: new Date().toISOString(),
-    city: 'Ribeirão Preto',
-    monthlyConsumption: 5000,
-    updatedAt: new Date().toISOString(),
-    history: []
-  },
+  }
 ];
 
 const INITIAL_TASKS: Task[] = [
-  { id: '1', title: 'Validar projeto elétrico - Silva', assignee: 'Arthur', deadline: '2023-11-20', completed: false, priority: 'High' },
-  { id: '2', title: 'Comprar cabos solares', assignee: 'João', deadline: '2023-11-18', completed: true, priority: 'Medium' },
-  { id: '3', title: 'Visita técnica Fazenda', assignee: 'Cleydson', deadline: '2023-11-25', completed: false, priority: 'High' },
+  { id: '1', title: 'Validar projeto elétrico - Silva', assignee: 'Arthur', deadline: '2023-11-20', completed: false, priority: 'High' }
 ];
 
 const INITIAL_PRODUCTS: Product[] = [
-  { id: '1', name: 'Painel Canadian 550W', type: 'Painel', price: 650, power: 550 },
-  { id: '2', name: 'Inversor Growatt 5kW', type: 'Inversor', price: 4200 },
-  { id: '3', name: 'Inversor Deye Híbrido 8kW', type: 'Inversor', price: 9500 },
+  { id: '1', name: 'Painel Canadian 550W', type: 'Painel', price: 650, power: 550 }
+];
+
+// Fallback user if DB is empty
+const INITIAL_USERS: User[] = [
+  { id: '1', name: 'Admin User', email: 'admin@quark.com', role: 'Admin', avatarInitials: 'AD' },
 ];
 
 export const storageService = {
-  getLeads: (): Lead[] => {
-    const data = localStorage.getItem('quark_leads');
-    return data ? JSON.parse(data) : INITIAL_LEADS;
+  // --- LEADS ---
+  getLeads: async (): Promise<Lead[]> => {
+    try {
+      // 1. Fetch from Supabase
+      const { data, error } = await supabase.from('leads').select('*');
+      if (error) throw error;
+      
+      const localStr = localStorage.getItem('quark_leads');
+      const localData: Lead[] = localStr ? JSON.parse(localStr) : [];
+
+      // 2. Initial Sync Logic: If Cloud is empty but Local has data, upload Local to Cloud
+      if ((!data || data.length === 0) && localData.length > 0) {
+        console.log("☁️ Cloud empty, syncing local leads to cloud...");
+        for (const lead of localData) {
+            await supabase.from('leads').upsert({ id: lead.id, data: lead, updated_at: lead.updatedAt });
+        }
+        return localData;
+      }
+
+      // 3. Normal Flow: Cloud has data
+      if (data && data.length > 0) {
+        const parsedData = data.map(row => row.data ? { ...row.data, id: row.id } : row);
+        localStorage.setItem('quark_leads', JSON.stringify(parsedData));
+        return parsedData as Lead[];
+      }
+      
+      return [];
+    } catch (err) {
+      console.warn("⚠️ Offline Mode (Leads):", err);
+      const local = localStorage.getItem('quark_leads');
+      return local ? JSON.parse(local) : INITIAL_LEADS;
+    }
   },
-  saveLeads: (leads: Lead[]) => {
-    localStorage.setItem('quark_leads', JSON.stringify(leads));
+
+  syncLead: async (lead: Lead) => {
+    try {
+      // Optimistic Local Save
+      const currentLeadsStr = localStorage.getItem('quark_leads');
+      const currentLeads: Lead[] = currentLeadsStr ? JSON.parse(currentLeadsStr) : [];
+      const updatedLocalLeads = currentLeads.some(l => l.id === lead.id) 
+        ? currentLeads.map(l => l.id === lead.id ? lead : l)
+        : [lead, ...currentLeads];
+      localStorage.setItem('quark_leads', JSON.stringify(updatedLocalLeads));
+
+      // Cloud Save
+      const { error } = await supabase.from('leads').upsert({ 
+        id: lead.id,
+        data: lead,
+        updated_at: new Date()
+      });
+      
+      if (error) throw error;
+    } catch (err) {
+      console.error("Sync Error:", err);
+    }
   },
-  getTasks: (): Task[] => {
-    const data = localStorage.getItem('quark_tasks');
-    return data ? JSON.parse(data) : INITIAL_TASKS;
+
+  deleteLead: async (id: string) => {
+     try {
+       const currentLeadsStr = localStorage.getItem('quark_leads');
+       if (currentLeadsStr) {
+         const list = JSON.parse(currentLeadsStr) as Lead[];
+         localStorage.setItem('quark_leads', JSON.stringify(list.filter(l => l.id !== id)));
+       }
+       await supabase.from('leads').delete().eq('id', id);
+     } catch (err) {
+       console.error("Delete Error:", err);
+     }
   },
-  saveTasks: (tasks: Task[]) => {
-    localStorage.setItem('quark_tasks', JSON.stringify(tasks));
+  
+  // --- TASKS ---
+  getTasks: async (): Promise<Task[]> => {
+    try {
+      const { data, error } = await supabase.from('tasks').select('*');
+      if (error) throw error;
+
+      const localStr = localStorage.getItem('quark_tasks');
+      const localData: Task[] = localStr ? JSON.parse(localStr) : [];
+
+      if ((!data || data.length === 0) && localData.length > 0) {
+        console.log("☁️ Cloud empty, syncing local tasks to cloud...");
+        for (const task of localData) {
+            await supabase.from('tasks').upsert({ id: task.id, data: task, updated_at: new Date() });
+        }
+        return localData;
+      }
+
+      if (data && data.length > 0) {
+        const parsed = data.map(row => row.data ? { ...row.data, id: row.id } : row);
+        localStorage.setItem('quark_tasks', JSON.stringify(parsed));
+        return parsed as Task[];
+      }
+      return [];
+    } catch {
+      const local = localStorage.getItem('quark_tasks');
+      return local ? JSON.parse(local) : INITIAL_TASKS;
+    }
   },
-  getProducts: (): Product[] => {
-    const data = localStorage.getItem('quark_products');
-    return data ? JSON.parse(data) : INITIAL_PRODUCTS;
+
+  syncTask: async (task: Task) => {
+    try {
+      const current = localStorage.getItem('quark_tasks');
+      const list: Task[] = current ? JSON.parse(current) : [];
+      const updated = list.some(t => t.id === task.id) ? list.map(t => t.id === task.id ? task : t) : [...list, task];
+      localStorage.setItem('quark_tasks', JSON.stringify(updated));
+
+      await supabase.from('tasks').upsert({ id: task.id, data: task, updated_at: new Date() });
+    } catch (err) { console.error(err); }
   },
-  saveProducts: (products: Product[]) => {
-    localStorage.setItem('quark_products', JSON.stringify(products));
+
+  deleteTask: async (id: string) => {
+    try {
+      const current = localStorage.getItem('quark_tasks');
+      if (current) {
+        const list = JSON.parse(current) as Task[];
+        localStorage.setItem('quark_tasks', JSON.stringify(list.filter(t => t.id !== id)));
+      }
+      await supabase.from('tasks').delete().eq('id', id);
+    } catch (err) { console.error(err); }
+  },
+  
+  // --- PRODUCTS ---
+  getProducts: async (): Promise<Product[]> => {
+    try {
+      const { data, error } = await supabase.from('products').select('*');
+      if (error) throw error;
+      
+      const localStr = localStorage.getItem('quark_products');
+      const localData: Product[] = localStr ? JSON.parse(localStr) : [];
+
+      if ((!data || data.length === 0) && localData.length > 0) {
+         console.log("☁️ Cloud empty, syncing local products to cloud...");
+         for (const prod of localData) {
+             await supabase.from('products').upsert({ id: prod.id, data: prod, updated_at: new Date() });
+         }
+         return localData;
+      }
+
+      if (data && data.length > 0) {
+        const parsed = data.map(row => row.data ? { ...row.data, id: row.id } : row);
+        localStorage.setItem('quark_products', JSON.stringify(parsed));
+        return parsed as Product[];
+      }
+      return [];
+    } catch {
+      const local = localStorage.getItem('quark_products');
+      return local ? JSON.parse(local) : INITIAL_PRODUCTS;
+    }
+  },
+
+  syncProduct: async (product: Product) => {
+     try {
+       const current = localStorage.getItem('quark_products');
+       const list: Product[] = current ? JSON.parse(current) : [];
+       const updated = list.some(p => p.id === product.id) ? list.map(p => p.id === product.id ? product : p) : [...list, product];
+       localStorage.setItem('quark_products', JSON.stringify(updated));
+       await supabase.from('products').upsert({ id: product.id, data: product, updated_at: new Date() });
+     } catch(err) { console.error(err); }
+  },
+
+  deleteProduct: async (id: string) => {
+    try {
+      const current = localStorage.getItem('quark_products');
+      if (current) {
+         const list = JSON.parse(current) as Product[];
+         localStorage.setItem('quark_products', JSON.stringify(list.filter(p => p.id !== id)));
+      }
+      await supabase.from('products').delete().eq('id', id);
+    } catch(err) { console.error(err); }
+  },
+
+  // --- AUTH (Users Directory) ---
+  // Now fetches from real Supabase 'profiles' table
+  getUsers: async (): Promise<User[]> => {
+     try {
+       const { data, error } = await supabase.from('profiles').select('*');
+       if (error) throw error;
+       
+       if (data && data.length > 0) {
+         // Map database columns to User interface
+         const users: User[] = data.map(p => ({
+            id: p.id,
+            name: p.name || 'Usuário',
+            email: p.email || '',
+            role: (p.role as any) || 'Sales',
+            avatarInitials: p.avatar_initials || 'U'
+         }));
+         
+         localStorage.setItem('quark_users', JSON.stringify(users));
+         return users;
+       }
+       return INITIAL_USERS;
+     } catch (err) {
+       console.warn("⚠️ Error fetching users:", err);
+       const local = localStorage.getItem('quark_users');
+       return local ? JSON.parse(local) : INITIAL_USERS;
+     }
   }
 };
