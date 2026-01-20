@@ -1,14 +1,14 @@
 import { GoogleGenAI } from "@google/genai";
 
 // Use import.meta.env for Vite applications
-// Ensure you have VITE_GOOGLE_API_KEY defined in your .env file or Netlify environment variables
-// Added optional chaining (?.) to prevent "Cannot read properties of undefined" error
-const apiKey = import.meta.env?.VITE_GOOGLE_API_KEY || '';
+// You must define VITE_GOOGLE_API_KEY in your .env file or Netlify Environment Variables
+const apiKey = import.meta.env?.VITE_GOOGLE_API_KEY;
 
+// Fallback logic for the AI Service
 if (!apiKey) {
-  console.warn("⚠️ Google GenAI API Key is missing. Check your VITE_GOOGLE_API_KEY environment variable.");
+  console.warn("⚠️ Google GenAI: 'VITE_GOOGLE_API_KEY' não encontrada. As funcionalidades de IA (CRM/Chat) podem falhar.");
 }
 
-// Initialize safely - use a dummy key if missing to prevent crash on boot, 
-// though actual API calls will fail and should be handled in UI.
-export const ai = new GoogleGenAI({ apiKey: apiKey || 'dummy-key-to-prevent-crash' });
+// Initialize safely. If no key is present, use a placeholder to prevent app crash on load.
+// Real calls will fail gracefully in the UI if the key is invalid.
+export const ai = new GoogleGenAI({ apiKey: apiKey || 'missing-api-key' });
