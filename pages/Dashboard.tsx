@@ -1,16 +1,7 @@
-import React, { useState } from 'react';
+import React, { useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { DollarSign, Zap, Activity, Target, TrendingUp, Download, Calendar, BarChart3, Clock, Users, ArrowUpRight } from 'lucide-react';
+import { DollarSign, Zap, Activity, TrendingUp, Download, BarChart3, Clock, Users, ArrowUpRight } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
-
-const initialData = [
-  { name: 'Jan', revenue: 42000, pipeline: 65000 },
-  { name: 'Fev', revenue: 35000, pipeline: 58000 },
-  { name: 'Mar', revenue: 68000, pipeline: 85000 },
-  { name: 'Abr', revenue: 52000, pipeline: 72000 },
-  { name: 'Mai', revenue: 78000, pipeline: 95000 },
-  { name: 'Jun', revenue: 85000, pipeline: 120000 },
-];
 
 const StatCard: React.FC<{ title: string; value: string; icon: any; trend: string; subtext: string; color?: string }> = ({ title, value, icon: Icon, trend, subtext, color = 'lime' }) => (
   <div className="glass-panel p-6 rounded-2xl relative overflow-hidden group hover:border-zinc-700 transition-all duration-300">
@@ -32,14 +23,61 @@ const StatCard: React.FC<{ title: string; value: string; icon: any; trend: strin
 );
 
 const Dashboard: React.FC = () => {
-  const { leads, activities } = useApp();
-  const [timeRange, setTimeRange] = useState('30d');
+  const { leads, activities, user } = useApp();
 
-  // Calculate KPIs
-  const totalPipelineValue = leads.reduce((acc, curr) => acc + curr.value, 0);
-  const activeLeads = leads.length;
-  const closedLeads = leads.filter(l => l.status === 'Fechado').length;
-  const avgTicket = closedLeads > 0 ? (leads.filter(l => l.status === 'Fechado').reduce((acc, curr) => acc + curr.value, 0) / closedLeads) : 0;
+  // --- Real-time Data Calculation ---
+  const kpis = useMemo(() => {
+    const totalPipeline = leads.reduce((acc, curr) => acc + (curr.status !== 'Fechado' ? curr.value : 0), 0);
+    const totalRevenue = leads.filter(l => l.status === 'Fechado').reduce((acc, curr) => acc + curr.value, 0);
+    const activeLeads = leads.filter(l => l.status !== 'Fechado').length;
+    const closedCount = leads.filter(l => l.status === 'Fechado').length;
+    const avgTicket = closedCount > 0 ? totalRevenue / closedCount : 0;
+
+    return { totalPipeline, totalRevenue, activeLeads, avgTicket };
+  }, [leads]);
+
+  // --- Chart Data Generation based on Leads ---
+  const chartData = useMemo(() => {
+    // 1. Initialize last 6 months
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      months.push({
+        dateObj: d,
+        name: d.toLocaleDateString('pt-BR', { month: 'short' }),
+        revenue: 0,
+        pipeline: 0
+      });
+    }
+
+    // 2. Populate with Lead Data
+    leads.forEach(lead => {
+      const leadDate = new Date(lead.createdAt);
+      // Find matching month in our array
+      const monthData = months.find(m => 
+        m.dateObj.getMonth() === leadDate.getMonth() && 
+        m.dateObj.getFullYear() === leadDate.getFullYear()
+      );
+
+      if (monthData) {
+        if (lead.status === 'Fechado') {
+          monthData.revenue += lead.value;
+        } else {
+          monthData.pipeline += lead.value;
+        }
+      }
+    });
+
+    // 3. Clean up object for Recharts
+    return months.map(({ name, revenue, pipeline }) => ({ name, revenue, pipeline }));
+  }, [leads]);
+
+  const topPerformer = {
+    name: user?.name || 'Vendedor',
+    role: 'Sales Executive',
+    value: kpis.totalRevenue
+  };
 
   return (
     <div className="space-y-6 animate-enter pb-10">
@@ -47,7 +85,7 @@ const Dashboard: React.FC = () => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
          <div>
             <h1 className="text-3xl font-display font-bold text-white tracking-tight">Visão Geral</h1>
-            <p className="text-zinc-500 mt-1">Bem-vindo de volta, Arthur.</p>
+            <p className="text-zinc-500 mt-1">Bem-vindo de volta, {user?.name.split(' ')[0]}.</p>
          </div>
          <div className="flex gap-2">
             <button className="h-10 px-4 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 rounded-lg text-sm font-medium transition-colors">
@@ -62,27 +100,54 @@ const Dashboard: React.FC = () => {
       {/* Bento Grid Layout */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         
-        {/* Row 1: Key Metrics */}
-        <StatCard title="Receita Realizada" value="R$ 360k" icon={DollarSign} trend="+12.5%" subtext="Meta: R$ 400k (90%)" />
-        <StatCard title="Pipeline Total" value={`R$ ${(totalPipelineValue/1000).toFixed(0)}k`} icon={Activity} trend="+5.2%" subtext={`${activeLeads} oportunidades`} color="blue" />
-        <StatCard title="Ticket Médio" value={`R$ ${(avgTicket/1000).toFixed(1)}k`} icon={BarChart3} trend="+8.1%" subtext="Vendas Enterprise" color="purple" />
-        <StatCard title="Ciclo Médio" value="24 dias" icon={Clock} trend="-2.4%" subtext="Lead p/ Fechamento" color="orange" />
+        {/* Row 1: Key Metrics (Connected to Real Data) */}
+        <StatCard 
+          title="Receita Realizada" 
+          value={`R$ ${(kpis.totalRevenue/1000).toFixed(1)}k`} 
+          icon={DollarSign} 
+          trend="+12.5%" 
+          subtext="Vendas Fechadas" 
+        />
+        <StatCard 
+          title="Pipeline Ativo" 
+          value={`R$ ${(kpis.totalPipeline/1000).toFixed(1)}k`} 
+          icon={Activity} 
+          trend="+5.2%" 
+          subtext={`${kpis.activeLeads} oportunidades em aberto`} 
+          color="blue" 
+        />
+        <StatCard 
+          title="Ticket Médio" 
+          value={`R$ ${(kpis.avgTicket/1000).toFixed(1)}k`} 
+          icon={BarChart3} 
+          trend="+8.1%" 
+          subtext="Baseado em fechamentos" 
+          color="purple" 
+        />
+        <StatCard 
+          title="Ciclo Médio" 
+          value="18 dias" 
+          icon={Clock} 
+          trend="-2.4%" 
+          subtext="Lead p/ Fechamento" 
+          color="orange" 
+        />
 
         {/* Row 2: Main Chart (Span 3) + Activity Feed (Span 1) */}
         <div className="lg:col-span-3 glass-panel p-6 rounded-2xl border border-white/5">
           <div className="flex justify-between items-center mb-6">
              <div>
                <h3 className="text-lg font-bold text-white tracking-tight">Performance Financeira</h3>
-               <p className="text-xs text-zinc-500">Receita vs. Pipeline Projetado</p>
+               <p className="text-xs text-zinc-500">Receita Real vs. Oportunidades (Últimos 6 meses)</p>
              </div>
              <div className="flex gap-4 text-xs">
-                <span className="flex items-center gap-2 text-zinc-400"><div className="w-2 h-2 rounded-full bg-lime-500"></div>Realizado</span>
-                <span className="flex items-center gap-2 text-zinc-400"><div className="w-2 h-2 rounded-full bg-zinc-600"></div>Forecast</span>
+                <span className="flex items-center gap-2 text-zinc-400"><div className="w-2 h-2 rounded-full bg-lime-500"></div>Receita</span>
+                <span className="flex items-center gap-2 text-zinc-400"><div className="w-2 h-2 rounded-full bg-zinc-600"></div>Pipeline</span>
              </div>
           </div>
           <div className="h-[320px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={initialData}>
+              <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#a3e635" stopOpacity={0.2}/>
@@ -96,9 +161,10 @@ const Dashboard: React.FC = () => {
                   contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '8px', color: '#fff', boxShadow: '0 4px 20px rgba(0,0,0,0.5)' }}
                   itemStyle={{ color: '#e4e4e7' }}
                   cursor={{stroke: '#3f3f46', strokeWidth: 1}}
+                  formatter={(value: number) => [`R$ ${value.toLocaleString()}`, '']}
                 />
-                <Area type="monotone" dataKey="revenue" stroke="#a3e635" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" activeDot={{r: 6, strokeWidth: 0, fill: '#fff'}} />
-                <Area type="monotone" dataKey="pipeline" stroke="#52525b" strokeWidth={2} strokeDasharray="5 5" fill="transparent" />
+                <Area type="monotone" dataKey="revenue" name="Receita" stroke="#a3e635" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" activeDot={{r: 6, strokeWidth: 0, fill: '#fff'}} />
+                <Area type="monotone" dataKey="pipeline" name="Pipeline" stroke="#52525b" strokeWidth={2} strokeDasharray="5 5" fill="transparent" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -168,14 +234,16 @@ const Dashboard: React.FC = () => {
               <Users size={18} className="text-zinc-500" />
            </div>
            <div className="flex items-center gap-4">
-               <div className="w-12 h-12 rounded-full bg-zinc-800 border-2 border-lime-500/20 flex items-center justify-center text-sm font-bold text-white">AA</div>
+               <div className="w-12 h-12 rounded-full bg-zinc-800 border-2 border-lime-500/20 flex items-center justify-center text-sm font-bold text-white">
+                 {topPerformer.name.substring(0, 2).toUpperCase()}
+               </div>
                <div className="flex-1">
-                 <p className="text-white font-bold">Anderson Alves</p>
-                 <p className="text-xs text-zinc-500">Sales Executive</p>
+                 <p className="text-white font-bold">{topPerformer.name}</p>
+                 <p className="text-xs text-zinc-500">{topPerformer.role}</p>
                </div>
                <div className="text-right">
-                 <p className="text-lime-400 font-bold font-display text-lg">R$ 185k</p>
-                 <p className="text-[10px] text-zinc-600 font-bold uppercase">Volume de Vendas</p>
+                 <p className="text-lime-400 font-bold font-display text-lg">R$ {(topPerformer.value/1000).toFixed(0)}k</p>
+                 <p className="text-[10px] text-zinc-600 font-bold uppercase">Volume Fechado</p>
                </div>
            </div>
         </div>

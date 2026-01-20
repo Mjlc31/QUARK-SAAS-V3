@@ -51,6 +51,12 @@ export interface SolarSystemResult {
   paybackYears: number;
   totalInvestment: number;
   roi25Years: number;
+  // New Fields
+  co2SavedTons: number;
+  treesPlanted: number;
+  financed: boolean;
+  monthlyPayment?: number;
+  totalFinancingCost?: number;
 }
 
 export interface Task {

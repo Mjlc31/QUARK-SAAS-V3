@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Lead, Task, User, LeadHistoryLog } from '../types';
+import { Lead, Task, User, LeadHistoryLog, Product } from '../types';
 import { storageService } from '../services/storageService';
 import { supabase } from '../lib/supabaseClient';
 
@@ -16,6 +16,7 @@ interface AppContextType {
   leads: Lead[];
   tasks: Task[];
   users: User[];
+  products: Product[];
   activities: Activity[];
   isLoading: boolean;
   isRecoveryMode: boolean;
@@ -41,6 +42,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [user, setUser] = useState<User | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [directoryUsers, setDirectoryUsers] = useState<User[]>([]);
@@ -129,15 +131,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [loadedLeads, loadedTasks, loadedUsers] = await Promise.all([
+      const [loadedLeads, loadedTasks, loadedUsers, loadedProducts] = await Promise.all([
         storageService.getLeads(),
         storageService.getTasks(),
-        storageService.getUsers()
+        storageService.getUsers(),
+        storageService.getProducts()
       ]);
 
       setLeads(loadedLeads);
       setTasks(loadedTasks);
       setDirectoryUsers(loadedUsers);
+      setProducts(loadedProducts);
       
       setActivities([
         { id: '1', user: 'Sistema', action: 'sincronizou', target: 'Dados Cloud', time: 'Agora' },
@@ -405,7 +409,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   return (
     <AppContext.Provider value={{ 
-      user, leads, tasks, users: directoryUsers, activities, isLoading, isRecoveryMode, isSupabaseConnected,
+      user, leads, tasks, users: directoryUsers, products, activities, isLoading, isRecoveryMode, isSupabaseConnected,
       login, signUp, resetPassword, updatePassword, logout, addLead, updateLead, deleteLead, updateLeadStatus, addLeadLog, addTask, toggleTask, deleteTask
     }}>
       {children}
