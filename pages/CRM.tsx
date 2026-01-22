@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, MapPin, Search, X, Clock, Send, Edit2, Trash2, Save, Sparkles, Copy, Check, Loader2, Pencil, DollarSign, GripVertical } from 'lucide-react';
+import { Plus, MapPin, Search, X, Clock, Send, Edit2, Trash2, Save, Sparkles, Copy, Check, Loader2, Pencil, DollarSign, GripVertical, List, LayoutGrid, AlertTriangle } from 'lucide-react';
 import { Lead, LeadStatus } from '../types';
 import { useApp } from '../contexts/AppContext';
 import { ai } from '../lib/ai';
 
-// Configuração base das colunas (IDs e Cores fixos, Labels editáveis)
 const COLUMN_CONFIG: { id: LeadStatus; defaultLabel: string; color: string }[] = [
   { id: 'Lead', defaultLabel: 'Novos Leads', color: 'border-blue-500' },
   { id: 'Qualificacao', defaultLabel: 'Em Qualificação', color: 'border-yellow-500' },
@@ -15,10 +14,10 @@ const COLUMN_CONFIG: { id: LeadStatus; defaultLabel: string; color: string }[] =
 const CRM: React.FC = () => {
   const { leads, updateLeadStatus, addLead, addLeadLog, updateLead, deleteLead } = useApp();
   
-  // Drag & Drop States
+  // View State (Board vs List)
+  const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
+
   const [draggedLead, setDraggedLead] = useState<string | null>(null);
-  
-  // Touch Drag State (Mobile)
   const [touchDrag, setTouchDrag] = useState<{ id: string; x: number; y: number; width: number; height: number; lead: Lead } | null>(null);
   const ghostRef = useRef<HTMLDivElement>(null);
 
@@ -27,7 +26,6 @@ const CRM: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   
-  // Custom Column Titles State (Persisted in LocalStorage)
   const [columnTitles, setColumnTitles] = useState<Record<string, string>>(() => {
     const saved = localStorage.getItem('crm_column_titles');
     if (saved) return JSON.parse(saved);
@@ -37,18 +35,13 @@ const CRM: React.FC = () => {
   const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
   const [tempTitle, setTempTitle] = useState('');
 
-  // AI States
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [aiProposal, setAiProposal] = useState('');
   const [isCopied, setIsCopied] = useState(false);
 
-  // States for Editing Lead
   const [editFormData, setEditFormData] = useState<Partial<Lead>>({});
-  
-  // New Lead Form State
   const [formData, setFormData] = useState({ name: '', phone: '', value: '', city: '', consumption: '' });
 
-  // Reset states when changing selected lead
   useEffect(() => {
     setIsEditing(false);
     setAiProposal('');
@@ -58,7 +51,6 @@ const CRM: React.FC = () => {
     }
   }, [selectedLead]);
 
-  // --- DESKTOP DRAG HANDLERS ---
   const handleDragStart = (e: React.DragEvent, id: string) => {
     setDraggedLead(id);
     e.dataTransfer.effectAllowed = 'move';
@@ -74,9 +66,7 @@ const CRM: React.FC = () => {
 
   const handleDragOver = (e: React.DragEvent) => e.preventDefault();
 
-  // --- MOBILE TOUCH HANDLERS ---
   const handleTouchStart = (e: React.TouchEvent, lead: Lead) => {
-    // Only allow drag from the Grip handle to prevent conflict with scrolling
     const touch = e.touches[0];
     const target = e.currentTarget as HTMLElement;
     const rect = target.getBoundingClientRect();
@@ -89,28 +79,22 @@ const CRM: React.FC = () => {
       width: rect.width,
       height: rect.height
     });
-    
-    // Prevent scrolling when starting to drag
     document.body.style.overflow = 'hidden';
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!touchDrag || !ghostRef.current) return;
     const touch = e.touches[0];
-    
-    // Move visual ghost
     ghostRef.current.style.transform = `translate(${touch.clientX - touchDrag.width / 2}px, ${touch.clientY - touchDrag.height / 2}px)`;
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (!touchDrag) return;
-    
     const touch = e.changedTouches[0];
     
-    // Temporarily hide ghost to see what's underneath
+    // Hide ghost immediately to perform hit test
     if (ghostRef.current) ghostRef.current.style.display = 'none';
     
-    // Check which element is below the finger
     const elements = document.elementsFromPoint(touch.clientX, touch.clientY);
     const columnEl = elements.find(el => el.getAttribute('data-column-id'));
     
@@ -121,12 +105,11 @@ const CRM: React.FC = () => {
       }
     }
     
-    // Reset
+    // Clean up
     setTouchDrag(null);
     document.body.style.overflow = '';
   };
 
-  // --- Column Renaming Logic ---
   const startEditingColumn = (id: string, currentTitle: string) => {
     setEditingColumnId(id);
     setTempTitle(currentTitle);
@@ -139,7 +122,6 @@ const CRM: React.FC = () => {
     setEditingColumnId(null);
   };
 
-  // --- Financial Calculation Logic ---
   const getColumnTotal = (status: LeadStatus) => {
     return leads
       .filter(l => l.status === status)
@@ -152,6 +134,13 @@ const CRM: React.FC = () => {
     return `R$ ${value}`;
   };
 
+  const isStagnant = (dateStr: string) => {
+    if (!dateStr) return false;
+    const diff = new Date().getTime() - new Date(dateStr).getTime();
+    const days = diff / (1000 * 3600 * 24);
+    return days > 7; 
+  };
+
   const handleSmartWhatsApp = (lead: Lead) => {
     const timeOfDay = new Date().getHours() < 12 ? 'Bom dia' : 'Boa tarde';
     const message = aiProposal || `*${timeOfDay}, ${lead.name.split(' ')[0]}!*
@@ -162,12 +151,7 @@ Estive analisando o perfil energético da sua unidade em *${lead.city}* e prepar
 
 Para um consumo de ~${lead.monthlyConsumption} kWh, estimamos uma economia anual superior a *R$ ${(lead.monthlyConsumption * 0.9 * 12).toLocaleString('pt-BR')}*.
 
-Podemos agendar uma breve apresentação da proposta?
-
-Link da Proposta Digital: quark.energy/p/${lead.id}
-
-Atenciosamente,
-*Equipe Quark*`;
+Podemos agendar uma breve apresentação da proposta?`;
 
     addLeadLog(lead.id, 'Contato', 'WhatsApp enviado (Smart Link)');
     window.open(`https://wa.me/55${lead.phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`, '_blank');
@@ -178,37 +162,22 @@ Atenciosamente,
     setIsGeneratingAI(true);
     try {
       const prompt = `
-        Aja como um consultor de vendas sênior da Quark Energia (Especialista em Energia Solar Corporativa).
-        Escreva uma mensagem curta, direta e altamente persuasiva para WhatsApp para o cliente abaixo.
-        
-        Dados do Cliente:
-        - Nome: ${selectedLead.name}
-        - Cidade: ${selectedLead.city}
-        - Consumo Médio: ${selectedLead.monthlyConsumption} kWh
-        - Valor Estimado do Projeto: R$ ${selectedLead.value}
-        
-        Estrutura da mensagem:
-        1. Saudação cordial (sem ser robótica).
-        2. "Gancho": Mencione que finalizou a análise de engenharia da unidade dele em ${selectedLead.city}.
-        3. Benefício: Projeção de economia financeira direta (Use emojis de dinheiro/energia).
-        4. Chamada para Ação (CTA): Perguntar o melhor horário para apresentar os números.
-        
-        Tom de voz: Profissional, confiante e parceiro.
-        Formatação: Use negrito (*) para destacar números e pontos chave. Não use aspas na mensagem final.
+        Aja como um consultor de vendas sênior da Quark Energia.
+        Escreva uma mensagem curta e persuasiva para WhatsApp.
+        Dados: ${selectedLead.name}, ${selectedLead.city}, ${selectedLead.monthlyConsumption} kWh, R$ ${selectedLead.value}.
+        Foco em economia e agilidade. Use negrito em números.
       `;
-
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: prompt,
       });
-
       if (response.text) {
         setAiProposal(response.text.trim());
-        addLeadLog(selectedLead.id, 'IA', 'Gerou proposta comercial personalizada');
+        addLeadLog(selectedLead.id, 'IA', 'Gerou proposta comercial');
       }
     } catch (error) {
-      console.error("Erro ao gerar IA", error);
-      alert("Não foi possível gerar a proposta. Verifique sua chave de API.");
+      console.error(error);
+      alert("Erro ao gerar IA.");
     } finally {
       setIsGeneratingAI(false);
     }
@@ -243,7 +212,7 @@ Atenciosamente,
      if (e) e.stopPropagation();
      const idToDelete = idOverride || selectedLead?.id;
      if (!idToDelete) return;
-     if (window.confirm("Atenção: A exclusão deste Lead é permanente. Deseja continuar?")) {
+     if (window.confirm("Deseja realmente excluir este Lead?")) {
         await deleteLead(idToDelete);
         setSelectedLead(null);
      }
@@ -257,28 +226,18 @@ Atenciosamente,
   return (
     <div className="h-[calc(100vh-6rem)] md:h-[calc(100vh-2rem)] flex flex-col relative animate-enter pb-10">
       
-      {/* Mobile Touch Ghost Element */}
       {touchDrag && (
         <div 
           ref={ghostRef}
           className="fixed pointer-events-none z-[9999] opacity-90 glass-panel p-5 rounded-2xl border border-lime-500 shadow-2xl"
-          style={{ 
-            width: touchDrag.width, 
-            height: touchDrag.height,
-            top: 0,
-            left: 0,
-            transform: `translate(${touchDrag.x - touchDrag.width/2}px, ${touchDrag.y - touchDrag.height/2}px)`
-          }}
+          style={{ width: touchDrag.width, height: touchDrag.height, top: 0, left: 0, transform: `translate(${touchDrag.x - touchDrag.width/2}px, ${touchDrag.y - touchDrag.height/2}px)` }}
         >
            <h4 className="font-bold text-white truncate text-base mb-1 tracking-tight">{touchDrag.lead.name}</h4>
-           <div className="flex items-center gap-2 text-xs text-zinc-500 font-medium">
-              <MapPin size={12} /> {touchDrag.lead.city}
-           </div>
         </div>
       )}
 
       {/* Header Actions */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div className="flex items-center gap-4 w-full md:w-auto">
            <div className="relative w-full md:w-96">
              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
@@ -290,6 +249,24 @@ Atenciosamente,
                onChange={(e) => setSearchTerm(e.target.value)}
              />
            </div>
+           
+           {/* View Toggle */}
+           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-1 flex">
+              <button 
+                onClick={() => setViewMode('board')}
+                className={`p-2 rounded-lg transition-colors ${viewMode === 'board' ? 'bg-zinc-800 text-lime-400' : 'text-zinc-500 hover:text-zinc-300'}`}
+                title="Visualização em Quadro"
+              >
+                <LayoutGrid size={18} />
+              </button>
+              <button 
+                onClick={() => setViewMode('list')}
+                className={`p-2 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-zinc-800 text-lime-400' : 'text-zinc-500 hover:text-zinc-300'}`}
+                title="Visualização em Lista"
+              >
+                <List size={18} />
+              </button>
+           </div>
         </div>
         <button 
           onClick={() => setIsFormOpen(true)}
@@ -300,131 +277,176 @@ Atenciosamente,
         </button>
       </div>
 
-      {/* Kanban Board */}
-      <div className="flex-1 overflow-x-auto pb-4 -mx-4 md:mx-0 px-4 md:px-0" onTouchMove={touchDrag ? handleTouchMove : undefined} onTouchEnd={touchDrag ? handleTouchEnd : undefined}>
-        <div className="flex flex-col md:flex-row gap-6 md:min-w-[1200px] h-full">
-          {COLUMN_CONFIG.map(column => {
-            const columnLeads = filteredLeads.filter(l => l.status === column.id);
-            const columnTotalValue = getColumnTotal(column.id);
+      {/* CONTENT AREA */}
+      {viewMode === 'board' ? (
+        // --- BOARD VIEW (KANBAN) ---
+        <div className="flex-1 overflow-x-auto pb-4 -mx-4 md:mx-0 px-4 md:px-0" onTouchMove={touchDrag ? handleTouchMove : undefined} onTouchEnd={touchDrag ? handleTouchEnd : undefined}>
+          <div className="flex flex-col md:flex-row gap-6 md:min-w-[1200px] h-full">
+            {COLUMN_CONFIG.map(column => {
+              const columnLeads = filteredLeads.filter(l => l.status === column.id);
+              const columnTotalValue = getColumnTotal(column.id);
 
-            return (
-              <div 
-                key={column.id}
-                data-column-id={column.id}
-                className={`flex-1 min-w-full md:min-w-[300px] flex flex-col group/col transition-colors ${touchDrag && touchDrag.lead.status !== column.id ? 'bg-white/5 rounded-2xl' : ''}`}
-                onDragOver={handleDragOver}
-                onDrop={(e) => handleDrop(e, column.id)}
-              >
-                {/* Column Header */}
-                <div className={`flex flex-col p-4 rounded-t-2xl glass-panel border-t-2 ${column.color} mb-3 bg-zinc-900/40 group/header`}>
-                  <div className="flex items-center justify-between mb-2">
-                    {editingColumnId === column.id ? (
-                      <div className="flex items-center gap-2 w-full">
-                        <input 
-                          autoFocus
-                          type="text" 
-                          value={tempTitle}
-                          onChange={(e) => setTempTitle(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && saveColumnTitle(column.id)}
-                          onBlur={() => saveColumnTitle(column.id)}
-                          className="bg-black/40 border border-lime-500/50 rounded px-2 py-1 text-sm font-bold text-white w-full outline-none"
-                        />
-                        <button onClick={() => saveColumnTitle(column.id)} className="text-lime-400 hover:text-lime-300">
-                          <Check size={16} />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 group/title cursor-pointer w-full" onClick={() => startEditingColumn(column.id, columnTitles[column.id])}>
-                        <h3 className="font-bold text-zinc-200 tracking-wide font-display text-sm">{columnTitles[column.id]}</h3>
-                        <Pencil size={12} className="text-zinc-600 opacity-0 group-hover/title:opacity-100 transition-opacity" />
-                      </div>
-                    )}
-                    
-                    <span className="bg-zinc-800 border border-white/5 px-2.5 py-0.5 rounded-full text-xs font-bold text-zinc-400">
-                      {columnLeads.length}
-                    </span>
-                  </div>
-
-                  {/* Financial Summary Badge */}
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800/50 rounded-lg border border-white/5 self-start">
-                    <DollarSign size={12} className="text-lime-500" />
-                    <span className="text-xs font-bold text-lime-400 font-display tracking-wide">
-                      {formatCurrencyShort(columnTotalValue)}
-                    </span>
-                  </div>
-                </div>
-                
-                {/* Leads List */}
-                <div className="flex-1 rounded-b-2xl space-y-3 overflow-y-auto pr-2 custom-scrollbar max-h-[500px] md:max-h-none">
-                  {columnLeads.map(lead => (
-                    <div
-                      key={lead.id}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, lead.id)}
-                      onClick={() => setSelectedLead(lead)}
-                      className="glass-panel p-5 rounded-2xl cursor-pointer glass-card-hover group relative active:scale-95 touch-manipulation"
-                    >
-                      {/* Mobile Drag Handle */}
-                      <div 
-                        className="lg:hidden absolute top-0 left-0 bottom-0 w-12 flex items-center justify-center text-zinc-600 active:text-lime-400 z-20"
-                        onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(e, lead); }}
-                      >
-                         <GripVertical size={20} />
-                      </div>
-
-                      <button 
-                        onClick={(e) => handleDelete(e, lead.id)}
-                        className="absolute top-3 right-3 p-1.5 text-zinc-600 hover:text-red-400 hover:bg-red-500/10 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                        title="Excluir"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-
-                      <div className="flex justify-between items-start mb-3 pl-6 lg:pl-0">
-                        <div className="flex-1 min-w-0 pr-6">
-                          <h4 className="font-bold text-white truncate text-base mb-1 tracking-tight">{lead.name}</h4>
-                          <div className="flex items-center gap-2 text-xs text-zinc-500 font-medium">
-                            <MapPin size={12} /> {lead.city}
-                          </div>
+              return (
+                <div 
+                  key={column.id}
+                  data-column-id={column.id}
+                  className={`flex-1 min-w-full md:min-w-[300px] flex flex-col group/col transition-colors ${touchDrag && touchDrag.lead.status !== column.id ? 'bg-white/5 rounded-2xl' : ''}`}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, column.id)}
+                >
+                  <div className={`flex flex-col p-4 rounded-t-2xl glass-panel border-t-2 ${column.color} mb-3 bg-zinc-900/40 group/header`}>
+                    <div className="flex items-center justify-between mb-2">
+                      {editingColumnId === column.id ? (
+                        <div className="flex items-center gap-2 w-full">
+                          <input 
+                            autoFocus
+                            type="text" 
+                            value={tempTitle}
+                            onChange={(e) => setTempTitle(e.target.value)}
+                            onBlur={() => saveColumnTitle(column.id)}
+                            className="bg-black/40 border border-lime-500/50 rounded px-2 py-1 text-sm font-bold text-white w-full outline-none"
+                          />
                         </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-2 mb-4 pl-6 lg:pl-0">
-                         <div className="bg-zinc-900/50 rounded-lg p-2 border border-white/5">
-                           <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Consumo</p>
-                           <p className="text-sm font-display font-semibold text-zinc-200">{lead.monthlyConsumption} kWh</p>
-                         </div>
-                         <div className="bg-zinc-900/50 rounded-lg p-2 border border-white/5">
-                           <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Valor</p>
-                           <p className="text-sm font-display font-semibold text-lime-400">{(lead.value / 1000).toFixed(0)}k</p>
-                         </div>
-                      </div>
-
-                      <div className="flex items-center justify-between pt-3 border-t border-white/5 pl-6 lg:pl-0">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-400 border border-white/5">
-                            {lead.assignee?.substring(0,2).toUpperCase()}
-                          </div>
-                          <span className="text-[10px] text-zinc-600 font-medium">
-                             {new Date(lead.updatedAt).toLocaleDateString(undefined, {month:'short', day:'numeric'})}
-                          </span>
+                      ) : (
+                        <div className="flex items-center gap-2 group/title cursor-pointer w-full" onClick={() => startEditingColumn(column.id, columnTitles[column.id])}>
+                          <h3 className="font-bold text-zinc-200 tracking-wide font-display text-sm">{columnTitles[column.id]}</h3>
+                          <Pencil size={12} className="text-zinc-600 opacity-0 group-hover/title:opacity-100 transition-opacity" />
                         </div>
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); handleSmartWhatsApp(lead); }}
-                          className="text-green-400 hover:text-green-300 bg-green-500/10 hover:bg-green-500/20 p-2 rounded-lg transition-colors"
-                          title="Enviar WhatsApp"
-                        >
-                           <Send size={14} />
-                        </button>
-                      </div>
+                      )}
+                      <span className="bg-zinc-800 border border-white/5 px-2.5 py-0.5 rounded-full text-xs font-bold text-zinc-400">{columnLeads.length}</span>
                     </div>
-                  ))}
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800/50 rounded-lg border border-white/5 self-start">
+                      <DollarSign size={12} className="text-lime-500" />
+                      <span className="text-xs font-bold text-lime-400 font-display tracking-wide">{formatCurrencyShort(columnTotalValue)}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex-1 rounded-b-2xl space-y-3 overflow-y-auto pr-2 custom-scrollbar max-h-[500px] md:max-h-none">
+                    {columnLeads.map(lead => (
+                      <div
+                        key={lead.id}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, lead.id)}
+                        onClick={() => setSelectedLead(lead)}
+                        className="glass-panel p-5 rounded-2xl cursor-pointer glass-card-hover group relative active:scale-95 touch-manipulation"
+                      >
+                         {isStagnant(lead.updatedAt) && (
+                            <div className="absolute -top-2 -right-2 bg-amber-500/20 text-amber-500 p-1.5 rounded-full border border-amber-500/30 z-10" title="Sem interação há +7 dias">
+                               <AlertTriangle size={12} />
+                            </div>
+                         )}
+                        <div 
+                          className="lg:hidden absolute top-0 left-0 bottom-0 w-12 flex items-center justify-center text-zinc-600 active:text-lime-400 z-20"
+                          onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(e, lead); }}
+                        >
+                           <GripVertical size={20} />
+                        </div>
+
+                        <div className="flex justify-between items-start mb-3 pl-6 lg:pl-0">
+                          <div className="flex-1 min-w-0 pr-6">
+                            <h4 className="font-bold text-white truncate text-base mb-1 tracking-tight">{lead.name}</h4>
+                            <div className="flex items-center gap-2 text-xs text-zinc-500 font-medium">
+                              <MapPin size={12} /> {lead.city}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-2 mb-4 pl-6 lg:pl-0">
+                           <div className="bg-zinc-900/50 rounded-lg p-2 border border-white/5">
+                             <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Consumo</p>
+                             <p className="text-sm font-display font-semibold text-zinc-200">{lead.monthlyConsumption} kWh</p>
+                           </div>
+                           <div className="bg-zinc-900/50 rounded-lg p-2 border border-white/5">
+                             <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Valor</p>
+                             <p className="text-sm font-display font-semibold text-lime-400">{(lead.value / 1000).toFixed(0)}k</p>
+                           </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-3 border-t border-white/5 pl-6 lg:pl-0">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-400 border border-white/5">
+                              {lead.assignee?.substring(0,2).toUpperCase()}
+                            </div>
+                            <span className="text-[10px] text-zinc-600 font-medium">
+                               {new Date(lead.updatedAt).toLocaleDateString(undefined, {month:'short', day:'numeric'})}
+                            </span>
+                          </div>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); handleSmartWhatsApp(lead); }}
+                            className="text-green-400 hover:text-green-300 bg-green-500/10 hover:bg-green-500/20 p-2 rounded-lg transition-colors"
+                          >
+                             <Send size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div>
+      ) : (
+        // --- LIST VIEW (TABLE) ---
+        <div className="glass-panel rounded-2xl border border-white/10 overflow-hidden animate-enter">
+          <div className="overflow-x-auto">
+             <table className="w-full text-left text-sm">
+                <thead>
+                   <tr className="bg-white/5 border-b border-white/5">
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Nome</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Status</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Cidade</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Valor</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Última Atualização</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-right">Ações</th>
+                   </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                   {filteredLeads.map(lead => (
+                      <tr 
+                        key={lead.id} 
+                        onClick={() => setSelectedLead(lead)}
+                        className="hover:bg-white/5 transition-colors cursor-pointer group"
+                      >
+                         <td className="px-6 py-4 font-bold text-white">
+                            {lead.name}
+                            {isStagnant(lead.updatedAt) && <span className="ml-2 text-[10px] text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">Atenção</span>}
+                         </td>
+                         <td className="px-6 py-4">
+                            <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase ${
+                               lead.status === 'Lead' ? 'bg-blue-500/10 text-blue-400' :
+                               lead.status === 'Qualificacao' ? 'bg-yellow-500/10 text-yellow-400' :
+                               lead.status === 'Proposta' ? 'bg-purple-500/10 text-purple-400' : 'bg-lime-500/10 text-lime-400'
+                            }`}>
+                               {columnTitles[lead.status]}
+                            </span>
+                         </td>
+                         <td className="px-6 py-4 text-slate-300">{lead.city}</td>
+                         <td className="px-6 py-4 text-lime-400 font-bold font-display">R$ {lead.value.toLocaleString()}</td>
+                         <td className="px-6 py-4 text-slate-400 text-xs">{new Date(lead.updatedAt).toLocaleDateString()}</td>
+                         <td className="px-6 py-4 text-right">
+                            <div className="flex justify-end gap-2">
+                               <button 
+                                  onClick={(e) => { e.stopPropagation(); handleSmartWhatsApp(lead); }}
+                                  className="p-2 text-green-400 hover:bg-green-500/20 rounded-lg transition-colors"
+                               >
+                                  <Send size={16} />
+                               </button>
+                               <button 
+                                  onClick={(e) => handleDelete(e, lead.id)}
+                                  className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/20 rounded-lg transition-colors"
+                               >
+                                  <Trash2 size={16} />
+                               </button>
+                            </div>
+                         </td>
+                      </tr>
+                   ))}
+                </tbody>
+             </table>
+          </div>
+        </div>
+      )}
 
       {/* Slide-Over Detail Panel */}
       {selectedLead && (
@@ -489,7 +511,6 @@ Atenciosamente,
           </div>
 
           <div className="flex-1 overflow-y-auto p-6 space-y-8">
-            {/* AI Assistant Section */}
             <div className="glass-panel p-5 rounded-2xl border border-lime-500/20 bg-gradient-to-b from-lime-900/5 to-transparent">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -541,7 +562,6 @@ Atenciosamente,
               )}
             </div>
 
-            {/* Lead Info */}
             <div className="grid grid-cols-2 gap-4">
                <div className="p-4 rounded-xl bg-zinc-900/50 border border-white/5">
                  <label className="text-xs text-zinc-500 uppercase font-bold tracking-wider">Telefone</label>
@@ -569,22 +589,8 @@ Atenciosamente,
                     <p className="text-lime-400 font-display text-lg mt-1 font-bold">R$ {selectedLead.value.toLocaleString()}</p>
                  )}
                </div>
-               <div className="p-4 rounded-xl bg-zinc-900/50 border border-white/5 col-span-2">
-                 <label className="text-xs text-zinc-500 uppercase font-bold tracking-wider">Consumo (kWh)</label>
-                 {isEditing ? (
-                    <input 
-                       type="number" 
-                       value={editFormData.monthlyConsumption} 
-                       onChange={(e) => setEditFormData({...editFormData, monthlyConsumption: Number(e.target.value)})}
-                       className="bg-zinc-800 border border-zinc-700 rounded p-1 text-white w-full mt-1 outline-none"
-                    />
-                 ) : (
-                    <p className="text-zinc-200 font-display text-lg mt-1">{selectedLead.monthlyConsumption} kWh</p>
-                 )}
-               </div>
             </div>
 
-            {/* Audit Log / Timeline */}
             <div>
               <h3 className="text-sm font-bold text-white mb-6 flex items-center gap-2">
                 <Clock size={16} className="text-lime-400" />

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Package, Plus, Trash2, Zap, Search, Filter, Layers, Box, Cpu, Cable, CircuitBoard, Hammer, AlertCircle, X, ChevronDown, Check } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Package, Plus, Trash2, Zap, Search, Filter, Layers, Box, Cpu, Cable, CircuitBoard, Hammer, AlertCircle, X, ChevronDown, Check, DollarSign } from 'lucide-react';
 import { Product, ProductCategory } from '../types';
 import { storageService } from '../services/storageService';
 
@@ -18,7 +18,6 @@ const Products: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<ProductCategory | 'Todos'>('Todos');
   
-  // Modal State
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formData, setFormData] = useState<Partial<Product>>({
     name: '',
@@ -34,6 +33,13 @@ const Products: React.FC = () => {
   useEffect(() => {
     storageService.getProducts().then(setProducts);
   }, []);
+
+  // --- Inventory Calculations ---
+  const inventoryMetrics = useMemo(() => {
+    const totalValue = products.reduce((acc, curr) => acc + (curr.price * curr.stock), 0);
+    const lowStockCount = products.filter(p => p.stock < 5).length;
+    return { totalValue, lowStockCount };
+  }, [products]);
 
   const handleAddProduct = async () => {
     if (!formData.name || !formData.brand || !formData.price) return;
@@ -94,23 +100,36 @@ const Products: React.FC = () => {
           <p className="text-slate-400 text-sm mt-1">Gerencie seu inventário de equipamentos fotovoltaicos.</p>
         </div>
         
-        <div className="flex gap-3 w-full md:w-auto">
-           <div className="relative flex-1 md:w-64">
-             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-             <input 
-               type="text" 
-               placeholder="Buscar marca, modelo..." 
-               value={searchTerm}
-               onChange={(e) => setSearchTerm(e.target.value)}
-               className="w-full bg-zinc-900 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white focus:border-lime-500 outline-none placeholder-slate-600 transition-all"
-             />
+        <div className="flex gap-4">
+             {/* Inventory Value KPI */}
+             <div className="hidden lg:flex items-center gap-3 px-4 py-2 bg-zinc-900/50 rounded-xl border border-white/5">
+                <div className="p-2 bg-lime-500/10 rounded-lg text-lime-400">
+                   <DollarSign size={18} />
+                </div>
+                <div>
+                   <p className="text-[10px] text-slate-500 uppercase font-bold">Valor em Estoque</p>
+                   <p className="text-white font-bold">R$ {inventoryMetrics.totalValue.toLocaleString()}</p>
+                </div>
+             </div>
+
+           <div className="flex gap-3 w-full md:w-auto">
+              <div className="relative flex-1 md:w-64">
+                <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                <input 
+                  type="text" 
+                  placeholder="Buscar marca, modelo..." 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full bg-zinc-900 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white focus:border-lime-500 outline-none placeholder-slate-600 transition-all"
+                />
+              </div>
+              <button 
+                onClick={() => setIsFormOpen(true)}
+                className="bg-lime-500 hover:bg-lime-400 text-black px-5 py-2.5 rounded-xl flex items-center gap-2 font-bold shadow-[0_0_15px_rgba(163,230,53,0.2)] transition-all hover:scale-105"
+              >
+                <Plus size={18} strokeWidth={3} /> <span className="hidden md:inline">Adicionar Item</span>
+              </button>
            </div>
-           <button 
-             onClick={() => setIsFormOpen(true)}
-             className="bg-lime-500 hover:bg-lime-400 text-black px-5 py-2.5 rounded-xl flex items-center gap-2 font-bold shadow-[0_0_15px_rgba(163,230,53,0.2)] transition-all hover:scale-105"
-           >
-             <Plus size={18} strokeWidth={3} /> <span className="hidden md:inline">Adicionar Item</span>
-           </button>
         </div>
       </div>
 
@@ -154,6 +173,7 @@ const Products: React.FC = () => {
           {filteredProducts.map(product => {
             const categoryConfig = CATEGORIES.find(c => c.id === product.category) || CATEGORIES[6];
             const Icon = categoryConfig.icon;
+            const isLowStock = product.stock < 5 && product.stock > 0;
 
             return (
               <div key={product.id} className="glass-panel p-0 rounded-2xl group hover:border-lime-500/30 transition-all flex flex-col h-full overflow-hidden relative">
@@ -165,8 +185,12 @@ const Products: React.FC = () => {
                       <Icon size={20} />
                     </div>
                     <div className="flex gap-2">
-                      <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase border ${product.stock > 0 ? 'bg-green-500/10 text-green-400 border-green-500/10' : 'bg-red-500/10 text-red-400 border-red-500/10'}`}>
-                        {product.stock > 0 ? `${product.stock} em estoque` : 'Sem Estoque'}
+                      <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase border ${
+                        product.stock === 0 ? 'bg-red-500/10 text-red-400 border-red-500/10' :
+                        isLowStock ? 'bg-amber-500/10 text-amber-500 border-amber-500/10' :
+                        'bg-green-500/10 text-green-400 border-green-500/10'
+                      }`}>
+                        {product.stock === 0 ? 'Sem Estoque' : `${product.stock} un.`}
                       </span>
                       <button 
                         onClick={(e) => handleDelete(product.id, e)}

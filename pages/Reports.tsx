@@ -1,6 +1,6 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
-import { PieChart as PieChartIcon, TrendingUp, Download } from 'lucide-react';
+import { PieChart as PieChartIcon, TrendingUp, Download, Target, Users, Wallet } from 'lucide-react';
 
 const COLORS = ['#84cc16', '#3b82f6', '#eab308', '#ef4444'];
 
@@ -20,17 +20,66 @@ const dataSource = [
   { name: 'Outros', value: 10 },
 ];
 
+// Mock Data for advanced metrics
+const financialGrowth = [
+    { month: 'Jan', revenue: 150000, cac: 200 },
+    { month: 'Fev', revenue: 180000, cac: 180 },
+    { month: 'Mar', revenue: 220000, cac: 190 },
+    { month: 'Abr', revenue: 200000, cac: 175 },
+    { month: 'Mai', revenue: 260000, cac: 160 },
+    { month: 'Jun', revenue: 310000, cac: 155 },
+];
+
 const Reports: React.FC = () => {
   return (
-    <div className="space-y-8 animate-enter">
-      <div className="flex justify-between items-end">
+    <div className="space-y-8 animate-enter pb-20">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
          <div>
             <h2 className="text-3xl font-display font-bold text-white mb-2">Business Intelligence</h2>
-            <p className="text-slate-400">Análise detalhada de performance comercial e operacional.</p>
+            <p className="text-slate-400">Análise de CAC, LTV e performance operacional.</p>
          </div>
          <button className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-sm text-white border border-white/10 transition-colors flex items-center gap-2">
             <Download size={16} /> Exportar CSV
          </button>
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="glass-panel p-6 rounded-2xl border-t-2 border-lime-500">
+           <div className="flex justify-between items-start mb-4">
+              <div className="p-2 bg-lime-500/10 rounded-lg text-lime-400">
+                 <Wallet size={20} />
+              </div>
+              <span className="text-xs font-bold bg-green-500/10 text-green-400 px-2 py-1 rounded-full">-12% vs Mês ant.</span>
+           </div>
+           <p className="text-slate-500 text-xs font-bold uppercase mb-1">CAC (Custo Aquisição)</p>
+           <p className="text-3xl font-bold text-white">R$ 155,00</p>
+           <p className="text-xs text-slate-500 mt-2">Custo médio por cliente fechado</p>
+        </div>
+
+        <div className="glass-panel p-6 rounded-2xl border-t-2 border-blue-500">
+           <div className="flex justify-between items-start mb-4">
+              <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400">
+                 <Users size={20} />
+              </div>
+              <span className="text-xs font-bold bg-blue-500/10 text-blue-400 px-2 py-1 rounded-full">+5% vs Mês ant.</span>
+           </div>
+           <p className="text-slate-500 text-xs font-bold uppercase mb-1">LTV (Lifetime Value)</p>
+           <p className="text-3xl font-bold text-white">R$ 42.500</p>
+           <p className="text-xs text-slate-500 mt-2">Valor médio de contrato</p>
+        </div>
+
+        <div className="glass-panel p-6 rounded-2xl border-t-2 border-purple-500">
+           <div className="flex justify-between items-start mb-4">
+              <div className="p-2 bg-purple-500/10 rounded-lg text-purple-400">
+                 <Target size={20} />
+              </div>
+              <span className="text-xs font-bold bg-green-500/10 text-green-400 px-2 py-1 rounded-full">Alta</span>
+           </div>
+           <p className="text-slate-500 text-xs font-bold uppercase mb-1">Taxa de Conversão</p>
+           <p className="text-3xl font-bold text-white">22.5%</p>
+           <p className="text-xs text-slate-500 mt-2">Lead para Venda (Global)</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -38,7 +87,7 @@ const Reports: React.FC = () => {
         <div className="glass-panel p-6 rounded-2xl border border-white/10">
           <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
             <TrendingUp size={18} className="text-lime-400" />
-            Performance Semanal (Leads vs Vendas)
+            Performance Semanal
           </h3>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -51,8 +100,8 @@ const Reports: React.FC = () => {
                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', color: '#fff' }}
                 />
                 <Legend />
-                <Bar dataKey="leads" name="Leads Entrantes" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="vendas" name="Fechamentos" fill="#84cc16" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="leads" name="Leads" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="vendas" name="Vendas" fill="#84cc16" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -88,10 +137,31 @@ const Reports: React.FC = () => {
         </div>
       </div>
 
+      {/* Advanced Financial Growth */}
+      <div className="glass-panel p-6 rounded-2xl border border-white/10">
+         <div className="flex justify-between items-center mb-6">
+            <h3 className="text-lg font-bold text-white">Crescimento de Receita vs Otimização de CAC</h3>
+         </div>
+         <div className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+               <LineChart data={financialGrowth}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                  <XAxis dataKey="month" stroke="#64748b" tickLine={false} axisLine={false} />
+                  <YAxis yAxisId="left" stroke="#64748b" tickLine={false} axisLine={false} tickFormatter={(val) => `R$${val/1000}k`}/>
+                  <YAxis yAxisId="right" orientation="right" stroke="#64748b" tickLine={false} axisLine={false} />
+                  <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', color: '#fff' }} />
+                  <Legend />
+                  <Line yAxisId="left" type="monotone" dataKey="revenue" name="Receita" stroke="#84cc16" strokeWidth={3} dot={{r:4}} />
+                  <Line yAxisId="right" type="monotone" dataKey="cac" name="Custo Aquisição (CAC)" stroke="#ef4444" strokeWidth={2} strokeDasharray="5 5" />
+               </LineChart>
+            </ResponsiveContainer>
+         </div>
+      </div>
+
       {/* Advanced Metrics Table */}
       <div className="glass-panel rounded-2xl border border-white/10 overflow-hidden">
         <div className="p-6 border-b border-white/10">
-           <h3 className="font-bold text-white">Detalhamento por Vendedor</h3>
+           <h3 className="font-bold text-white">Performance Individual</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
@@ -107,8 +177,8 @@ const Reports: React.FC = () => {
             <tbody className="divide-y divide-white/5">
               <tr className="hover:bg-white/5 transition-colors">
                 <td className="px-6 py-4 text-white font-medium flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-xs">JS</div>
-                  João Silva
+                  <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-xs border border-white/10">AD</div>
+                  Arthur Duda
                 </td>
                 <td className="px-6 py-4 text-slate-300">42</td>
                 <td className="px-6 py-4 text-slate-300">45 min</td>
@@ -117,8 +187,8 @@ const Reports: React.FC = () => {
               </tr>
               <tr className="hover:bg-white/5 transition-colors">
                 <td className="px-6 py-4 text-white font-medium flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-xs">AM</div>
-                  Arthur Moraes
+                  <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-xs border border-white/10">AA</div>
+                  Anderson Alves
                 </td>
                 <td className="px-6 py-4 text-slate-300">35</td>
                 <td className="px-6 py-4 text-slate-300">1h 20m</td>

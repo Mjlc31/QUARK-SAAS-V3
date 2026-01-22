@@ -22,6 +22,7 @@ const INITIAL_TASKS: Task[] = [
 ];
 
 const INITIAL_PRODUCTS: Product[] = [
+  // --- Módulos Existentes ---
   { 
     id: '1', 
     name: 'HiKu6 Mono PERC', 
@@ -33,6 +34,19 @@ const INITIAL_PRODUCTS: Product[] = [
     stock: 120,
     description: 'Painel Monocristalino de alta eficiência.'
   },
+  // --- Novos Módulos Solicitados (Genéricos) ---
+  { id: '14', name: 'Módulo 570W', brand: 'Genérico', category: 'Módulo', price: 0, power: 570, powerUnit: 'W', stock: 0, description: 'Potência cadastrada.' },
+  { id: '15', name: 'Módulo 580W', brand: 'Genérico', category: 'Módulo', price: 0, power: 580, powerUnit: 'W', stock: 0, description: 'Potência cadastrada.' },
+  { id: '16', name: 'Módulo 585W', brand: 'Genérico', category: 'Módulo', price: 0, power: 585, powerUnit: 'W', stock: 0, description: 'Potência cadastrada.' },
+  { id: '17', name: 'Módulo 595W', brand: 'Genérico', category: 'Módulo', price: 0, power: 595, powerUnit: 'W', stock: 0, description: 'Potência cadastrada.' },
+  { id: '18', name: 'Módulo 600W', brand: 'Genérico', category: 'Módulo', price: 0, power: 600, powerUnit: 'W', stock: 0, description: 'Potência cadastrada.' },
+  { id: '19', name: 'Módulo 605W', brand: 'Genérico', category: 'Módulo', price: 0, power: 605, powerUnit: 'W', stock: 0, description: 'Potência cadastrada.' },
+  { id: '20', name: 'Módulo 610W', brand: 'Genérico', category: 'Módulo', price: 0, power: 610, powerUnit: 'W', stock: 0, description: 'Potência cadastrada.' },
+  { id: '21', name: 'Módulo 660W', brand: 'Genérico', category: 'Módulo', price: 0, power: 660, powerUnit: 'W', stock: 0, description: 'Potência cadastrada.' },
+  { id: '22', name: 'Módulo 695W', brand: 'Genérico', category: 'Módulo', price: 0, power: 695, powerUnit: 'W', stock: 0, description: 'Potência cadastrada.' },
+  { id: '23', name: 'Módulo 700W', brand: 'Genérico', category: 'Módulo', price: 0, power: 700, powerUnit: 'W', stock: 0, description: 'Potência cadastrada.' },
+
+  // --- Inversores (Base Existente + Novos Solicitados) ---
   { 
     id: '2', 
     name: 'SUN2000-50KTL', 
@@ -43,6 +57,127 @@ const INITIAL_PRODUCTS: Product[] = [
     powerUnit: 'kW',
     stock: 5,
     description: 'Inversor String Trifásico inteligente.'
+  },
+  { 
+    id: '3', 
+    name: 'Inversor Series XS/DNS', 
+    brand: 'GoodWe',
+    category: 'Inversor', 
+    price: 0, 
+    power: 0,
+    powerUnit: 'kW',
+    stock: 0,
+    description: 'Modelo a definir.'
+  },
+  { 
+    id: '4', 
+    name: 'Inversor S6/S5', 
+    brand: 'Solis',
+    category: 'Inversor', 
+    price: 0, 
+    power: 0,
+    powerUnit: 'kW',
+    stock: 0,
+    description: 'Modelo a definir.'
+  },
+  { 
+    id: '5', 
+    name: 'Inversor MIN/MID', 
+    brand: 'Growatt',
+    category: 'Inversor', 
+    price: 0, 
+    power: 0,
+    powerUnit: 'kW',
+    stock: 0,
+    description: 'Modelo a definir.'
+  },
+  { 
+    id: '6', 
+    name: 'Inversor SG Series', 
+    brand: 'Sungrow',
+    category: 'Inversor', 
+    price: 0, 
+    power: 0,
+    powerUnit: 'kW',
+    stock: 0,
+    description: 'Modelo a definir.'
+  },
+  { 
+    id: '7', 
+    name: 'Inversor ASW', 
+    brand: 'Solplanet',
+    category: 'Inversor', 
+    price: 0, 
+    power: 0,
+    powerUnit: 'kW',
+    stock: 0,
+    description: 'Modelo a definir.'
+  },
+  { 
+    id: '8', 
+    name: 'Microinversor Genérico', 
+    brand: 'Microinversor',
+    category: 'Inversor', 
+    price: 0, 
+    power: 0,
+    powerUnit: 'W',
+    stock: 0,
+    description: 'Microinversor (Marca a definir).'
+  },
+  { 
+    id: '9', 
+    name: 'Microinversor BDM', 
+    brand: 'NEP',
+    category: 'Inversor', 
+    price: 0, 
+    power: 0,
+    powerUnit: 'W',
+    stock: 0,
+    description: 'Modelo a definir.'
+  },
+  { 
+    id: '10', 
+    name: 'Inversor G3', 
+    brand: 'Sofar',
+    category: 'Inversor', 
+    price: 0, 
+    power: 0,
+    powerUnit: 'kW',
+    stock: 0,
+    description: 'Modelo a definir.'
+  },
+  { 
+    id: '11', 
+    name: 'Inversor AS Series', 
+    brand: 'Auxsol',
+    category: 'Inversor', 
+    price: 0, 
+    power: 0,
+    powerUnit: 'kW',
+    stock: 0,
+    description: 'Modelo a definir.'
+  },
+  { 
+    id: '12', 
+    name: 'Inversor R5/R6', 
+    brand: 'SAJ',
+    category: 'Inversor', 
+    price: 0, 
+    power: 0,
+    powerUnit: 'kW',
+    stock: 0,
+    description: 'Modelo a definir.'
+  },
+  { 
+    id: '13', 
+    name: 'Inversor GT', 
+    brand: 'Livoltek',
+    category: 'Inversor', 
+    price: 0, 
+    power: 0,
+    powerUnit: 'kW',
+    stock: 0,
+    description: 'Modelo a definir.'
   }
 ];
 

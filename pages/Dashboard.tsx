@@ -1,7 +1,9 @@
 import React, { useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { DollarSign, Zap, Activity, TrendingUp, Download, BarChart3, Clock, Users, ArrowUpRight } from 'lucide-react';
+import { DollarSign, Zap, Activity, TrendingUp, Download, BarChart3, Clock, Users, ArrowUpRight, Plus, Calculator, CheckSquare } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
+import { jsPDF } from 'jspdf';
+import { useNavigate } from 'react-router-dom';
 
 const StatCard: React.FC<{ title: string; value: string; icon: any; trend: string; subtext: string; color?: string }> = ({ title, value, icon: Icon, trend, subtext, color = 'lime' }) => (
   <div className="glass-panel p-6 rounded-2xl relative overflow-hidden group hover:border-zinc-700 transition-all duration-300">
@@ -24,6 +26,7 @@ const StatCard: React.FC<{ title: string; value: string; icon: any; trend: strin
 
 const Dashboard: React.FC = () => {
   const { leads, activities, user } = useApp();
+  const navigate = useNavigate();
 
   // --- Real-time Data Calculation ---
   const kpis = useMemo(() => {
@@ -38,7 +41,6 @@ const Dashboard: React.FC = () => {
 
   // --- Chart Data Generation based on Leads ---
   const chartData = useMemo(() => {
-    // 1. Initialize last 6 months with Explicit Type to fix Build Error
     const months: { dateObj: Date; name: string; revenue: number; pipeline: number }[] = [];
     
     for (let i = 5; i >= 0; i--) {
@@ -52,10 +54,8 @@ const Dashboard: React.FC = () => {
       });
     }
 
-    // 2. Populate with Lead Data
     leads.forEach(lead => {
       const leadDate = new Date(lead.createdAt);
-      // Find matching month in our array
       const monthData = months.find(m => 
         m.dateObj.getMonth() === leadDate.getMonth() && 
         m.dateObj.getFullYear() === leadDate.getFullYear()
@@ -70,7 +70,6 @@ const Dashboard: React.FC = () => {
       }
     });
 
-    // 3. Clean up object for Recharts
     return months.map(({ name, revenue, pipeline }) => ({ name, revenue, pipeline }));
   }, [leads]);
 
@@ -78,6 +77,44 @@ const Dashboard: React.FC = () => {
     name: user?.name || 'Vendedor',
     role: 'Sales Executive',
     value: kpis.totalRevenue
+  };
+
+  const handleGenerateReport = () => {
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFillColor(9, 9, 11);
+    doc.rect(0, 0, 210, 20, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(14);
+    doc.text('QUARK ENERGIA - Relatório Executivo', 14, 13);
+    
+    // Content
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(10);
+    let y = 30;
+    
+    doc.text(`Data: ${new Date().toLocaleDateString()}`, 14, y);
+    y += 10;
+    doc.text(`Gerado por: ${user?.name}`, 14, y);
+    y += 15;
+    
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text('Resumo Financeiro', 14, y);
+    y += 10;
+    
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Receita Realizada: R$ ${kpis.totalRevenue.toLocaleString()}`, 14, y);
+    y += 7;
+    doc.text(`Pipeline Ativo: R$ ${kpis.totalPipeline.toLocaleString()}`, 14, y);
+    y += 7;
+    doc.text(`Ticket Médio: R$ ${kpis.avgTicket.toLocaleString()}`, 14, y);
+    y += 7;
+    doc.text(`Leads Ativos: ${kpis.activeLeads}`, 14, y);
+    
+    doc.save('Quark_Relatorio_Executivo.pdf');
   };
 
   return (
@@ -89,19 +126,41 @@ const Dashboard: React.FC = () => {
             <p className="text-zinc-500 mt-1">Bem-vindo de volta, {user?.name.split(' ')[0]}.</p>
          </div>
          <div className="flex gap-2">
-            <button className="h-10 px-4 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 rounded-lg text-sm font-medium transition-colors">
-              Exportar Dados
-            </button>
-            <button className="h-10 px-4 btn-primary rounded-lg text-sm flex items-center gap-2 shadow-lg shadow-lime-500/10">
-              <Download size={16} /> Relatório PDF
+            <button 
+              onClick={handleGenerateReport}
+              className="h-10 px-4 btn-primary rounded-lg text-sm flex items-center gap-2 shadow-lg shadow-lime-500/10 hover:shadow-lime-500/20 transition-all"
+            >
+              <Download size={16} /> Relatório Executivo
             </button>
          </div>
+      </div>
+
+      {/* Quick Actions Bar */}
+      <div className="flex gap-4 overflow-x-auto pb-2 custom-scrollbar">
+        <button onClick={() => navigate('/crm')} className="flex items-center gap-3 px-5 py-3 bg-zinc-900/50 hover:bg-zinc-800 border border-white/5 hover:border-lime-500/30 rounded-xl transition-all group min-w-[160px]">
+          <div className="p-2 bg-lime-500/10 text-lime-400 rounded-lg group-hover:scale-110 transition-transform">
+            <Plus size={18} />
+          </div>
+          <span className="text-sm font-bold text-zinc-300 group-hover:text-white">Novo Lead</span>
+        </button>
+        <button onClick={() => navigate('/calculator')} className="flex items-center gap-3 px-5 py-3 bg-zinc-900/50 hover:bg-zinc-800 border border-white/5 hover:border-blue-500/30 rounded-xl transition-all group min-w-[160px]">
+          <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg group-hover:scale-110 transition-transform">
+            <Calculator size={18} />
+          </div>
+          <span className="text-sm font-bold text-zinc-300 group-hover:text-white">Simular</span>
+        </button>
+        <button onClick={() => navigate('/tasks')} className="flex items-center gap-3 px-5 py-3 bg-zinc-900/50 hover:bg-zinc-800 border border-white/5 hover:border-purple-500/30 rounded-xl transition-all group min-w-[160px]">
+          <div className="p-2 bg-purple-500/10 text-purple-400 rounded-lg group-hover:scale-110 transition-transform">
+            <CheckSquare size={18} />
+          </div>
+          <span className="text-sm font-bold text-zinc-300 group-hover:text-white">Minhas Tarefas</span>
+        </button>
       </div>
 
       {/* Bento Grid Layout */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         
-        {/* Row 1: Key Metrics (Connected to Real Data) */}
+        {/* Row 1: Key Metrics */}
         <StatCard 
           title="Receita Realizada" 
           value={`R$ ${(kpis.totalRevenue/1000).toFixed(1)}k`} 
@@ -196,9 +255,6 @@ const Dashboard: React.FC = () => {
                ))
              )}
           </div>
-          <button className="mt-4 w-full py-2 text-xs font-bold text-zinc-400 hover:text-white bg-zinc-900 rounded-lg border border-zinc-800 transition-colors">
-            Ver Tudo
-          </button>
         </div>
 
         {/* Row 3: Goals & Strategy */}
