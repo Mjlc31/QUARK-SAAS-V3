@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', sans-serif;
+  --font-display: 'Manrope', sans-serif;
+
+  --color-quark-bg: #09090b;
+  --color-quark-card: #18181b;
+  --color-quark-border: rgba(255, 255, 255, 0.08);
+  --color-quark-brand: #a3e635;
+  --color-quark-brandHover: #84cc16;
+
+  --background-image-gradient-radial: radial-gradient(var(--tw-gradient-stops));
+  --background-image-glass: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
+}
+
+@layer base {
+  body {
+    @apply bg-quark-bg text-zinc-200 antialiased selection:bg-quark-brand/30;
+    font-feature-settings: "cv11", "ss01";
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background:
+      radial-gradient(circle at 50% 0%, rgba(163, 230, 53, 0.03) 0%, transparent 40%),
+      radial-gradient(circle at 100% 0%, rgba(59, 130, 246, 0.03) 0%, transparent 40%);
+    pointer-events: none;
+    z-index: -1;
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    @apply bg-zinc-900/60 backdrop-blur-xl border border-white/5 shadow-2xl;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2), 0 8px 20px -6px rgba(0, 0, 0, 0.4);
+  }
+
+  .btn-primary {
+    @apply bg-quark-brand text-black font-bold transition-all hover:bg-quark-brandHover;
+
+    &:hover {
+      box-shadow: 0 0 20px rgba(163, 230, 53, 0.3);
+    }
+  }
+
+  .animate-enter {
+    animation: enter 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-zinc-800 rounded-full hover:bg-zinc-700;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
