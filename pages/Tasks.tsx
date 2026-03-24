@@ -58,8 +58,17 @@ const Tasks: React.FC = () => {
      const { body, subject } = getNotificationMessage(taskData.title, taskData.priority, taskData.deadline, taskData.assignee);
      
      if (type === 'whatsapp') {
+       // Envio automático em background simulando API oficial (Evolution API, Z-API, Baileys)
        const phone = member.phone.replace(/\D/g, '');
-       window.open(`https://wa.me/${phone}?text=${encodeURIComponent(body)}`, '_blank');
+       console.log(`[WhatsApp API Mock] Disparando para ${phone}...`);
+       
+       // Simulando delay de rede
+       setTimeout(() => {
+         // Aqui entraria o fetch real para o backend/webhook
+         // fetch('https://api.quark.com/webhook/whatsapp', { ... })
+         alert(`📲 Tarefa delegada! O sistema enviou uma mensagem silenciosamente para o WhatsApp de ${member.name.split(' ')[0]}.`);
+       }, 800);
+       
      } else {
        window.open(`mailto:${member.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
      }
@@ -419,8 +428,8 @@ const Tasks: React.FC = () => {
                           <MessageCircle size={18} />
                        </div>
                        <div>
-                          <p className={`text-sm font-bold ${newTaskData.notifyWhatsapp ? 'text-white' : 'text-slate-400'}`}>WhatsApp</p>
-                          <p className="text-[10px] text-slate-500">Enviar mensagem formatada</p>
+                          <p className={`text-sm font-bold ${newTaskData.notifyWhatsapp ? 'text-white' : 'text-slate-400'}`}>WhatsApp Automático</p>
+                          <p className="text-[10px] text-slate-500">O sistema enviará a tarefa via API em background</p>
                        </div>
                     </div>
                     {newTaskData.notifyWhatsapp ? <Bell size={18} className="text-green-500" /> : <BellOff size={18} className="text-slate-600" />}

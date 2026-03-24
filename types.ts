@@ -31,6 +31,7 @@ export interface Lead {
   updatedAt: string;
   history: LeadHistoryLog[];
   assignee?: string;
+  notes?: string;
 }
 
 export interface Project {

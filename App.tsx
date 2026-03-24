@@ -7,6 +7,8 @@ import Tasks from './pages/Tasks';
 import Conversations from './pages/Conversations';
 import Products from './pages/Products';
 import Reports from './pages/Reports';
+import Proposals from './pages/Proposals';
+import Engineering from './pages/Engineering';
 import FollowUp from './pages/FollowUp';
 import Financial from './pages/Financial';
 import { AppProvider, useApp } from './contexts/AppContext';
@@ -386,6 +388,8 @@ const MainLayout: React.FC = () => {
           <Route path="/crm" element={<CRM />} />
           <Route path="/conversations" element={<Conversations />} />
           <Route path="/calculator" element={<Calculator />} />
+          <Route path="/proposals" element={<Proposals />} />
+          <Route path="/engineering" element={<Engineering />} />
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/products" element={<Products />} />
           <Route path="/follow-up" element={<FollowUp />} />

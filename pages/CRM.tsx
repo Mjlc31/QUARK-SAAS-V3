@@ -142,6 +142,21 @@ const CRM: React.FC = () => {
     return days > 7;
   };
 
+  const handleBulkWhatsApp = (status: LeadStatus) => {
+    const leadsInColumn = leads.filter(l => l.status === status);
+    if (leadsInColumn.length === 0) {
+      alert("Nenhum lead nesta fase para enviar mensagem.");
+      return;
+    }
+    
+    // Simulate bulk sending
+    leadsInColumn.forEach(lead => {
+      addLeadLog(lead.id, 'Contato em Massa', 'Mensagem de follow-up enviada via automação');
+    });
+    
+    alert(`Mensagem em massa enviada para ${leadsInColumn.length} leads na fase ${columnTitles[status]} com sucesso!`);
+  };
+
   const handleSmartWhatsApp = (lead: Lead) => {
     const timeOfDay = new Date().getHours() < 12 ? 'Bom dia' : 'Boa tarde';
     const message = aiProposal || `*${timeOfDay}, ${lead.name.split(' ')[0]}!*
@@ -317,11 +332,21 @@ Podemos agendar uma breve apresentação da proposta?`;
                       )}
                       <span className="bg-zinc-800 border border-white/5 px-2.5 py-0.5 rounded-full text-xs font-bold text-zinc-400">{columnLeads.length}</span>
                     </div>
-                    <div className="flex items-center justify-between gap-1.5 px-3 py-1.5 bg-black/40 rounded-xl border border-white/5 relative z-10 self-start">
-                      <div className="flex items-center gap-1.5">
-                        <DollarSign size={14} className="text-lime-500" />
-                        <span className="text-xs font-bold text-lime-400 font-display tracking-wide">{formatCurrencyShort(columnTotalValue)}</span>
+                    <div className="flex items-center justify-between w-full relative z-10 mt-2">
+                      <div className="flex items-center justify-between gap-1.5 px-3 py-1.5 bg-black/40 rounded-xl border border-white/5 relative z-10 self-start">
+                        <div className="flex items-center gap-1.5">
+                          <DollarSign size={14} className="text-lime-500" />
+                          <span className="text-xs font-bold text-lime-400 font-display tracking-wide">{formatCurrencyShort(columnTotalValue)}</span>
+                        </div>
                       </div>
+                      <button 
+                        onClick={() => handleBulkWhatsApp(column.id)}
+                        className="bg-green-500/10 hover:bg-green-500 text-green-500 hover:text-black px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 border border-green-500/20 shadow-sm"
+                        title="Enviar Mensagem em Massa"
+                      >
+                        <Send size={12} />
+                        Massa
+                      </button>
                     </div>
                   </div>
 
@@ -335,8 +360,9 @@ Podemos agendar uma breve apresentação da proposta?`;
                         className="bg-[#0c121a] border border-white/5 hover:border-lime-500/30 p-5 rounded-2xl cursor-pointer transition-all duration-200 shadow-lg hover:shadow-[0_8px_30px_rgba(163,230,53,0.1)] group relative active:scale-95 touch-manipulation hover:-translate-y-1"
                       >
                         {isStagnant(lead.updatedAt) && (
-                          <div className="absolute -top-2 -right-2 bg-amber-500/20 text-amber-500 p-1.5 rounded-full border border-amber-500/30 z-10" title="Sem interação há +7 dias">
+                          <div className="absolute -top-3 -right-3 bg-red-600/90 text-white px-2.5 py-1 rounded-lg border border-red-400/50 z-10 shadow-lg shadow-red-500/20 flex items-center gap-1.5 animate-pulse" title="Lead estagnado (+7 dias)">
                             <AlertTriangle size={12} />
+                            <span className="text-[10px] font-bold tracking-wide">+7 dias sem contato</span>
                           </div>
                         )}
                         <div

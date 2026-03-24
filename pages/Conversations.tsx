@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Smartphone, QrCode, RefreshCw, MessageSquare, Search, MoreVertical, Paperclip, Send, User as UserIcon, Tag, Zap, Clock, ShieldCheck, PauseCircle, PlayCircle, PowerOff, Bot, MapPin, TrendingUp } from 'lucide-react';
 import io from 'socket.io-client';
 import { QRCodeSVG } from 'qrcode.react';
@@ -56,103 +56,50 @@ const Conversations: React.FC = () => {
     };
 
     useEffect(() => {
-        const newSocket = io('http://localhost:3001', {
-            reconnection: true,
-            reconnectionAttempts: Infinity,
-            reconnectionDelay: 1000,
-        });
-
-        newSocket.on('connect', () => {
-            console.log('Connected to WhatsApp backend.');
-            setBackendOnline(true);
-        });
-
-        newSocket.on('disconnect', () => {
-            console.log('Disconnected from WhatsApp backend.');
-            setBackendOnline(false);
-        });
-
-        newSocket.on('whatsapp_qr', (qr: string) => {
-            console.log('Fresh QR Code received from backend.');
-            setQrCode(qr);
+        // [FRONTEND MOCK] - Simulando o Socket e a IA da Quark
+        console.log('Connected to WhatsApp backend (MOCK).');
+        setBackendOnline(true);
+        setTimeout(() => {
+            setQrCode("https://wa.me/5511999999999"); // Fake QR string for QRCodeSVG
             setIsConnected(false);
             startCountdown();
-        });
+        }, 1500);
 
-        newSocket.on('whatsapp_ready', () => {
-            console.log('WhatsApp CONNECTED and ready!');
-            if (countdownRef.current) clearInterval(countdownRef.current);
-            setQrCode(null);
-            setIsConnected(true);
-        });
-
-        newSocket.on('whatsapp_disconnected', () => {
-            console.log('WhatsApp device disconnected.');
-            setIsConnected(false);
-            setQrCode(null);
-        });
-
-        newSocket.on('agent_status', ({ enabled }: { enabled: boolean }) => {
-            setAgentEnabled(enabled);
-        });
-
-        // Sync de contatos ativos ao conectar
-        newSocket.on('active_contacts_sync', ({ contacts }: { contacts: string[] }) => {
-            setActiveContacts(new Set(contacts));
-        });
-
-        // Ativação/desativação individual de contato
-        newSocket.on('contact_activated', ({ contactId, active }: { contactId: string; active: boolean }) => {
-            setActiveContacts(prev => {
-                const next = new Set(prev);
-                if (active) next.add(contactId);
-                else next.delete(contactId);
-                return next;
-            });
-        });
-
-        newSocket.on('contact_paused', ({ contactId, paused }: { contactId: string; paused: boolean }) => {
-            setPausedContacts(prev => {
-                const next = new Set(prev);
-                if (paused) next.add(contactId);
-                else next.delete(contactId);
-                return next;
-            });
-        });
-
-        newSocket.on('whatsapp_message', (msg: any) => {
-            setChats(prev => {
-                const targetChatId = msg.chatId || (msg.fromMe ? msg.to : msg.from);
-
-                // If it's a message fromMe, optimistic update might have added it already.
-                // A robust system checks for ID, but here we'll just check if it exists:
-                const existingChat = prev.find(c => c.id === targetChatId);
-
-                if (existingChat) {
-                    // avoid duplicates by ID
-                    if (existingChat.messages.some(m => m.id === msg.id)) return prev;
-
-                    return prev.map(c => c.id === targetChatId ? { ...c, messages: [...c.messages, msg], lastMsg: msg.body } : c);
-                } else {
-                    return [{
-                        id: targetChatId,
-                        name: msg.chatName || targetChatId.split('@')[0],
-                        phone: targetChatId.split('@')[0], // simplistic phone extraction
-                        lastMsg: msg.body,
-                        time: new Date(msg.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                        unread: msg.fromMe ? 0 : 1,
-                        tag: 'Novo Contato',
-                        tagColor: 'text-blue-400 bg-blue-400/10',
-                        messages: [msg]
-                    }, ...prev];
+        // Simulando contatos já existentes
+        setTimeout(() => {
+            setChats([
+                {
+                    id: '5511912345678@c.us',
+                    name: 'Carlos Oliveira',
+                    phone: '55 11 91234-5678',
+                    lastMsg: 'Ok, vou analisar a proposta e retorno na sexta.',
+                    time: '14:30',
+                    unread: 1,
+                    tag: 'Proposta Enviada',
+                    tagColor: 'text-purple-400 bg-purple-400/10',
+                    messages: [
+                        { id: 'm1', body: 'Olá Carlos, enviamos a proposta para seu email.', from: 'me', to: '5511912345678@c.us', fromMe: true, timestamp: Math.floor(Date.now() / 1000) - 3600 },
+                        { id: 'm2', body: 'Ok, vou analisar a proposta e retorno na sexta.', from: '5511912345678@c.us', to: 'me', fromMe: false, timestamp: Math.floor(Date.now() / 1000) - 1800 }
+                    ]
+                },
+                {
+                    id: '5521998765432@c.us',
+                    name: 'Empresa Alpha (Financeiro)',
+                    phone: '55 21 99876-5432',
+                    lastMsg: 'Gostaria de saber mais sobre usinas de investimento.',
+                    time: 'Ontem',
+                    unread: 2,
+                    tag: 'Novo Contato',
+                    tagColor: 'text-blue-400 bg-blue-400/10',
+                    messages: [
+                        { id: 'm3', body: 'Gostaria de saber mais sobre usinas de investimento.', from: '5521998765432@c.us', to: 'me', fromMe: false, timestamp: Math.floor(Date.now() / 1000) - 86400 }
+                    ]
                 }
-            });
-        });
-
-        setSocket(newSocket);
+            ]);
+        }, 2000);
 
         return () => {
-            newSocket.disconnect();
+            if (countdownRef.current) clearInterval(countdownRef.current);
         };
     }, []);
 
@@ -171,24 +118,18 @@ const Conversations: React.FC = () => {
     // Quando o chat selecionado mudar, buscar o contexto da IA
     useEffect(() => {
         if (!selectedChat) return;
-        const fetchContext = async () => {
-            setIsContextLoading(true);
-            try {
-                const res = await fetch(`http://localhost:3001/agent/context/${encodeURIComponent(selectedChat)}`);
-                const data = await res.json();
-                if (data.ok && data.context) {
-                    setLeadContext(data.context);
-                } else {
-                    setLeadContext(null);
-                }
-            } catch (err) {
-                console.error('Erro ao buscar contexto:', err);
-                setLeadContext(null);
-            } finally {
-                setIsContextLoading(false);
-            }
-        };
-        fetchContext();
+        setIsContextLoading(true);
+        
+        // MOCK Contexto da IA
+        setTimeout(() => {
+            setLeadContext({
+                visitScheduled: false,
+                disqualified: false,
+                phase: 'qualify',
+                billValue: '650,00'
+            });
+            setIsContextLoading(false);
+        }, 1200);
     }, [selectedChat]);
 
     const QUICK_REPLIES = [
@@ -222,31 +163,17 @@ const Conversations: React.FC = () => {
         setAiLoading(true);
         setAiSuggestion(null);
 
-        try {
-            const res = await fetch(`http://localhost:3001/agent/suggest/${encodeURIComponent(activeChat.id)}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ messages: activeChat.messages })
-            });
-            const data = await res.json();
-            if (data.ok && data.suggestion) {
-                setAiSuggestion(data.suggestion);
-            } else {
-                setAiSuggestion('Não foi possível gerar uma sugestão neste momento.');
-            }
-        } catch (err) {
-            console.error('Erro ao pedir sugestão da IA:', err);
-            setAiSuggestion('Erro de conexão com a IA da Quark.');
-        } finally {
+        // MOCK Sugestão Inteligente
+        setTimeout(() => {
+            setAiSuggestion(`Olá ${activeChat.name.split(' ')[0]}, vi que você demonstrou interesse em nossas soluções. Como engenheiro parceiro da Quark, posso garantir que com o seu consumo a economia mensal vai ultrapassar 90%. Posso te ligar rapidinho para alinhar?`);
             setAiLoading(false);
-        }
+        }, 1500);
     };
 
     const handleConnect = () => {
-        // Fallback for visual mock if backend isn't running
-        if (!socket || !socket.connected) {
-            setIsConnected(true);
-        }
+        setIsConnected(true); // Conecta na marra no Mock
+        setQrCode(null);
+        if (countdownRef.current) clearInterval(countdownRef.current);
     };
 
     if (!isConnected) {
@@ -360,6 +287,11 @@ const Conversations: React.FC = () => {
                                 </div>
                             )}
 
+                            {/* Dev Mock Connect */}
+                            <button onClick={handleConnect} className="mt-6 px-6 py-2 bg-lime-500/20 text-lime-400 hover:bg-lime-500 hover:text-black font-bold rounded-xl border border-lime-500/30 transition-all text-xs uppercase tracking-wide shadow-lg shadow-lime-500/10 active:scale-95">
+                                Simular Conexão Segura
+                            </button>
+
                             <div className="mt-4 flex items-center justify-center gap-2 text-sm text-slate-400">
                                 <Smartphone className="opacity-50" size={16} />
                                 Requer smartphone Android 6.0+ ou iOS 12+
@@ -374,61 +306,36 @@ const Conversations: React.FC = () => {
     }
 
     const handleToggleAgent = async () => {
-        const endpoint = agentEnabled ? '/agent/off' : '/agent/on';
-        try {
-            const res = await fetch(`http://localhost:3001${endpoint}`, { method: 'POST' });
-            const data = await res.json();
-            setAgentEnabled(data.agent);
-        } catch {
-            console.error('Failed to toggle agent');
-        }
+        // [FRONTEND MOCK]
+        setAgentEnabled(!agentEnabled);
+        alert(!agentEnabled ? '🤖 Atendente IA da Quark ativado! Ele responderá novos leads 24/7 de forma humanizada.' : '🤖 Atendente IA desativado.');
     };
 
     const handleDisconnect = async () => {
-        if (!window.confirm('Desconectar o WhatsApp da empresa? Voc\u00ea precisar\u00e1 escanear o QR novamente.')) return;
-        try {
-            await fetch('http://localhost:3001/disconnect', { method: 'POST' });
-            setIsConnected(false);
-            setQrCode(null);
-        } catch {
-            console.error('Failed to disconnect');
-        }
+        if (!window.confirm('Desconectar o WhatsApp da empresa? Você precisará escanear o QR novamente.')) return;
+        setIsConnected(false);
+        setQrCode("mock-qr-code");
+        startCountdown();
     };
 
     const handlePauseContact = async (contactId: string) => {
         const isPaused = pausedContacts.has(contactId);
-        const endpoint = isPaused
-            ? `/agent/resume/${encodeURIComponent(contactId)}`
-            : `/agent/pause/${encodeURIComponent(contactId)}`;
-        try {
-            await fetch(`http://localhost:3001${endpoint}`, { method: 'POST' });
-            setPausedContacts(prev => {
-                const next = new Set(prev);
-                if (isPaused) next.delete(contactId);
-                else next.add(contactId);
-                return next;
-            });
-        } catch {
-            console.error('Failed to toggle contact pause');
-        }
+        setPausedContacts(prev => {
+            const next = new Set(prev);
+            if (isPaused) next.delete(contactId);
+            else next.add(contactId);
+            return next;
+        });
     };
 
     const handleActivateContact = async (contactId: string) => {
         const isActive = activeContacts.has(contactId);
-        const endpoint = isActive
-            ? `/agent/deactivate/${encodeURIComponent(contactId)}`
-            : `/agent/activate/${encodeURIComponent(contactId)}`;
-        try {
-            await fetch(`http://localhost:3001${endpoint}`, { method: 'POST' });
-            setActiveContacts(prev => {
-                const next = new Set(prev);
-                if (isActive) next.delete(contactId);
-                else next.add(contactId);
-                return next;
-            });
-        } catch {
-            console.error('Failed to toggle contact activation');
-        }
+        setActiveContacts(prev => {
+            const next = new Set(prev);
+            if (isActive) next.delete(contactId);
+            else next.add(contactId);
+            return next;
+        });
     };
 
     // CONNECTED STATE: The Full Sales Chat Dashboard

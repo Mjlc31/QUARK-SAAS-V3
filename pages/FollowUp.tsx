@@ -49,17 +49,17 @@ const FollowUp: React.FC = () => {
 
         switch (project.status) {
             case 'Vistoria':
-                return `*${timeOfDay}, ${firstName}!* \n\nAqui é da Quark Energia. ⚡\n\nGostaríamos de agendar a *Vistoria Técnica* para dar início ao seu projeto fotovoltaico.\n\nQual seria o melhor dia e horário para você?`;
+                return `*${timeOfDay}, ${firstName}!* Tudo bem?\n\nAqui é a equipe de engenharia da *Quark Energia* ⚡\n\nEstou entrando em contato pois nosso próximo passo agora é realizar a Vistoria Técnica no local, para garantirmos que a instalação será perfeita.\n\nQual seria o melhor dia e horário na sua agenda para receber nosso engenheiro? Não se preocupe, é um processo bem rápido e tranquilo!`;
             case 'Projeto':
-                return `*${timeOfDay}, ${firstName}!* \n\nAtualização sobre seu sistema solar: ☀️\n\nNossa engenharia já está trabalhando na *Elaboração do Projeto*. Estamos cuidando de todos os detalhes técnicos para garantir a máxima eficiência.\n\nEm breve te dou mais notícias!`;
+                return `*${timeOfDay}, ${firstName}!* Tudo ótimo por aí?\n\nPassando para te dar uma atualização quentinha sobre o seu projeto solar ☀️\n\nNossa equipe de engenharia acabou de iniciar a *Elaboração do Projeto Executivo*. Nós estamos cuidando de absolutamente todos os detalhes técnicos, dimensionando tudo milimetricamente para que sua usina tenha a máxima eficiência possível e entregue o máximo de economia.\n\nAssim que os desenhos técnicos ficarem prontos, eu te dou um alô! Qualquer dúvida, estou por aqui.`;
             case 'Homologacao':
-                return `*${timeOfDay}, ${firstName}!* \n\nÓtima notícia! 📄\n\nSeu projeto já foi protocolado na concessionária e estamos na fase de *Homologação*.\n\nAgora é só aguardar o prazo legal da concessionária. Te avisaremos assim que sair o parecer!`;
+                return `*${timeOfDay}, ${firstName}!* Trago excelentes notícias! 📄🚀\n\nSeu projeto de energia solar já foi protocolado oficialmente na concessionária de energia e acabamos de entrar na fase de *Homologação*.\n\nAgora a bola está com eles! É só aguardarmos o prazo legal para a análise. Nossa equipe está monitorando o status diariamente e te aviso no minuto em que o parecer técnico for aprovado, combinado?`;
             case 'Instalacao':
-                return `*${timeOfDay}, ${firstName}!* \n\nChegou a hora! 🛠️\n\nA homologação foi aprovada e já podemos agendar a *Instalação* do seu sistema.\n\nPodemos programar a equipe para os próximos dias?`;
+                return `*${timeOfDay}, ${firstName}!* Chegou o grande momento! 🛠️💡\n\nA concessionária *aprovou* nossa homologação com sucesso!\n\nIsso significa que já podemos agendar a *Instalação Física* dos seus painéis solares. Nossa equipe de montagem está com a bota no pé e pronta para entrar em ação.\n\nComo está sua semana? Podemos programar a equipe para os próximos dias? Mal posso esperar para ver o seu medidor rodando devagar! haha`;
             case 'Finalizado':
-                return `*${timeOfDay}, ${firstName}!* \n\nSeu sistema está *Pronto e Gerando*! 🟢\n\nParabéns por fazer parte do futuro da energia. Qualquer dúvida sobre o monitoramento ou fatura, conte com nosso suporte.\n\nObrigado pela confiança!`;
+                return `*${timeOfDay}, ${firstName}!* Missão cumprida! 🎉🟢\n\nSeu sistema solar da Quark Energia está *Oficialmente Conectado, Testado e Gerando Energia Limpa*!\n\nFoi um absoluto prazer conduzir esse projeto pra você. Gostaríamos de te dar os parabéns por dar esse passo rumo ao futuro (e à economia pesada todos os meses rs).\n\nNossa parceria não acaba aqui. Qualquer dúvida sobre o monitoramento no aplicativo ou sobre sua fatura futura, nosso suporte de engenharia continua à sua inteira disposição.\n\nMuito obrigado pela confiança na Quark! 🤝`;
             default:
-                return `Olá ${firstName}, gostaria de falar sobre o andamento do seu projeto.`;
+                return `Olá ${firstName}, tudo bem? Passando para te atualizar sobre o andamento do seu projeto com a Quark Energia. Pode falar rapidinho?`;
         }
     };
 

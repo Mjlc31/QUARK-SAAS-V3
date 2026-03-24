@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
 import { PieChart as PieChartIcon, TrendingUp, Download, Target, Users, Wallet } from 'lucide-react';
+import { useApp } from '../contexts/AppContext';
 
 const COLORS = ['#84cc16', '#3b82f6', '#eab308', '#ef4444'];
 
@@ -31,6 +32,35 @@ const financialGrowth = [
 ];
 
 const Reports: React.FC = () => {
+  const { leads, projects } = useApp();
+
+  const metrics = useMemo(() => {
+    const totalLeads = leads.length;
+    const closedLeads = leads.filter(l => l.status === 'Fechado').length;
+    const conversionRate = totalLeads > 0 ? ((closedLeads / totalLeads) * 100).toFixed(1) : '0.0';
+    
+    // Calcula LTV via ticket médio dos projetos/leads fechados
+    const totalRevenue = leads.filter(l => l.status === 'Fechado').reduce((acc, l) => acc + (l.value || 0), 0);
+    const mockRevenueIfZero = closedLeads * 35000; // Mock se não tiver valor customizado
+    const finalRevenue = totalRevenue > 0 ? totalRevenue : mockRevenueIfZero;
+    const ltv = closedLeads > 0 ? finalRevenue / closedLeads : 0;
+
+    // CAC fictício baseado em um investimento fixo de marketing (R$5.000) dividido por vendas
+    const fixedMarketingSpend = 5000;
+    const cac = closedLeads > 0 ? fixedMarketingSpend / closedLeads : fixedMarketingSpend;
+
+    return {
+      conversionRate,
+      ltv,
+      cac,
+      totalRevenue: finalRevenue
+    };
+  }, [leads, projects]);
+
+  const formatCurrency = (val: number) => {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(val);
+  };
+
   return (
     <div className="space-y-8 animate-enter pb-20">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
@@ -50,11 +80,11 @@ const Reports: React.FC = () => {
               <div className="p-2 bg-lime-500/10 rounded-lg text-lime-400">
                  <Wallet size={20} />
               </div>
-              <span className="text-xs font-bold bg-green-500/10 text-green-400 px-2 py-1 rounded-full">-12% vs Mês ant.</span>
+              <span className="text-xs font-bold bg-green-500/10 text-green-400 px-2 py-1 rounded-full">Tempo Real</span>
            </div>
            <p className="text-slate-500 text-xs font-bold uppercase mb-1">CAC (Custo Aquisição)</p>
-           <p className="text-3xl font-bold text-white">R$ 155,00</p>
-           <p className="text-xs text-slate-500 mt-2">Custo médio por cliente fechado</p>
+           <p className="text-3xl font-bold text-white">{formatCurrency(metrics.cac)}</p>
+           <p className="text-xs text-slate-500 mt-2">Baseado no Funil Atual</p>
         </div>
 
         <div className="glass-panel p-6 rounded-2xl border-t-2 border-blue-500">
@@ -62,11 +92,11 @@ const Reports: React.FC = () => {
               <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400">
                  <Users size={20} />
               </div>
-              <span className="text-xs font-bold bg-blue-500/10 text-blue-400 px-2 py-1 rounded-full">+5% vs Mês ant.</span>
+              <span className="text-xs font-bold bg-blue-500/10 text-blue-400 px-2 py-1 rounded-full">Tempo Real</span>
            </div>
            <p className="text-slate-500 text-xs font-bold uppercase mb-1">LTV (Lifetime Value)</p>
-           <p className="text-3xl font-bold text-white">R$ 42.500</p>
-           <p className="text-xs text-slate-500 mt-2">Valor médio de contrato</p>
+           <p className="text-3xl font-bold text-white">{formatCurrency(metrics.ltv)}</p>
+           <p className="text-xs text-slate-500 mt-2">Valor médio de contrato fechado</p>
         </div>
 
         <div className="glass-panel p-6 rounded-2xl border-t-2 border-purple-500">
@@ -74,11 +104,11 @@ const Reports: React.FC = () => {
               <div className="p-2 bg-purple-500/10 rounded-lg text-purple-400">
                  <Target size={20} />
               </div>
-              <span className="text-xs font-bold bg-green-500/10 text-green-400 px-2 py-1 rounded-full">Alta</span>
+              <span className="text-xs font-bold bg-purple-500/10 text-purple-400 px-2 py-1 rounded-full">Tempo Real</span>
            </div>
            <p className="text-slate-500 text-xs font-bold uppercase mb-1">Taxa de Conversão</p>
-           <p className="text-3xl font-bold text-white">22.5%</p>
-           <p className="text-xs text-slate-500 mt-2">Lead para Venda (Global)</p>
+           <p className="text-3xl font-bold text-white">{metrics.conversionRate}%</p>
+           <p className="text-xs text-slate-500 mt-2">Leads para Venda</p>
         </div>
       </div>
 

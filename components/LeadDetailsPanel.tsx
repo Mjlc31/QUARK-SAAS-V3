@@ -190,6 +190,29 @@ export const LeadDetailsPanel: React.FC<LeadDetailsPanelProps> = ({
                         </div>
 
                         <div className="mt-8">
+                            <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+                                <Edit2 size={16} className="text-lime-400" />
+                                Anotações do Lead
+                            </h3>
+                            {isEditing ? (
+                                <textarea
+                                    value={editingData.notes || ''}
+                                    onChange={(e) => onDataChange({ ...editingData, notes: e.target.value })}
+                                    className="w-full bg-black/50 border border-zinc-700/50 rounded-xl p-3 text-[13px] text-zinc-300 outline-none min-h-[100px] focus:border-lime-500 transition-colors custom-scrollbar"
+                                    placeholder="Adicione notas, preferências do cliente, ou o que foi conversado..."
+                                />
+                            ) : (
+                                <div className="p-4 rounded-2xl bg-white/5 border border-white/5 min-h-[80px]">
+                                    {selectedLead.notes ? (
+                                        <p className="text-[13px] text-zinc-400 whitespace-pre-wrap">{selectedLead.notes}</p>
+                                    ) : (
+                                        <p className="text-[12px] text-zinc-600 italic">Nenhuma anotação registrada ainda.</p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="mt-8">
                             <h3 className="text-sm font-bold text-white mb-6 flex items-center gap-2">
                                 <Clock size={16} className="text-lime-400" />
                                 Linha do Tempo

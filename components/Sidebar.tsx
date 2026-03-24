@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Users, Calculator, CheckSquare, Package, Zap, LogOut, PieChart, X, HardHat, MessageSquare, DollarSign } from 'lucide-react';
+import { LayoutDashboard, Users, Calculator, CheckSquare, Package, Zap, LogOut, PieChart, X, HardHat, MessageSquare, DollarSign, FileText, Kanban } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { NavLink } from 'react-router-dom';
 
@@ -21,8 +21,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Visão Geral', icon: LayoutDashboard, path: '/' },
     { id: 'crm', label: 'Leads & CRM', icon: Users, path: '/crm' },
+    { id: 'proposals', label: 'Propostas', icon: FileText, path: '/proposals' },
     { id: 'conversations', label: 'Conversas', icon: MessageSquare, path: '/conversations' },
-    { id: 'calculator', label: 'Engenharia', icon: Calculator, path: '/calculator' },
+    { id: 'calculator', label: 'Calculadora', icon: Calculator, path: '/calculator' },
+    { id: 'engineering', label: 'Engenharia', icon: Kanban, path: '/engineering' },
     { id: 'follow-up', label: 'Acompanhamento', icon: HardHat, path: '/follow-up' },
     { id: 'tasks', label: 'Tarefas', icon: CheckSquare, path: '/tasks' },
   ];

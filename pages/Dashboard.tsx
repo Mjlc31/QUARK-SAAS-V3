@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { DollarSign, Zap, Activity, TrendingUp, Download, BarChart3, Clock, Users, ArrowUpRight, Plus, Calculator, CheckSquare } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
@@ -27,17 +27,36 @@ const StatCard: React.FC<{ title: string; value: string; icon: any; trend: strin
 const Dashboard: React.FC = () => {
   const { leads, activities, user } = useApp();
   const navigate = useNavigate();
+  const [periodFilter, setPeriodFilter] = useState('all');
+
+  const filteredLeads = useMemo(() => {
+    const now = new Date();
+    return leads.filter(lead => {
+      if (periodFilter === 'all') return true;
+      const leadDate = new Date(lead.createdAt);
+      const diffTime = Math.abs(now.getTime() - leadDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (periodFilter === '7d') return diffDays <= 7;
+      if (periodFilter === '30d') return diffDays <= 30;
+      if (periodFilter === '90d') return diffDays <= 90;
+      if (periodFilter === 'year') return diffDays <= 365;
+      return true;
+    });
+  }, [leads, periodFilter]);
 
   // --- Real-time Data Calculation ---
   const kpis = useMemo(() => {
-    const totalPipeline = leads.reduce((acc, curr) => acc + (curr.status !== 'Fechado' ? curr.value : 0), 0);
-    const totalRevenue = leads.filter(l => l.status === 'Fechado').reduce((acc, curr) => acc + curr.value, 0);
-    const activeLeads = leads.filter(l => l.status !== 'Fechado').length;
-    const closedCount = leads.filter(l => l.status === 'Fechado').length;
+    const totalPipeline = filteredLeads.reduce((acc, curr) => acc + (curr.status !== 'Fechado' ? curr.value : 0), 0);
+    const totalRevenue = filteredLeads.filter(l => l.status === 'Fechado').reduce((acc, curr) => acc + curr.value, 0);
+    const activeLeads = filteredLeads.filter(l => l.status !== 'Fechado').length;
+    const closedCount = filteredLeads.filter(l => l.status === 'Fechado').length;
+    const totalLeadsCount = filteredLeads.length;
     const avgTicket = closedCount > 0 ? totalRevenue / closedCount : 0;
+    const conversionRate = totalLeadsCount > 0 ? ((closedCount / totalLeadsCount) * 100).toFixed(1) : '0.0';
 
-    return { totalPipeline, totalRevenue, activeLeads, avgTicket };
-  }, [leads]);
+    return { totalPipeline, totalRevenue, activeLeads, avgTicket, closedCount, conversionRate, totalLeadsCount };
+  }, [filteredLeads]);
 
   // --- Chart Data Generation based on Leads ---
   const chartData = useMemo(() => {
@@ -54,7 +73,7 @@ const Dashboard: React.FC = () => {
       });
     }
 
-    leads.forEach(lead => {
+    filteredLeads.forEach(lead => {
       const leadDate = new Date(lead.createdAt);
       const monthData = months.find(m => 
         m.dateObj.getMonth() === leadDate.getMonth() && 
@@ -71,7 +90,7 @@ const Dashboard: React.FC = () => {
     });
 
     return months.map(({ name, revenue, pipeline }) => ({ name, revenue, pipeline }));
-  }, [leads]);
+  }, [filteredLeads]);
 
   const topPerformer = {
     name: user?.name || 'Vendedor',
@@ -126,6 +145,17 @@ const Dashboard: React.FC = () => {
             <p className="text-zinc-500 mt-1">Bem-vindo de volta, {user?.name.split(' ')[0]}.</p>
          </div>
          <div className="flex gap-2">
+            <select
+              value={periodFilter}
+              onChange={(e) => setPeriodFilter(e.target.value)}
+              className="bg-zinc-900 border border-white/10 text-white text-sm rounded-lg px-3 py-2 outline-none focus:border-lime-500 transition-colors"
+            >
+              <option value="all">Todo o Período</option>
+              <option value="7d">Últimos 7 dias</option>
+              <option value="30d">Últimos 30 dias</option>
+              <option value="90d">Últimos 90 dias</option>
+              <option value="year">Este Ano</option>
+            </select>
             <button 
               onClick={handleGenerateReport}
               className="h-10 px-4 btn-primary rounded-lg text-sm flex items-center gap-2 shadow-lg shadow-lime-500/10 hover:shadow-lime-500/20 transition-all"
@@ -158,7 +188,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Bento Grid Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         
         {/* Row 1: Key Metrics */}
         <StatCard 
@@ -185,6 +215,22 @@ const Dashboard: React.FC = () => {
           color="purple" 
         />
         <StatCard 
+          title="Taxa de Conversão" 
+          value={`${kpis.conversionRate}%`} 
+          icon={TrendingUp} 
+          trend="+1.2%" 
+          subtext={`${kpis.closedCount} de ${kpis.totalLeadsCount} leads`} 
+          color="orange" 
+        />
+        <StatCard 
+          title="Contratos Fechados" 
+          value={`${kpis.closedCount}`} 
+          icon={CheckSquare} 
+          trend="+3" 
+          subtext="No período selecionado" 
+          color="lime" 
+        />
+        <StatCard 
           title="Ciclo Médio" 
           value="18 dias" 
           icon={Clock} 
@@ -193,8 +239,8 @@ const Dashboard: React.FC = () => {
           color="orange" 
         />
 
-        {/* Row 2: Main Chart (Span 3) + Activity Feed (Span 1) */}
-        <div className="lg:col-span-3 glass-panel p-6 rounded-2xl border border-white/5">
+        {/* Row 2: Main Chart (Span 2) + Activity Feed (Span 1) */}
+        <div className="lg:col-span-2 glass-panel p-6 rounded-2xl border border-white/5">
           <div className="flex justify-between items-center mb-6">
              <div>
                <h3 className="text-lg font-bold text-white tracking-tight">Performance Financeira</h3>
