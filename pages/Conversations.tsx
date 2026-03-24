@@ -119,7 +119,7 @@ const Conversations: React.FC = () => {
     useEffect(() => {
         if (!selectedChat) return;
         setIsContextLoading(true);
-        
+
         // MOCK Contexto da IA
         setTimeout(() => {
             setLeadContext({
@@ -191,7 +191,7 @@ const Conversations: React.FC = () => {
                         </div>
                         <h2 className="text-3xl font-display font-bold text-white mb-4">Conecte o WhatsApp da Empresa</h2>
                         <p className="text-slate-400 mb-8 text-lg">
-                            Sincronize o nÃºmero oficial da Quark Energia para atender todos os leads diretamente pelo CRM com automaÃ§Ãµes nativas.
+                            Sincronize o número oficial da Quark Energia para atender todos os leads diretamente pelo CRM com automações nativas.
                         </p>
 
                         <ol className="space-y-6 text-slate-300">
@@ -205,11 +205,11 @@ const Conversations: React.FC = () => {
                             </li>
                             <li className="flex gap-4 items-start">
                                 <div className="w-8 h-8 rounded-full bg-zinc-800 border border-white/5 flex items-center justify-center flex-shrink-0 font-bold text-white">3</div>
-                                <div>Exiba a cÃ¢mera selecionando <strong>Aparelhos Conectados</strong>.</div>
+                                <div>Exiba a câmera selecionando <strong>Aparelhos Conectados</strong>.</div>
                             </li>
                             <li className="flex gap-4 items-start">
                                 <div className="w-8 h-8 rounded-full bg-zinc-800 border border-white/5 flex items-center justify-center flex-shrink-0 font-bold text-white">4</div>
-                                <div>Aponte a cÃ¢mera para o cÃ³digo QR ao lado.</div>
+                                <div>Aponte a câmera para o código QR ao lado.</div>
                             </li>
                         </ol>
 
