@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+whatsapp-backend/node_modules
+whatsapp-backend/.wwebjs_auth
