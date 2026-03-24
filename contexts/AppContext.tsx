@@ -37,6 +37,7 @@ interface AppContextType {
   projects: Project[];
   addProject: (project: Partial<Project>) => Promise<void>;
   updateProjectStatus: (id: string, status: Project['status']) => Promise<void>;
+  updateProject: (id: string, updates: Partial<Project>) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
 }
 
@@ -363,6 +364,35 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setLeads(prev => prev.map(l => l.id === id ? updatedLead : l));
     await storageService.syncLead(updatedLead);
     addActivity(`moveu para ${newStatus}`, currentLead.name);
+
+    // INTEGRAÇÃO: Se mudou para "Fechado", gera lançamento automático de Receita e envia para a Engenharia
+    if (newStatus === 'Fechado' && currentLead.status !== 'Fechado' && user) {
+      try {
+        const payload = {
+            description: `Venda Sistema Solar - ${currentLead.name}`,
+            type: 'receita',
+            category: 'instalacao_residencial',
+            amount: currentLead.value,
+            date: new Date().toISOString().split('T')[0],
+            note: `Lançamento automático do CRM`,
+            user_id: user.id
+        };
+        await supabase.from('financial_transactions').insert([payload]);
+        addActivity('fechou negócio: gerou receita & obra', currentLead.name);
+        
+        // Também jogar pra Engenharia!
+        await addProject({
+          clientId: currentLead.id,
+          clientName: currentLead.name,
+          clientPhone: currentLead.phone,
+          city: currentLead.city,
+          systemSizeKw: currentLead.monthlyConsumption / 123, // estimativa rápida se não tiver exata
+          status: 'Vistoria'
+        });
+      } catch (err) {
+        console.error("Falha ao gerar receita ou obra automática", err);
+      }
+    }
   };
 
   const addLeadLog = async (leadId: string, action: string, details: string) => {
@@ -441,6 +471,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     await storageService.syncProject(updatedProject);
   };
 
+  const updateProject = async (id: string, updates: Partial<Project>) => {
+    const project = projects.find(p => p.id === id);
+    if (!project) return;
+    const updatedProject = { ...project, ...updates, updatedAt: new Date().toISOString() };
+    setProjects(prev => prev.map(p => p.id === id ? updatedProject : p));
+    addActivity(`editou a obra`, project.clientName);
+    await storageService.syncProject(updatedProject);
+  };
+
   const deleteProject = async (id: string) => {
     setProjects(prev => prev.filter(p => p.id !== id));
     await storageService.deleteProject(id);
@@ -450,7 +489,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     <AppContext.Provider value={{
       user, leads, tasks, users: directoryUsers, products, activities, isLoading, isRecoveryMode, isSupabaseConnected,
       login, signUp, resetPassword, updatePassword, logout, addLead, updateLead, deleteLead, updateLeadStatus, addLeadLog, addTask, toggleTask, deleteTask,
-      projects, addProject, updateProjectStatus, deleteProject
+      projects, addProject, updateProjectStatus, updateProject, deleteProject
     }}>
       {children}
     </AppContext.Provider>

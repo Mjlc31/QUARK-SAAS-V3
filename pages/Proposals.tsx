@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { ProposalEditor, ProposalData } from '../components/ProposalEditor';
-import { FileText, Plus, ChevronRight, Calculator, Package, CheckCircle } from 'lucide-react';
+import { FileText, Plus, ChevronRight, Calculator, CheckCircle } from 'lucide-react';
+import { useApp } from '../contexts/AppContext';
 
 const Proposals: React.FC = () => {
+  const { addLead } = useApp();
   const [proposals, setProposals] = useState<ProposalData[]>(() => {
     const saved = localStorage.getItem('quark_proposals');
     return saved ? JSON.parse(saved) : [];
@@ -75,6 +77,17 @@ const Proposals: React.FC = () => {
 
   const handleSavePreview = (payload: ProposalData) => {
     setProposals([...proposals, payload]);
+    
+    // Auto-cadastrar Lead no CRM!
+    addLead({
+      name: payload.clientName,
+      city: payload.city,
+      value: payload.finalPrice,
+      monthlyConsumption: payload.consumption,
+      phone: '', 
+      status: 'Proposta'
+    });
+
     setStep(0); // Volta pra lista
     setFormData({}); // Limpa
   };

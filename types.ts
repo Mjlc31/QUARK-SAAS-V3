@@ -44,6 +44,8 @@ export interface Project {
   status: ProjectStatus;
   installDate?: string;
   updatedAt: string;
+  attachments?: string[]; // Arrays de Base64 ou URLs
+  hasWebhook?: boolean;
 }
 
 export interface CityData {

@@ -53,7 +53,7 @@ export const ProposalEditor: React.FC<Props> = ({ data, onClose, onSave }) => {
 
     try {
       const canvas = await html2canvas(pdfRef.current, {
-        scale: 2,
+        scale: 4, // Resolução Máxima (Print Quality)
         useCORS: true,
         backgroundColor: '#000000',
         windowWidth: 794,
@@ -143,8 +143,8 @@ export const ProposalEditor: React.FC<Props> = ({ data, onClose, onSave }) => {
              
              <div className="p-16 flex-1 flex flex-col justify-center relative z-10">
                 <div className="mb-20">
-                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-black mb-6 ${themeClasses.bg} ${themeClasses.glow} transition-colors duration-500`}>
-                     <Zap size={32} strokeWidth={3} />
+                  <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mb-6 bg-black/50 backdrop-blur-md p-3 border border-white/10 ${themeClasses.glow} transition-colors duration-500`}>
+                     <img src="/logo.png" alt="Quark Logo" className="w-full h-full object-contain filter" />
                   </div>
                   <h1 className={`text-6xl ${fontTitle} font-bold tracking-tighter leading-none mb-4 transition-all duration-300 outline-none`} contentEditable suppressContentEditableWarning>
                     Projeto<br/>Solar<span className={themeClasses.text}>.</span>
