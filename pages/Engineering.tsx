@@ -2,6 +2,10 @@ import React, { useState, useRef } from 'react';
 import { HardHat, Link as WebhookIcon, Paperclip, Plus, Loader2, Calendar, FileText, CheckCircle2, X, Tag, Clock, CheckSquare, AlignLeft, User, MapPin, Map, Home, List, Image as ImageIcon, MessageSquare, MoreHorizontal } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { Project, ProjectStatus } from '../types';
+import { supabase } from '../lib/supabaseClient';
+
+const isImageFile = (url: string) => url.startsWith('data:image') || url.match(/\.(jpeg|jpg|gif|png|webp)(\?.*)?$/i);
+
 
 const COLUMNS: { id: ProjectStatus; title: string; color: string }[] = [
   { id: 'Vistoria', title: 'Vistoria Técnica', color: 'border-blue-500' },
@@ -12,7 +16,7 @@ const COLUMNS: { id: ProjectStatus; title: string; color: string }[] = [
 ];
 
 const Engineering: React.FC = () => {
-  const { projects, addProject, updateProjectStatus, updateProject, deleteProject } = useApp();
+  const { projects, leads, addProject, updateProjectStatus, updateProject, deleteProject } = useApp();
   const [draggedId, setDraggedId] = useState<string | null>(null);
   
   // Modal de Detalhes da Obra
@@ -61,14 +65,20 @@ const Engineering: React.FC = () => {
       setIsUploading(true);
       try {
         const file = e.target.files[0];
-        if (file.size > 2 * 1024 * 1024) {
-             alert("Aviso: Limite seguro do modo demo é 2MB por arquivo.");
-             setIsUploading(false);
-             return;
+
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+        const filePath = `obras/${selectedObra.id}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage.from('attachments').upload(filePath, file);
+        
+        if (uploadError) {
+          throw uploadError;
         }
 
-        const base64Str = await getBase64(file);
-        const fileDataArray = selectedObra.attachments ? [...selectedObra.attachments, base64Str] : [base64Str];
+        const { data: { publicUrl } } = supabase.storage.from('attachments').getPublicUrl(filePath);
+
+        const fileDataArray = selectedObra.attachments ? [...selectedObra.attachments, publicUrl] : [publicUrl];
         
         // Update Local Edit State Immediately
         setSelectedObra({ ...selectedObra, attachments: fileDataArray });
@@ -77,7 +87,7 @@ const Engineering: React.FC = () => {
         await updateProject(selectedObra.id, { attachments: fileDataArray });
       } catch (err) {
         console.error("Erro no upload", err);
-        alert("Falha no envio do anexo. Caso o arquivo seja PDF gigante, prefira compactar.");
+        alert("Falha no envio do anexo. Certifique-se de ter criado o bucket 'attachments' público no painel do Supabase.");
       } finally {
         setIsUploading(false);
       }
@@ -91,6 +101,9 @@ const Engineering: React.FC = () => {
     await updateProject(selectedObra.id, { hasWebhook: newStatus });
     if(newStatus) alert('Webhook vinculado! Integrado a Evolution API. (Fake)');
   };
+
+  const fullLead = selectedObra ? leads.find(l => l.id === selectedObra.clientId) : null;
+
 
   return (
     <div className="space-y-6 h-[calc(100vh-6rem)] md:h-[calc(100vh-2rem)] flex flex-col relative animate-enter pb-10">
@@ -129,7 +142,7 @@ const Engineering: React.FC = () => {
                     onClick={() => setSelectedObra(obra)}
                     className="bg-[#0c121a] border border-white/10 hover:border-lime-500/50 p-5 rounded-2xl cursor-pointer shadow-lg active:scale-[0.98] transition-all touch-manipulation relative group"
                   >
-                    {obra.attachments && obra.attachments.length > 0 && obra.attachments[0].startsWith('data:image') && (
+                    {obra.attachments && obra.attachments.length > 0 && isImageFile(obra.attachments[0]) && (
                        <div className="w-full h-24 mb-3 rounded-lg overflow-hidden bg-black/50 border border-white/5 relative">
                           <img src={obra.attachments[0]} className="w-full h-full object-cover opacity-80" />
                        </div>
@@ -164,7 +177,7 @@ const Engineering: React.FC = () => {
           <div className="bg-[#22272b] border border-[#a1bdd914] w-full max-w-5xl max-h-[90vh] rounded-xl shadow-2xl flex flex-col overflow-hidden animate-enter">
             
             {/* Header/Cover Section */}
-            {selectedObra.attachments && selectedObra.attachments.length > 0 && selectedObra.attachments[0].startsWith('data:image') && (
+            {selectedObra.attachments && selectedObra.attachments.length > 0 && isImageFile(selectedObra.attachments[0]) && (
               <div className="h-48 w-full bg-black relative shrink-0 border-b border-[#a1bdd914]">
                   <img src={selectedObra.attachments[0]} className="w-full h-full object-cover opacity-90" />
                   <div className="absolute top-4 right-4 flex gap-2">
@@ -174,7 +187,7 @@ const Engineering: React.FC = () => {
               </div>
             )}
 
-            {!(selectedObra.attachments && selectedObra.attachments.length > 0 && selectedObra.attachments[0].startsWith('data:image')) && (
+            {!(selectedObra.attachments && selectedObra.attachments.length > 0 && isImageFile(selectedObra.attachments[0])) && (
                <div className="flex justify-between items-center p-4 pb-0 shrink-0">
                   <div className={`h-2 w-full rounded-t-full ${COLUMNS.find(c => c.id === selectedObra.status)?.color.replace('border-', 'bg-')} mr-4`}></div>
                   <button onClick={() => setSelectedObra(null)} className="text-[#8c9bab] hover:text-[#c7d1db] bg-[#a1bdd914] p-1.5 rounded transition-colors"><X size={20}/></button>
@@ -229,21 +242,21 @@ const Engineering: React.FC = () => {
                              <p className="font-bold flex items-center gap-2 text-[14px]"><User size={14} className="text-[#8c9bab]" /> Dados Pessoais</p>
                              <ul className="text-sm space-y-2 ml-6 text-[#8c9bab]">
                                <li className="flex items-center gap-2"><Tag size={12} className="shrink-0 text-yellow-500"/><span className="text-[#c7d1db] font-bold shrink-0">Nome:</span> {selectedObra.clientName.split(' - ')[0] || selectedObra.clientName}</li>
-                               <li className="flex items-center gap-2"><FileText size={12} className="shrink-0 text-[#85b8ff]"/><span className="text-[#c7d1db] font-bold shrink-0">CPF/CNPJ:</span> 045.596.334-79</li>
-                               <li className="flex items-center gap-2"><AlignLeft size={12} className="shrink-0 text-zinc-400"/><span className="text-[#c7d1db] font-bold shrink-0">**RG:**</span> 99001179364</li>
-                               <li className="flex items-center gap-2"><Calendar size={12} className="shrink-0 text-red-400"/><span className="text-[#c7d1db] font-bold shrink-0">Data de Expedição:</span> 18/04/2017</li>
-                               <li className="flex items-center gap-2"><FileText size={12} className="shrink-0 text-orange-400"/><span className="text-[#c7d1db] font-bold shrink-0">Data de Nascimento:</span> 27/05/1982</li>
+                               <li className="flex items-center gap-2"><FileText size={12} className="shrink-0 text-[#85b8ff]"/><span className="text-[#c7d1db] font-bold shrink-0">CPF/CNPJ:</span> {fullLead?.cpfCnpj || 'Não preenchido'}</li>
+                               <li className="flex items-center gap-2"><AlignLeft size={12} className="shrink-0 text-zinc-400"/><span className="text-[#c7d1db] font-bold shrink-0">**RG:**</span> {fullLead?.rg || 'Não preenchido'}</li>
+                               <li className="flex items-center gap-2"><Calendar size={12} className="shrink-0 text-red-400"/><span className="text-[#c7d1db] font-bold shrink-0">Data de Expedição:</span> {fullLead?.expeditionDate || 'Não preenchida'}</li>
+                               <li className="flex items-center gap-2"><FileText size={12} className="shrink-0 text-orange-400"/><span className="text-[#c7d1db] font-bold shrink-0">Data de Nasc.:</span> {fullLead?.birthDate || 'Não preenchida'}</li>
                              </ul>
                            </div>
 
                            <div className="space-y-2 pt-4">
                              <p className="font-bold flex items-center gap-2 text-[14px]"><Home size={14} className="text-[#8c9bab]" /> Endereço</p>
                              <ul className="text-sm space-y-2 ml-6 text-[#8c9bab] mb-4">
-                               <li className="flex items-center gap-2"><MapPin size={12} className="shrink-0 text-red-500"/><span className="text-[#c7d1db] font-bold shrink-0">Logradouro:</span> TV ELIZEU GOMES DE SENA, Nº 85</li>
-                               <li className="flex items-center gap-2"><Home size={12} className="shrink-0 text-orange-300"/><span className="text-[#c7d1db] font-bold shrink-0">Bairro:</span> Santos Dumont</li>
-                               <li className="flex items-center gap-2"><Map size={12} className="shrink-0 text-orange-400"/><span className="text-[#c7d1db] font-bold shrink-0">Cidade:</span> {selectedObra.city || 'Maceió'}</li>
-                               <li className="flex items-center gap-2"><Map size={12} className="shrink-0 text-[#85b8ff]"/><span className="text-[#c7d1db] font-bold shrink-0">Estado:</span> Alagoas</li>
-                               <li className="flex items-center gap-2"><Tag size={12} className="shrink-0 text-zinc-400"/><span className="text-[#c7d1db] font-bold shrink-0">CEP:</span> 57075635</li>
+                               <li className="flex items-center gap-2"><MapPin size={12} className="shrink-0 text-red-500"/><span className="text-[#c7d1db] font-bold shrink-0">Logradouro:</span> {fullLead?.street || 'Não preenchido'}</li>
+                               <li className="flex items-center gap-2"><Home size={12} className="shrink-0 text-orange-300"/><span className="text-[#c7d1db] font-bold shrink-0">Bairro:</span> {fullLead?.neighborhood || 'Não preenchido'}</li>
+                               <li className="flex items-center gap-2"><Map size={12} className="shrink-0 text-orange-400"/><span className="text-[#c7d1db] font-bold shrink-0">Cidade:</span> {fullLead?.city || selectedObra.city || 'Desconhecida'}</li>
+                               <li className="flex items-center gap-2"><Map size={12} className="shrink-0 text-[#85b8ff]"/><span className="text-[#c7d1db] font-bold shrink-0">Estado:</span> {fullLead?.state || 'Não preenchido'}</li>
+                               <li className="flex items-center gap-2"><Tag size={12} className="shrink-0 text-zinc-400"/><span className="text-[#c7d1db] font-bold shrink-0">CEP:</span> {fullLead?.zipCode || 'Não preenchido'}</li>
                              </ul>
                            </div>
                            
@@ -271,10 +284,10 @@ const Engineering: React.FC = () => {
                            {selectedObra.attachments?.map((att, idx) => (
                              <div key={idx} className="flex gap-4 p-2 hover:bg-[#a1bdd914] rounded-lg transition-colors group relative cursor-pointer">
                                  <div className="w-32 h-20 bg-[#091e42] rounded-lg shrink-0 overflow-hidden border border-[#a1bdd914]">
-                                    {att.startsWith('data:image') ? (
-                                      <img src={att} className="w-full h-full object-cover" />
+                                    {isImageFile(att) ? (
+                                      <a href={att} target="_blank" rel="noopener noreferrer"><img src={att} className="w-full h-full object-cover" /></a>
                                     ) : (
-                                      <div className="w-full h-full flex items-center justify-center bg-[#282e33] text-zinc-500 border border-white/5"><FileText size={20}/></div>
+                                      <a href={att} target="_blank" rel="noopener noreferrer" className="w-full h-full flex items-center justify-center bg-[#282e33] text-zinc-500 hover:text-lime-400 border border-white/5 transition-colors"><FileText size={20}/></a>
                                     )}
                                  </div>
                                  <div className="flex-1 py-1 flex flex-col justify-center">

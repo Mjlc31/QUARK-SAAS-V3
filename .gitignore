@@ -25,3 +25,4 @@ dist-ssr
 
 whatsapp-backend/node_modules
 whatsapp-backend/.wwebjs_auth
+whatsapp-backend/google-credentials.json

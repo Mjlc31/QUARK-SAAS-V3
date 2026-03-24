@@ -53,13 +53,14 @@ export const ProposalEditor: React.FC<Props> = ({ data, onClose, onSave }) => {
 
     try {
       const canvas = await html2canvas(pdfRef.current, {
-        scale: 4, // Resolução Máxima (Print Quality)
+        scale: 2, // Reduzido de 4 para 2 para evitar crash de limite de memória em browsers
         useCORS: true,
         backgroundColor: '#000000',
         windowWidth: 794,
+        allowTaint: true,
       });
 
-      const imgData = canvas.toDataURL('image/png');
+      const imgData = canvas.toDataURL('image/png', 1.0);
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
@@ -67,9 +68,26 @@ export const ProposalEditor: React.FC<Props> = ({ data, onClose, onSave }) => {
       });
 
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      const ratio = pdfWidth / canvas.width;
+      const totalPdfHeight = canvas.height * ratio;
+      
+      let heightLeft = totalPdfHeight;
+      let position = 0;
 
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      // Adiciona primeira página
+      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, totalPdfHeight);
+      heightLeft -= pdfHeight;
+
+      // Loop para adicionar múltiplas páginas se o canvas for comprido
+      while (heightLeft > 0.1) {
+        position -= pdfHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, totalPdfHeight);
+        heightLeft -= pdfHeight;
+      }
+
       pdf.save(`Proposta_${data.clientName.replace(/\s+/g, '_')}_Quark.pdf`);
       
       if (onSave) onSave({ ...data, id: Date.now().toString() });
@@ -144,7 +162,7 @@ export const ProposalEditor: React.FC<Props> = ({ data, onClose, onSave }) => {
              <div className="p-16 flex-1 flex flex-col justify-center relative z-10">
                 <div className="mb-20">
                   <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mb-6 bg-black/50 backdrop-blur-md p-3 border border-white/10 ${themeClasses.glow} transition-colors duration-500`}>
-                     <img src="/logo.png" alt="Quark Logo" className="w-full h-full object-contain filter" />
+                     <img src="/logo.png" alt="Quark Logo" className="w-full h-full object-contain filter" crossOrigin="anonymous" />
                   </div>
                   <h1 className={`text-6xl ${fontTitle} font-bold tracking-tighter leading-none mb-4 transition-all duration-300 outline-none`} contentEditable suppressContentEditableWarning>
                     Projeto<br/>Solar<span className={themeClasses.text}>.</span>
@@ -180,7 +198,7 @@ export const ProposalEditor: React.FC<Props> = ({ data, onClose, onSave }) => {
              <div className="grid grid-cols-2 gap-8 mb-12">
                {/* Upload Image Card 1 */}
                <div className="relative group overflow-hidden rounded-3xl h-72 border border-white/10 flex flex-col justify-end bg-zinc-900">
-                   <img src={imgSocial1} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt="Obra Quark" />
+                   <img src={imgSocial1} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt="Obra Quark" crossOrigin="anonymous" />
                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent"></div>
                    <div className="relative z-10 p-6">
                       <h3 className={`text-xl font-bold mb-1 text-white outline-none ${themeClasses.text} transition-colors`} contentEditable suppressContentEditableWarning>+500 Projetos Entregues</h3>
@@ -197,7 +215,7 @@ export const ProposalEditor: React.FC<Props> = ({ data, onClose, onSave }) => {
 
                {/* Upload Image Card 2 */}
                <div className="relative group overflow-hidden rounded-3xl h-72 border border-white/10 flex flex-col justify-end bg-zinc-900">
-                   <img src={imgSocial2} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt="Obra Quark 2" />
+                   <img src={imgSocial2} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt="Obra Quark 2" crossOrigin="anonymous" />
                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent"></div>
                    <div className="relative z-10 p-6">
                       <h3 className={`text-xl font-bold mb-1 text-white outline-none ${themeClasses.text} transition-colors`} contentEditable suppressContentEditableWarning>Zero Dor de Cabeça</h3>

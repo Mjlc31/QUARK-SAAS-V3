@@ -7,8 +7,10 @@ const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
 const cron = require('node-cron');
 const spinAgent = require('./spinAgent');
+const fs = require('fs');
+const path = require('path');
+const { google } = require('googleapis');
 
-// ─── Supabase ──────────────────────────────────────────────────────────────
 const supabase = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_KEY
@@ -405,6 +407,73 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log(`📡 Dashboard disconnected: ${socket.id}`);
     });
+});
+
+// ─── Tarefas e Integração Google Agenda ──────────────────────────────────────
+app.post('/agent/task-notify', async (req, res) => {
+    const { title, assignee, assigneePhone, priority, deadline, notifyWhatsapp, insertCalendar } = req.body;
+
+    let whatsappSent = false;
+    // 1. WhatsApp Notifications
+    if (notifyWhatsapp && clientReady && assigneePhone) {
+        const timeOfDay = new Date().getHours() < 12 ? 'Bom dia' : 'Boa tarde';
+        const dateText = deadline ? new Date(deadline).toLocaleDateString('pt-BR') : 'Sem data definida';
+        const emoji = priority === 'High' ? '🔴 URGENTE' : priority === 'Medium' ? '🟡 Atenção' : '🟢 Informativo';
+        
+        const message = `*${timeOfDay}, ${assignee}!*\n\nVocê recebeu uma nova tarefa no Quark OS:\n\n*${emoji}: ${title}*\nPrazo: ${dateText}\n\nFavor confirmar recebimento no sistema.`;
+        
+        try {
+            const formatted = assigneePhone.includes('@c.us') ? assigneePhone : `55${assigneePhone.replace(/\D/g, '')}@c.us`;
+            await client.sendMessage(formatted, message);
+            console.log(`📤 Task notification sent to ${formatted}`);
+            whatsappSent = true;
+        } catch (err) {
+            console.error('Failed to send WhatsApp task notification', err);
+        }
+    }
+
+    // 2. Google Calendar Integration
+    let calendarSuccess = false;
+    let calendarError = 'Arquivo google-credentials.json não encontrado na pasta whatsapp-backend';
+    
+    if (insertCalendar !== false) {
+        try {
+            const credPath = path.join(__dirname, 'google-credentials.json');
+            if (fs.existsSync(credPath)) {
+                const auth = new google.auth.GoogleAuth({
+                    keyFile: credPath,
+                    scopes: ['https://www.googleapis.com/auth/calendar.events'],
+                });
+                const calendarAuth = await auth.getClient();
+                const calendar = google.calendar({ version: 'v3', auth: calendarAuth });
+
+                const eventDate = deadline ? new Date(deadline) : new Date();
+                const dateStr = eventDate.toISOString().split('T')[0];
+
+                const event = {
+                    summary: `[QUARK] ${title} - ${assignee}`,
+                    description: `Tarefa gerada pelo Quark OS\nPrioridade: ${priority}\nResponsável: ${assignee}`,
+                    start: { date: dateStr },
+                    end: { date: dateStr },
+                };
+
+                await calendar.events.insert({
+                    calendarId: 'vendas.quarkenergia@gmail.com',
+                    resource: event,
+                });
+                calendarSuccess = true;
+                calendarError = null;
+                console.log('✅ Task inserted into Google Calendar.');
+            } else {
+                console.log('⚠️ google-credentials.json não encontrado. Ignorando Google Agenda.');
+            }
+        } catch (err) {
+            console.error('Google Calendar Error:', err);
+            calendarError = err.message;
+        }
+    }
+
+    res.json({ ok: true, whatsappSent, calendarSuccess, calendarError });
 });
 
 // ─── Start Server ────────────────────────────────────────────────────────────

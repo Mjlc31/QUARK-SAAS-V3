@@ -23,6 +23,14 @@ export interface Lead {
   name: string;
   phone: string;
   email?: string;
+  cpfCnpj?: string;
+  rg?: string;
+  birthDate?: string;
+  expeditionDate?: string;
+  street?: string;
+  neighborhood?: string;
+  state?: string;
+  zipCode?: string;
   city: string;
   value: number; // Proposta Valor
   monthlyConsumption: number;
