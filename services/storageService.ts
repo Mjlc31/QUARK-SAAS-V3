@@ -192,30 +192,38 @@ export const storageService = {
     try {
       // 1. Fetch from Supabase
       const { data, error } = await supabase.from('leads').select('*');
-      if (error) throw error;
+
+      if (error) {
+        console.warn('⚠️ Supabase leads fetch error:', error.message, '| code:', error.code);
+        throw error;
+      }
+
+      console.log(`✅ Supabase leads: ${data?.length ?? 0} registros encontrados`);
 
       const localStr = localStorage.getItem('quark_leads');
       const localData: Lead[] = localStr ? JSON.parse(localStr) : [];
 
-      // 2. Initial Sync Logic: If Cloud is empty but Local has data, upload Local to Cloud
+      // 2. If Cloud is empty but Local has data, sync local → cloud
       if ((!data || data.length === 0) && localData.length > 0) {
-        console.log("☁️ Cloud empty, syncing local leads to cloud...");
+        console.log("☁️ Cloud vazio, sincronizando leads locais para a nuvem...");
         for (const lead of localData) {
           await supabase.from('leads').upsert({ id: lead.id, data: lead, updated_at: lead.updatedAt });
         }
         return localData;
       }
 
-      // 3. Normal Flow: Cloud has data
+      // 3. Normal Flow: Cloud has data — trust Supabase as source of truth
       if (data && data.length > 0) {
         const parsedData = data.map(row => row.data ? { ...row.data, id: row.id } : row);
         localStorage.setItem('quark_leads', JSON.stringify(parsedData));
         return parsedData as Lead[];
       }
 
-      return [];
+      // 4. Both empty → seed with demo data so app doesn't look broken
+      console.log("📋 Nenhum lead encontrado — retornando dados iniciais de demonstração");
+      return INITIAL_LEADS;
     } catch (err) {
-      console.warn("⚠️ Offline Mode (Leads):", err);
+      console.warn("⚠️ Modo Offline (Leads):", err);
       const local = localStorage.getItem('quark_leads');
       return local ? JSON.parse(local) : INITIAL_LEADS;
     }
