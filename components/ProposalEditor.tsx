@@ -57,7 +57,6 @@ export const ProposalEditor: React.FC<Props> = ({ data, onClose, onSave }) => {
         useCORS: true,
         backgroundColor: '#000000',
         windowWidth: 794,
-        allowTaint: true,
       });
 
       const imgData = canvas.toDataURL('image/png', 1.0);

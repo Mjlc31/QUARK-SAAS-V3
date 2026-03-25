@@ -251,7 +251,7 @@ const Dashboard: React.FC = () => {
                 <span className="flex items-center gap-2 text-zinc-400"><div className="w-2 h-2 rounded-full bg-zinc-600"></div>Pipeline</span>
              </div>
           </div>
-          <div className="h-[320px] w-full">
+          <div className="h-[250px] md:h-[320px] w-full -ml-4 md:ml-0">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData}>
                 <defs>

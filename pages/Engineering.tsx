@@ -216,7 +216,7 @@ const Engineering: React.FC = () => {
                   </div>
 
                   {/* Actions Row */}
-                  <div className="flex flex-wrap gap-2 mb-8 ml-10">
+                  <div className="flex flex-wrap gap-2 mb-8 ml-0 md:ml-10 mt-4 md:mt-0">
                      <button className="bg-[#a1bdd914] hover:bg-[#a1bdd929] px-3 py-1.5 rounded text-sm font-bold flex items-center gap-2 text-[#c7d1db] transition-colors"><Plus size={14}/> Adicionar</button>
                      <button className="bg-[#a1bdd914] hover:bg-[#a1bdd929] px-3 py-1.5 rounded text-sm font-bold flex items-center gap-2 text-[#c7d1db] transition-colors"><Tag size={14}/> Etiquetas</button>
                      <button className="bg-[#a1bdd914] hover:bg-[#a1bdd929] px-3 py-1.5 rounded text-sm font-bold flex items-center gap-2 text-[#c7d1db] transition-colors"><Clock size={14}/> Datas</button>

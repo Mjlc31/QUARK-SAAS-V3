@@ -268,7 +268,12 @@ const Calculator: React.FC = () => {
       for (let i = 1; i <= 5; i++) {
          const pageElement = proposalRef.current.querySelector(`#page-${i}`) as HTMLElement;
          if (pageElement) {
-            const canvas = await html2canvas(pageElement, { scale: 2, useCORS: true, logging: false });
+            const canvas = await html2canvas(pageElement, { 
+               scale: 2, 
+               useCORS: true, 
+               logging: false,
+               windowWidth: 794 
+            });
             const imgData = canvas.toDataURL('image/png');
             
             if (i > 1) {
@@ -313,7 +318,7 @@ const Calculator: React.FC = () => {
 
       {/* Hidden Proposal Template for html2canvas generation */}
       {result && (
-         <div className="absolute top-[-9999px] left-[-9999px] opacity-0 pointer-events-none z-[-1]">
+         <div className="fixed top-[200vh] left-0 opacity-0 pointer-events-none -z-50">
              <ProposalTemplate 
                ref={proposalRef}
                clientName={proposalCustom.clientName || clientName || 'Cliente'}
@@ -394,7 +399,7 @@ const Calculator: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="group">
                 <label className="text-[10px] font-bold text-slate-500 tracking-wider uppercase mb-1.5 block group-focus-within:text-lime-400 transition-colors">Consumo Mensal</label>
                 <div className="relative">
@@ -488,7 +493,7 @@ const Calculator: React.FC = () => {
                   className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white text-sm font-bold focus:border-sky-500/50 outline-none transition-all"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="group">
                   <label className="text-[10px] font-bold text-slate-500 tracking-wider uppercase mb-1.5 block group-focus-within:text-sky-400">Taxa C.E.T (% a.m.)</label>
                   <input
@@ -539,7 +544,7 @@ const Calculator: React.FC = () => {
                 className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-lime-500 hover:accent-lime-400 transition-all"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="group">
                 <label className="text-[10px] font-bold text-slate-500 tracking-wider uppercase mb-1.5 block group-focus-within:text-lime-400">Inflação Tarifária (% a.a.)</label>
                 <input type="number" step="0.5" value={energyInflation} onChange={(e) => setEnergyInflation(Number(e.target.value))} className="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white font-bold outline-none focus:border-lime-500/50 transition-all" />
@@ -568,7 +573,7 @@ const Calculator: React.FC = () => {
                 </div>
               </div>
               {isCreditCard && (
-                <div className="grid grid-cols-2 gap-4 mt-5 animate-enter">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5 animate-enter">
                   <div className="group">
                     <label className="text-[10px] font-bold text-slate-500 tracking-wider uppercase mb-1.5 block group-focus-within:text-amber-400">Máx. Parcelas</label>
                     <select value={cardInstallments} onChange={e => setCardInstallments(Number(e.target.value))}
@@ -643,7 +648,7 @@ const Calculator: React.FC = () => {
                     <h3 className="text-xl font-bold text-white tracking-tight">Economia Projetada</h3>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <div>
                       <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Redução Mensal Média</p>
                       <div className="flex items-baseline gap-2 mb-2">
@@ -665,7 +670,7 @@ const Calculator: React.FC = () => {
                       )}
                     </div>
 
-                    <div className="h-[180px] w-full bg-black/40 rounded-2xl p-4 border border-white/5 shadow-inner">
+                    <div className="h-[200px] md:h-[180px] w-full bg-black/40 rounded-2xl p-4 border border-white/5 shadow-inner">
                       <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4 text-center">Antes vs Depois (Estimativa)</p>
                       <ResponsiveContainer width="100%" height="80%">
                         <BarChart data={comparisonData.map(d => ({ ...d, valorDisplay: d.valor }))} layout="vertical" barSize={32}>
@@ -713,19 +718,19 @@ const Calculator: React.FC = () => {
             </div>
 
             {/* 3. CASH FLOW CHART (8 Cols) */}
-            <div className="md:col-span-8 bg-white/5 backdrop-blur-3xl rounded-3xl border border-white/5 p-8 h-[380px] flex flex-col">
-              <div className="flex justify-between items-center mb-8">
+            <div className="md:col-span-8 bg-white/5 backdrop-blur-3xl rounded-3xl border border-white/5 p-4 md:p-8 md:h-[380px] flex flex-col min-h-[300px]">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-8 gap-4">
                 <div>
                   <h3 className="text-base font-bold text-white tracking-tight">Fluxo de Caixa Acumulado</h3>
                   <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-1 font-bold">Projeção conservadora 25 anos</p>
                 </div>
-                <div className="flex gap-4 text-[10px] font-bold uppercase tracking-wider bg-black/40 px-3 py-1.5 rounded-lg border border-white/5">
+                <div className="flex gap-4 text-[10px] font-bold uppercase tracking-wider bg-black/40 px-3 py-1.5 rounded-lg border border-white/5 w-full md:w-auto overflow-x-auto whitespace-nowrap">
                   <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-lime-500/80 shadow-[0_0_8px_rgba(132,204,34,0.6)]"></div>Acumulado Solar</div>
                   <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-red-500/80 shadow-[0_0_8px_rgba(239,68,68,0.6)]"></div>Custo Sem Solar</div>
                 </div>
               </div>
-              <div className="flex-1">
-                <ResponsiveContainer width="100%" height="100%">
+              <div className="flex-1 -ml-4 md:ml-0">
+                <ResponsiveContainer width="100%" height={260}>
                   <AreaChart data={cashFlowData}>
                     <defs>
                       <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">

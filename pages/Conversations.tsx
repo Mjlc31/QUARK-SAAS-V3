@@ -69,7 +69,7 @@ const Conversations: React.FC = () => {
             setBackendOnline(false);
         });
 
-        newSocket.on('whatsapp_qr', (qrBuffer) => {
+        newSocket.on('whatsapp_qr', (qrBuffer: string) => {
             setQrCode(qrBuffer);
             setIsConnected(false);
             startCountdown();
@@ -86,15 +86,15 @@ const Conversations: React.FC = () => {
             setQrCode(null);
         });
 
-        newSocket.on('agent_status', (data) => {
+        newSocket.on('agent_status', (data: { enabled: boolean }) => {
             setAgentEnabled(data.enabled);
         });
         
-        newSocket.on('active_contacts_sync', (data) => {
+        newSocket.on('active_contacts_sync', (data: { contacts: string[] }) => {
             setActiveContacts(new Set(data.contacts));
         });
         
-        newSocket.on('contact_activated', (data) => {
+        newSocket.on('contact_activated', (data: { active: boolean, contactId: string }) => {
             setActiveContacts(prev => {
                 const next = new Set(prev);
                 if(data.active) next.add(data.contactId);
@@ -103,7 +103,7 @@ const Conversations: React.FC = () => {
             });
         });
 
-        newSocket.on('contact_paused', (data) => {
+        newSocket.on('contact_paused', (data: { paused: boolean, contactId: string }) => {
             setPausedContacts(prev => {
                 const next = new Set(prev);
                 if(data.paused) next.add(data.contactId);
@@ -112,7 +112,7 @@ const Conversations: React.FC = () => {
             });
         });
 
-        newSocket.on('whatsapp_message', (msg) => {
+        newSocket.on('whatsapp_message', (msg: any) => {
             setChats((prevChats) => {
                 const rawSenderId = msg.chatId.replace('@s.whatsapp.net', '');
                 const existingChatIndex = prevChats.findIndex(c => c.id.replace('@s.whatsapp.net', '') === rawSenderId);

@@ -816,7 +816,7 @@ const Financial: React.FC = () => {
                                     className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-lime-500 transition-colors shadow-inner" />
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Categoria</label>
                                     <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value as Category }))}
@@ -835,7 +835,7 @@ const Financial: React.FC = () => {
                                 </div>
                             </div>
                             
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Data do Lançamento</label>
                                     <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))}

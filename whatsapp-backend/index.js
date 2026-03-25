@@ -2,7 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const { Client, LocalAuth } = require('whatsapp-web.js');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
 const cron = require('node-cron');
@@ -10,6 +9,7 @@ const spinAgent = require('./spinAgent');
 const fs = require('fs');
 const path = require('path');
 const { google } = require('googleapis');
+const axios = require('axios');
 
 const supabase = createClient(
     process.env.SUPABASE_URL,
@@ -19,45 +19,44 @@ const supabase = createClient(
 // ─── Express + Socket.io ───────────────────────────────────────────────────
 const app = express();
 app.use(cors({ origin: '*' }));
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
 
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: { origin: '*', methods: ['GET', 'POST'] }
 });
 
-// ─── Health endpoint ────────────────────────────────────────────────────────
-app.get('/health', (req, res) => {
-    res.json({
-        status: 'ok',
-        whatsapp: clientReady ? 'connected' : 'waiting',
-        hasQR: !!qrCodeData
-    });
+// ─── Evolution Go Config ───────────────────────────────────────────────────
+const EVOLUTION_API_URL = 'http://localhost:8080';
+const EVOLUTION_API_KEY = 'quark_senha_secreta_123';
+const INSTANCE_NAME = 'quark';
+
+const evoClient = axios.create({
+    baseURL: EVOLUTION_API_URL,
+    headers: {
+        'apikey': EVOLUTION_API_KEY,
+        'Content-Type': 'application/json'
+    }
 });
 
-// ─── State ───────────────────────────────────────────────────────────────────
+// ─── State ────────────────────────────────────────────────────────────────
 let qrCodeData = null;
 let clientReady = false;
-
-// 🤖 Agent toggle — starts OFF by default for safety
 let agentEnabled = false;
-
-// ✅ Per-contact opt-in: bot só responde quem você ATIVAR explicitamente
 const activeContacts = new Set();
 
-// ─── Funções de Persistência ────────────────────────────────────────────────
+// ─── Persistência de Bot Status ───────────────────────────────────────────
 async function saveBotStatus(contactId, status) {
     if (!supabase) return;
     try {
-        const id = contactId.replace('@c.us', '');
-        // Buscar o lead atual
+        const id = contactId.replace('@s.whatsapp.net', '').replace('@c.us', '');
         const { data: lead } = await supabase.from('leads').select('data').eq('id', id).single();
         if (lead) {
             const newData = { ...lead.data, bot_status: status };
             await supabase.from('leads').update({ data: newData }).eq('id', id);
         }
     } catch (err) {
-        console.error('Erro ao salvar bot_status no Supabase:', err.message);
+        console.error('Erro ao salvar bot_status:', err.message);
     }
 }
 
@@ -66,70 +65,138 @@ async function loadBotStates() {
     try {
         const { data: leads } = await supabase.from('leads').select('id, data');
         if (leads) {
-            let activeCount = 0;
-            let pausedCount = 0;
             leads.forEach(lead => {
                 const status = lead.data?.bot_status;
                 if (!status) return;
-                const chatId = lead.id + '@c.us';
-                if (status === 'active') {
-                    activeContacts.add(chatId);
-                    spinAgent.resumeContact(chatId);
-                    activeCount++;
-                } else if (status === 'paused') {
-                    activeContacts.add(chatId);
-                    spinAgent.pauseContact(chatId);
-                    pausedCount++;
-                }
+                const chatId = lead.id + '@s.whatsapp.net';
+                if (status === 'active') { activeContacts.add(chatId); spinAgent.resumeContact(chatId); }
+                else if (status === 'paused') { activeContacts.add(chatId); spinAgent.pauseContact(chatId); }
             });
-            console.log(`✅ Loaded Bot States from CRM: ${activeCount} active, ${pausedCount} paused`);
         }
-    } catch (err) {
-        console.error('Erro ao carregar bot_status:', err.message);
+    } catch (err) { /* Supabase opcional */ }
+}
+loadBotStates();
+
+// ─── Envio de mensagem via Evolution Go ──────────────────────────────────
+async function sendWhatsAppMessage(number, text) {
+    try {
+        let num = number
+            .replace('@s.whatsapp.net', '')
+            .replace('@c.us', '')
+            .replace(/\D/g, '');
+        await evoClient.post(`/message/sendText`, {
+            instanceName: INSTANCE_NAME,
+            number: num,
+            text
+        });
+        return true;
+    } catch (error) {
+        console.error('Erro ao enviar mensagem:', error?.response?.data || error.message);
+        return false;
     }
 }
 
-// Carregar estados no boot (ou quando ligar)
-loadBotStates();
+// ─── Polling para buscar QR code (Evolution Go não faz push automático) ──
+let qrPollingInterval = null;
 
-// Cache para evitar loop de auto-reply (contactId → timestamp)
-const autoReplyCache = new Map();
+async function startQRPolling() {
+    if (qrPollingInterval) clearInterval(qrPollingInterval);
+    console.log('⏳ Iniciando polling de QR Code...');
+    
+    qrPollingInterval = setInterval(async () => {
+        if (clientReady) {
+            clearInterval(qrPollingInterval);
+            qrPollingInterval = null;
+            return;
+        }
+        try {
+            // Tenta buscar o QR code da instância
+            const { data } = await evoClient.get(`/instance/${INSTANCE_NAME}/qrcode`);
+            if (data?.base64 && data.base64 !== qrCodeData) {
+                qrCodeData = data.base64;
+                // Garante que começa com data:image/
+                const qrToSend = qrCodeData.startsWith('data:') ? qrCodeData : `data:image/png;base64,${qrCodeData}`;
+                io.emit('whatsapp_qr', qrToSend);
+                console.log('📱 QR Code atualizado e emitido para o frontend.');
+            }
 
-const AUTO_REPLY_COOLDOWN_MS = 1000 * 60 * 60 * 12; // 12 horas
+            // Verifica se conectou
+            const { data: status } = await evoClient.get(`/instance/${INSTANCE_NAME}/status`);
+            if (status?.status === 'connected' || status?.connected === true) {
+                console.log('✅ WhatsApp CONECTADO via Evolution Go!');
+                clientReady = true;
+                qrCodeData = null;
+                io.emit('whatsapp_ready');
+                clearInterval(qrPollingInterval);
+                qrPollingInterval = null;
+            }
+        } catch (e) {
+            // Silencioso — a instância pode estar inicializando
+        }
+    }, 3000);
+}
 
-// ─── REST Endpoints ───────────────────────────────────────────────────────────
+// ─── Inicializa ou Reconecta a Instância ─────────────────────────────────
+async function initInstance() {
+    try {
+        console.log('🔄 Inicializando instância Evolution Go...');
 
-// Status geral
+        // 1. Tenta verificar se a instância já existe pelo status
+        try {
+            const { data: status } = await evoClient.get(`/instance/${INSTANCE_NAME}/status`);
+            if (status?.status === 'connected' || status?.connected === true) {
+                console.log('✅ Instância já conectada!');
+                clientReady = true;
+                io.emit('whatsapp_ready');
+                return;
+            }
+        } catch (e) {
+            // Instância não existe ainda — vamos criar
+        }
+
+        // 2. Cria a instância
+        try {
+            await evoClient.post('/instance/create', { instanceName: INSTANCE_NAME });
+            console.log(`🆕 Instância "${INSTANCE_NAME}" criada.`);
+        } catch (createErr) {
+            // Já existe ou outro erro — não é crítico, seguimos
+            const msg = createErr?.response?.data?.message || createErr.message;
+            console.log(`⚠️  Create: ${msg}`);
+        }
+
+        // 3. Começa polling para buscar o QR
+        await startQRPolling();
+
+    } catch (err) {
+        console.error('Erro ao iniciar instância:', err?.response?.data || err.message);
+    }
+}
+
+// ─── REST Endpoints ──────────────────────────────────────────────────────
+app.get('/health', async (req, res) => {
+    let evoStatus = 'disconnected';
+    try {
+        const { data } = await evoClient.get(`/instance/${INSTANCE_NAME}/status`);
+        evoStatus = (data?.status === 'connected' || data?.connected) ? 'connected' : 'waiting';
+    } catch (e) {}
+    res.json({ status: 'ok', whatsapp: evoStatus, hasQR: !!qrCodeData });
+});
+
 app.get('/status', (req, res) => {
     res.json({ whatsapp: clientReady, agent: agentEnabled, qr: !!qrCodeData });
 });
 
-// Liga/desliga o agente IA
-app.post('/agent/toggle', (req, res) => {
-    agentEnabled = !agentEnabled;
-    io.emit('agent_status', { enabled: agentEnabled });
-    console.log(`🤖 Agente IA ${agentEnabled ? 'LIGADO ✅' : 'DESLIGADO 🔴'}`);
-    res.json({ agent: agentEnabled });
+app.post('/whatsapp/connect', async (req, res) => {
+    clientReady = false;
+    qrCodeData = null;
+    await initInstance();
+    res.json({ status: 'connecting' });
 });
 
-app.post('/agent/on', (req, res) => {
-    agentEnabled = true;
-    io.emit('agent_status', { enabled: true });
-    console.log('🤖 Agente IA LIGADO ✅');
-    res.json({ agent: true });
-});
-
-app.post('/agent/off', (req, res) => {
-    agentEnabled = false;
-    io.emit('agent_status', { enabled: false });
-    console.log('🤖 Agente IA DESLIGADO 🔴');
-    res.json({ agent: false });
-});
-
-// Desconectar WhatsApp
 app.post('/disconnect', async (req, res) => {
     try {
-        await client.logout();
+        if (qrPollingInterval) { clearInterval(qrPollingInterval); qrPollingInterval = null; }
+        await evoClient.delete(`/instance/${INSTANCE_NAME}`);
         clientReady = false;
         qrCodeData = null;
         io.emit('whatsapp_disconnected', { reason: 'Manual logout' });
@@ -139,354 +206,239 @@ app.post('/disconnect', async (req, res) => {
     }
 });
 
-// Pausar agente para um contato específico (vendedor assume)
+app.post('/agent/toggle', (req, res) => {
+    agentEnabled = !agentEnabled;
+    io.emit('agent_status', { enabled: agentEnabled });
+    console.log(`🤖 Agente IA ${agentEnabled ? 'LIGADO ✅' : 'DESLIGADO 🔴'}`);
+    res.json({ agent: agentEnabled });
+});
+
+app.post('/agent/on', (req, res) => { agentEnabled = true; io.emit('agent_status', { enabled: true }); res.json({ agent: true }); });
+app.post('/agent/off', (req, res) => { agentEnabled = false; io.emit('agent_status', { enabled: false }); res.json({ agent: false }); });
+
 app.post('/agent/pause/:contactId', (req, res) => {
     const id = decodeURIComponent(req.params.contactId);
-    spinAgent.pauseContact(id);
-    saveBotStatus(id, 'paused');
+    spinAgent.pauseContact(id); saveBotStatus(id, 'paused');
     io.emit('contact_paused', { contactId: id, paused: true });
-    res.json({ ok: true, paused: true, contactId: id });
+    res.json({ ok: true, paused: true });
 });
 
-// Retomar agente para um contato
 app.post('/agent/resume/:contactId', (req, res) => {
     const id = decodeURIComponent(req.params.contactId);
-    spinAgent.resumeContact(id);
-    saveBotStatus(id, 'active');
+    spinAgent.resumeContact(id); saveBotStatus(id, 'active');
     io.emit('contact_paused', { contactId: id, paused: false });
-    res.json({ ok: true, paused: false, contactId: id });
+    res.json({ ok: true, paused: false });
 });
 
-// Ativar agente para um contato específico (opt-in)
 app.post('/agent/activate/:contactId', (req, res) => {
     const id = decodeURIComponent(req.params.contactId);
-    activeContacts.add(id);
-    spinAgent.resumeContact(id); // garante que não está pausado
-    saveBotStatus(id, 'active');
+    activeContacts.add(id); spinAgent.resumeContact(id); saveBotStatus(id, 'active');
     io.emit('contact_activated', { contactId: id, active: true });
-    console.log(`✅ Agente ATIVADO para: ${id}`);
-    res.json({ ok: true, active: true, contactId: id });
+    res.json({ ok: true, active: true });
 });
 
-// Desativar agente para um contato
 app.post('/agent/deactivate/:contactId', (req, res) => {
     const id = decodeURIComponent(req.params.contactId);
-    activeContacts.delete(id);
-    saveBotStatus(id, null);
+    activeContacts.delete(id); saveBotStatus(id, null);
     io.emit('contact_activated', { contactId: id, active: false });
-    console.log(`🔴 Agente DESATIVADO para: ${id}`);
-    res.json({ ok: true, active: false, contactId: id });
+    res.json({ ok: true, active: false });
 });
 
-// Stats do funil de conversas
-app.get('/agent/stats', (req, res) => {
-    res.json(spinAgent.getStats());
-});
+app.get('/agent/stats', (req, res) => res.json(spinAgent.getStats()));
+app.get('/pricing', (req, res) => res.json({ ok: true, pricing: spinAgent.getPriceTable() }));
 
-// Tabela de preços atualizada da planilha (para o Calculator do frontend)
-app.get('/pricing', (req, res) => {
-    res.json({ ok: true, pricing: spinAgent.getPriceTable() });
-});
-
-// Sugestão de IA lendo o histórico real
 app.post('/agent/suggest/:contactId', async (req, res) => {
     try {
         const { messages } = req.body;
         const suggestion = await spinAgent.generateSuggestionForHuman(messages);
         res.json({ ok: true, suggestion });
-    } catch (err) {
-        console.error('Erro na rota de suggestion:', err.message);
-        res.status(500).json({ error: 'Falha ao gerar sugestão' });
-    }
+    } catch (err) { res.status(500).json({ error: 'Falha ao gerar sugestão' }); }
 });
 
-// Resgatar os dados avançados da memória do Agente (fase, valor da conta, cidade)
 app.get('/agent/context/:contactId', (req, res) => {
     const id = decodeURIComponent(req.params.contactId);
-    const context = spinAgent.getContactContext(id);
-    if (!context) {
-        return res.json({ ok: true, context: null });
-    }
-    res.json({ ok: true, context });
+    res.json({ ok: true, context: spinAgent.getContactContext(id) || null });
 });
 
-
-
-// ─── WhatsApp Client ─────────────────────────────────────────────────────────
-console.log('🟡 Starting WhatsApp Client...');
-
-const client = new Client({
-    authStrategy: new LocalAuth({ clientId: 'quark-energia' }),
-    puppeteer: {
-        // Hardened flags for Windows / Docker / CI environments
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--disable-gpu',
-            '--window-size=1280,800',
-            '--disable-extensions',
-            '--disable-background-timer-throttling',
-            '--disable-backgrounding-occluded-windows',
-            '--disable-renderer-backgrounding',
-            '--no-first-run',
-            '--no-zygote',
-            '--deterministic-fetch',
-        ],
-        headless: true,
-        timeout: 60000,
-    },
-    // Increase timeouts for slow networks
-    webVersionCache: {
-        type: 'remote',
-        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1017491294-alpha.html',
-    }
-});
-
-// ─── WhatsApp Events ─────────────────────────────────────────────────────────
-client.on('qr', (qr) => {
-    console.log('📲 QR RECEIVED — scan with your phone now!');
-    qrCodeData = qr;
-    clientReady = false;
-    io.emit('whatsapp_qr', qr);
-});
-
-client.on('loading_screen', (percent, message) => {
-    console.log(`⏳ Loading: ${percent}% — ${message}`);
-    io.emit('whatsapp_loading', { percent, message });
-});
-
-client.on('authenticated', () => {
-    console.log('🔐 Authenticated — session saved.');
-    io.emit('whatsapp_authenticated');
-});
-
-client.on('auth_failure', (msg) => {
-    console.error('❌ Auth failure:', msg);
-    qrCodeData = null;
-    clientReady = false;
-    io.emit('whatsapp_auth_failure', { message: msg });
-});
-
-client.on('ready', () => {
-    console.log('✅ WhatsApp Client READY — connected & operational!');
-    qrCodeData = null;
-    clientReady = true;
-    io.emit('whatsapp_ready');
-});
-
-client.on('disconnected', (reason) => {
-    console.warn('⚠️  Client disconnected:', reason);
-    qrCodeData = null;
-    clientReady = false;
-    io.emit('whatsapp_disconnected', { reason });
-
-    // Auto-restart after a short delay
-    setTimeout(() => {
-        console.log('🔄 Attempting to re-initialize WhatsApp client...');
-        client.initialize().catch(err => console.error('Re-init error:', err));
-    }, 5000);
-});
-
-client.on('message_create', async (msg) => {
+// ─── Evolution Go WEBHOOK ────────────────────────────────────────────────
+app.post('/webhook/evolution', async (req, res) => {
     try {
-        const chat = await msg.getChat();
-        const contact = await msg.getContact();
+        const payload = req.body;
+        const event = payload.event || payload.type;
+        const data = payload.data || payload;
 
-        let finalBody = msg.body;
-        if (msg.hasMedia || ['ptt', 'audio', 'image', 'video', 'document', 'vcard', 'sticker'].includes(msg.type)) {
-            if (!finalBody) {
-                if (msg.type === 'image') finalBody = '📸 [Imagem]';
-                else if (msg.type === 'video') finalBody = '🎥 [Vídeo]';
-                else if (msg.type === 'audio' || msg.type === 'ptt') finalBody = '🎵 [Mensagem de Voz]';
-                else if (msg.type === 'vcard') finalBody = '📇 [Contato]';
-                else if (msg.type === 'sticker') finalBody = '✨ [Figurinha]';
-                else finalBody = '📄 [Documento/Arquivo]';
-            } else {
-                if (msg.type === 'image') finalBody = `📸 [Imagem] ${finalBody}`;
-                else if (msg.type === 'video') finalBody = `🎥 [Vídeo] ${finalBody}`;
-                else finalBody = `📎 [Anexo] ${finalBody}`;
+        console.log(`🔔 Webhook recebido: ${event}`);
+
+        // Evento de conexão/QR
+        if (event === 'CONNECTION_UPDATE' || event === 'connection.update') {
+            const state = data?.state || data?.status;
+            const base64 = data?.base64 || data?.qr;
+
+            if (state === 'open' || state === 'connected') {
+                console.log('✅ Evolution: WhatsApp CONECTADO!');
+                clientReady = true; qrCodeData = null;
+                if (qrPollingInterval) { clearInterval(qrPollingInterval); qrPollingInterval = null; }
+                io.emit('whatsapp_ready');
+            } else if (base64) {
+                qrCodeData = base64;
+                const qrToSend = qrCodeData.startsWith('data:') ? qrCodeData : `data:image/png;base64,${qrCodeData}`;
+                io.emit('whatsapp_qr', qrToSend);
+                console.log('📱 QR Code recebido via webhook.');
+            } else if (state === 'close' || state === 'disconnected') {
+                clientReady = false; qrCodeData = null;
+                io.emit('whatsapp_disconnected', { reason: data?.statusReason });
             }
         }
 
-        const messageData = {
-            id: msg.id.id,
-            body: finalBody,
+        // Evento de mensagem
+        if (event === 'MESSAGES_UPSERT' || event === 'messages.upsert') {
+            const msg = data?.messages?.[0] || data?.message || data;
+            if (!msg) return res.status(200).send('Ignored');
 
-            from_user: msg.from,
-            to_user: msg.to,
-            chat_id: msg.fromMe ? msg.to : msg.from,
-            from_me: msg.fromMe,
-            timestamp: msg.timestamp,
-            chat_name: chat.name || contact.pushname || contact.number,
-            is_group: chat.isGroup,
-        };
+            const key = msg.key || msg;
+            const remoteJid = key.remoteJid || msg.from || msg.chatId;
+            if (!remoteJid) return res.status(200).send('No JID');
 
-        // 1. Broadcast to all connected dashboards
-        io.emit('whatsapp_message', {
-            id: messageData.id,
-            body: messageData.body,
-            from: messageData.from_user,
-            to: messageData.to_user,
-            chatId: messageData.chat_id,
-            fromMe: messageData.from_me,
-            timestamp: messageData.timestamp,
-            chatName: messageData.chat_name,
-            isGroup: messageData.is_group,
-        });
+            const fromMe = key.fromMe || msg.fromMe || false;
+            const isGroup = remoteJid.includes('@g.us');
+            const senderName = msg.pushName || msg.chatName || remoteJid.split('@')[0];
 
-        // 2. Persist to Supabase (fire-and-forget)
-        supabase.from('whatsapp_messages').insert([messageData]).then(({ error }) => {
-            if (error && error.code !== '42P01') {
-                console.warn('Supabase insert error:', error.message);
-            }
-        });
+            let finalBody = '';
+            const msgContent = msg.message || msg;
+            if (msgContent?.conversation) finalBody = msgContent.conversation;
+            else if (msgContent?.extendedTextMessage?.text) finalBody = msgContent.extendedTextMessage.text;
+            else if (msgContent?.imageMessage) finalBody = `📸 [Imagem] ${msgContent.imageMessage.caption || ''}`;
+            else if (msgContent?.videoMessage) finalBody = `🎥 [Vídeo] ${msgContent.videoMessage.caption || ''}`;
+            else if (msgContent?.audioMessage) finalBody = `🎵 [Mensagem de Voz]`;
+            else if (typeof msg.body === 'string') finalBody = msg.body;
+            else finalBody = '📄 [Mídia/Arquivo]';
 
-        // 3. SPIN Selling IA — verifica: (a) agente global ON, (b) contato ativado
-        if (!msg.fromMe && !chat.isGroup && agentEnabled && activeContacts.has(messageData.chat_id)) {
-            // Bloco de pausa por contato (vendedor assumiu manualmente)
-            if (spinAgent.isContactPaused(msg.from)) return;
+            const messageData = {
+                id: key.id || msg.id,
+                body: finalBody,
+                from_user: fromMe ? 'me' : remoteJid,
+                to_user: fromMe ? remoteJid : 'me',
+                chat_id: remoteJid,
+                from_me: fromMe,
+                timestamp: msg.messageTimestamp || Math.floor(Date.now() / 1000),
+                chat_name: senderName,
+                is_group: isGroup,
+            };
 
-            try {
-                // Bloqueia mídias/áudios
-                if (msg.hasMedia || msg.type === 'ptt' || msg.type === 'audio' || msg.type === 'image') {
-                    await msg.reply('Desculpe, como sou o assistente virtual da equipe, ainda não consigo escutar áudios ou ver imagens 😅. \n\nPoderia me enviar por escrito por favor?');
-                    return;
+            io.emit('whatsapp_message', {
+                ...messageData,
+                chatId: messageData.chat_id,
+                fromMe: messageData.from_me,
+                chatName: messageData.chat_name,
+                isGroup: messageData.is_group,
+            });
+
+            supabase?.from('whatsapp_messages').insert([messageData]).then(({ error }) => {
+                if (error && error.code !== '42P01') console.warn('Supabase insert error:', error.message);
+            });
+
+            if (!fromMe && !isGroup && agentEnabled && activeContacts.has(remoteJid)) {
+                if (!spinAgent.isContactPaused(remoteJid)) {
+                    if (msgContent?.imageMessage || msgContent?.audioMessage || msgContent?.videoMessage) {
+                        await sendWhatsAppMessage(remoteJid, 'Desculpe, como sou o assistente virtual da Quark, ainda não consigo ver imagens ou ouvir áudios 😅. Poderia me enviar por escrito?');
+                    } else {
+                        try {
+                            const aiReply = await spinAgent.generateReply(remoteJid, senderName, finalBody);
+                            if (aiReply) {
+                                await sendWhatsAppMessage(remoteJid, aiReply);
+                                console.log(`🤖 SPIN reply enviado para ${senderName}`);
+                            }
+                        } catch (err) { console.error('SPIN Agent error:', err.message); }
+                    }
                 }
-
-                const contactName = contact.pushname || contact.name || contact.number;
-                const aiReply = await spinAgent.generateReply(msg.from, contactName, msg.body);
-                if (aiReply) {
-                    await msg.reply(aiReply);
-                    console.log(`🤖 SPIN reply enviado para ${contactName}`);
-                }
-            } catch (err) {
-                console.error('SPIN Agent error:', err.message);
             }
         }
+
+        res.status(200).send('OK');
     } catch (err) {
-        console.error('Error handling message:', err);
+        console.error('Webhook error:', err);
+        res.status(500).send('Error');
     }
 });
 
-// Initialize with error handling
-client.initialize().catch(err => {
-    console.error('Failed to initialize WhatsApp client:', err);
-});
-
-// ─── Socket.io Events ─────────────────────────────────────────────────────────
+// ─── Socket.io ────────────────────────────────────────────────────────────
 io.on('connection', (socket) => {
     console.log(`📡 Dashboard connected: ${socket.id}`);
-
-    // Sincroniza estado imediatamente para o dashboard recém-conectado
     socket.emit('agent_status', { enabled: agentEnabled });
     socket.emit('active_contacts_sync', { contacts: Array.from(activeContacts) });
+
     if (clientReady) {
         socket.emit('whatsapp_ready');
     } else if (qrCodeData) {
-        socket.emit('whatsapp_qr', qrCodeData);
+        const qrToSend = qrCodeData.startsWith('data:') ? qrCodeData : `data:image/png;base64,${qrCodeData}`;
+        socket.emit('whatsapp_qr', qrToSend);
+    } else {
+        // Auto-inicia a conexão ao abrir o dashboard
+        initInstance();
     }
 
-    // Send message from dashboard
-    socket.on('send_message', async ({ number, message }) => {
-        if (!clientReady) {
-            socket.emit('whatsapp_error', { message: 'WhatsApp not connected yet.' });
-            return;
-        }
-        try {
-            const formatted = number.includes('@c.us') ? number : `55${number.replace(/\D/g, '')}@c.us`;
-            await client.sendMessage(formatted, message);
-            console.log(`📤 Message sent to ${formatted}`);
-        } catch (err) {
-            console.error('Send error:', err);
-            socket.emit('whatsapp_error', { message: 'Failed to send message.' });
-        }
+    socket.on('generate_qr', async () => {
+        clientReady = false;
+        qrCodeData = null;
+        await initInstance();
     });
 
-    socket.on('disconnect', () => {
-        console.log(`📡 Dashboard disconnected: ${socket.id}`);
+    socket.on('send_message', async ({ number, message }) => {
+        if (!clientReady) return socket.emit('whatsapp_error', { message: 'WhatsApp não conectado.' });
+        const success = await sendWhatsAppMessage(number, message);
+        if (!success) socket.emit('whatsapp_error', { message: 'Falha ao enviar mensagem.' });
     });
+
+    socket.on('disconnect', () => console.log(`📡 Dashboard disconnected: ${socket.id}`));
 });
 
-// ─── Tarefas e Integração Google Agenda ──────────────────────────────────────
+// ─── Tarefas e Google Agenda ──────────────────────────────────────────────
 app.post('/agent/task-notify', async (req, res) => {
     const { title, assignee, assigneePhone, priority, deadline, notifyWhatsapp, insertCalendar } = req.body;
 
     let whatsappSent = false;
-    // 1. WhatsApp Notifications
     if (notifyWhatsapp && clientReady && assigneePhone) {
         const timeOfDay = new Date().getHours() < 12 ? 'Bom dia' : 'Boa tarde';
         const dateText = deadline ? new Date(deadline).toLocaleDateString('pt-BR') : 'Sem data definida';
         const emoji = priority === 'High' ? '🔴 URGENTE' : priority === 'Medium' ? '🟡 Atenção' : '🟢 Informativo';
-        
         const message = `*${timeOfDay}, ${assignee}!*\n\nVocê recebeu uma nova tarefa no Quark OS:\n\n*${emoji}: ${title}*\nPrazo: ${dateText}\n\nFavor confirmar recebimento no sistema.`;
-        
-        try {
-            const formatted = assigneePhone.includes('@c.us') ? assigneePhone : `55${assigneePhone.replace(/\D/g, '')}@c.us`;
-            await client.sendMessage(formatted, message);
-            console.log(`📤 Task notification sent to ${formatted}`);
-            whatsappSent = true;
-        } catch (err) {
-            console.error('Failed to send WhatsApp task notification', err);
-        }
+        whatsappSent = await sendWhatsAppMessage(assigneePhone, message);
     }
 
-    // 2. Google Calendar Integration
     let calendarSuccess = false;
-    let calendarError = 'Arquivo google-credentials.json não encontrado na pasta whatsapp-backend';
-    
+    let calendarError = 'Arquivo google-credentials.json não encontrado';
     if (insertCalendar !== false) {
         try {
             const credPath = path.join(__dirname, 'google-credentials.json');
             if (fs.existsSync(credPath)) {
-                const auth = new google.auth.GoogleAuth({
-                    keyFile: credPath,
-                    scopes: ['https://www.googleapis.com/auth/calendar.events'],
-                });
+                const auth = new google.auth.GoogleAuth({ keyFile: credPath, scopes: ['https://www.googleapis.com/auth/calendar.events'] });
                 const calendarAuth = await auth.getClient();
                 const calendar = google.calendar({ version: 'v3', auth: calendarAuth });
-
                 const eventDate = deadline ? new Date(deadline) : new Date();
                 const dateStr = eventDate.toISOString().split('T')[0];
-
-                const event = {
-                    summary: `[QUARK] ${title} - ${assignee}`,
-                    description: `Tarefa gerada pelo Quark OS\nPrioridade: ${priority}\nResponsável: ${assignee}`,
-                    start: { date: dateStr },
-                    end: { date: dateStr },
-                };
-
                 await calendar.events.insert({
                     calendarId: 'vendas.quarkenergia@gmail.com',
-                    resource: event,
+                    resource: {
+                        summary: `[QUARK] ${title} - ${assignee}`,
+                        description: `Tarefa gerada pelo Quark OS\nPrioridade: ${priority}\nResponsável: ${assignee}`,
+                        start: { date: dateStr }, end: { date: dateStr },
+                    },
                 });
-                calendarSuccess = true;
-                calendarError = null;
-                console.log('✅ Task inserted into Google Calendar.');
-            } else {
-                console.log('⚠️ google-credentials.json não encontrado. Ignorando Google Agenda.');
+                calendarSuccess = true; calendarError = null;
             }
-        } catch (err) {
-            console.error('Google Calendar Error:', err);
-            calendarError = err.message;
-        }
+        } catch (err) { calendarError = err.message; }
     }
 
     res.json({ ok: true, whatsappSent, calendarSuccess, calendarError });
 });
 
-// ─── Start Server ────────────────────────────────────────────────────────────
+// ─── Start Server ─────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, async () => {
     console.log(`\n🚀 Quark WhatsApp Backend running on http://localhost:${PORT}\n`);
-
-    // Sync inicial da planilha de preços
     await spinAgent.syncProductSheet();
-
-    // Sincroniza a cada 3 dias (à meia-noite)
     cron.schedule('0 0 */3 * *', async () => {
-        console.log('📅 Cron: sincronizando tabela de preços da planilha...');
+        console.log('📅 Cron: sincronizando tabela de preços...');
         await spinAgent.syncProductSheet();
     });
 });
