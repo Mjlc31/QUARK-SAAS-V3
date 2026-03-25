@@ -161,7 +161,7 @@ export const ProposalEditor: React.FC<Props> = ({ data, onClose, onSave }) => {
              <div className="p-16 flex-1 flex flex-col justify-center relative z-10">
                 <div className="mb-20">
                   <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mb-6 bg-black/50 backdrop-blur-md p-3 border border-white/10 ${themeClasses.glow} transition-colors duration-500`}>
-                     <img src="/logo.png" alt="Quark Logo" className="w-full h-full object-contain filter" crossOrigin="anonymous" />
+                     <img src="/logo.png" alt="Quark Logo" className="w-full h-full object-contain filter" />
                   </div>
                   <h1 className={`text-6xl ${fontTitle} font-bold tracking-tighter leading-none mb-4 transition-all duration-300 outline-none`} contentEditable suppressContentEditableWarning>
                     Projeto<br/>Solar<span className={themeClasses.text}>.</span>
@@ -196,37 +196,57 @@ export const ProposalEditor: React.FC<Props> = ({ data, onClose, onSave }) => {
 
              <div className="grid grid-cols-2 gap-8 mb-12">
                {/* Upload Image Card 1 */}
-               <div className="relative group overflow-hidden rounded-3xl h-72 border border-white/10 flex flex-col justify-end bg-zinc-900">
-                   <img src={imgSocial1} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt="Obra Quark" crossOrigin="anonymous" />
-                   <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent"></div>
-                   <div className="relative z-10 p-6">
+               <div 
+                  className="relative group overflow-hidden rounded-3xl h-72 border border-white/10 flex flex-col justify-end bg-zinc-900"
+                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  onDrop={(e) => {
+                     e.preventDefault(); e.stopPropagation();
+                     const file = e.dataTransfer.files?.[0];
+                     if (file && file.type.startsWith('image/')) {
+                        setImgSocial1(URL.createObjectURL(file));
+                     }
+                  }}
+               >
+                   <img src={imgSocial1} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt="Obra Quark" crossOrigin={imgSocial1.startsWith('http') ? 'anonymous' : undefined} />
+                   <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent pointer-events-none"></div>
+                   <div className="relative z-10 p-6 pointer-events-auto">
                       <h3 className={`text-xl font-bold mb-1 text-white outline-none ${themeClasses.text} transition-colors`} contentEditable suppressContentEditableWarning>+500 Projetos Entregues</h3>
                       <p className="text-zinc-300 font-light text-sm outline-none" contentEditable suppressContentEditableWarning>Usina de 50kWp entregue no prazo absoluto. Economia mensal gerada: R$ 8.500,00.</p>
                    </div>
-                   <div className="absolute top-4 right-4 bg-black/50 backdrop-blur-md p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-none text-white">
+                   <div className="absolute top-4 right-4 bg-black/50 backdrop-blur-md p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-none text-white shadow-lg">
                       <ImageIcon size={16} />
                    </div>
                    <input type="file" accept="image/*" onChange={e => {
                        const file = e.target.files?.[0];
                        if (file) setImgSocial1(URL.createObjectURL(file));
-                   }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-30" title="Clique para trocar imagem" />
+                   }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-30" title="Arraste uma imagem ou clique para trocar" />
                </div>
 
                {/* Upload Image Card 2 */}
-               <div className="relative group overflow-hidden rounded-3xl h-72 border border-white/10 flex flex-col justify-end bg-zinc-900">
-                   <img src={imgSocial2} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt="Obra Quark 2" crossOrigin="anonymous" />
-                   <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent"></div>
-                   <div className="relative z-10 p-6">
+               <div 
+                  className="relative group overflow-hidden rounded-3xl h-72 border border-white/10 flex flex-col justify-end bg-zinc-900"
+                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  onDrop={(e) => {
+                     e.preventDefault(); e.stopPropagation();
+                     const file = e.dataTransfer.files?.[0];
+                     if (file && file.type.startsWith('image/')) {
+                        setImgSocial2(URL.createObjectURL(file));
+                     }
+                  }}
+               >
+                   <img src={imgSocial2} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt="Obra Quark 2" crossOrigin={imgSocial2.startsWith('http') ? 'anonymous' : undefined} />
+                   <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent pointer-events-none"></div>
+                   <div className="relative z-10 p-6 pointer-events-auto">
                       <h3 className={`text-xl font-bold mb-1 text-white outline-none ${themeClasses.text} transition-colors`} contentEditable suppressContentEditableWarning>Zero Dor de Cabeça</h3>
                       <p className="text-zinc-300 font-light text-sm outline-none" contentEditable suppressContentEditableWarning>Instalação padrão Vale do Silício, com acabamento premium. Cliente focado no negócio, nós na energia.</p>
                    </div>
-                   <div className="absolute top-4 right-4 bg-black/50 backdrop-blur-md p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-none text-white">
+                   <div className="absolute top-4 right-4 bg-black/50 backdrop-blur-md p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-none text-white shadow-lg">
                       <ImageIcon size={16} />
                    </div>
                    <input type="file" accept="image/*" onChange={e => {
                        const file = e.target.files?.[0];
                        if (file) setImgSocial2(URL.createObjectURL(file));
-                   }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-30" title="Clique para trocar imagem" />
+                   }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-30" title="Arraste uma imagem ou clique para trocar" />
                </div>
              </div>
 

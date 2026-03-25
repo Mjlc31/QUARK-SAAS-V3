@@ -296,8 +296,8 @@ Podemos agendar uma breve apresentação da proposta?`;
       {/* CONTENT AREA */}
       {viewMode === 'board' ? (
         // --- BOARD VIEW (KANBAN) ---
-        <div className="flex-1 overflow-x-auto overflow-y-hidden pb-4 -mx-4 md:mx-0 px-4 md:px-0" onTouchMove={touchDrag ? handleTouchMove : undefined} onTouchEnd={touchDrag ? handleTouchEnd : undefined}>
-          <div className="flex flex-col md:flex-row gap-6 md:min-w-[1240px] h-full items-start">
+        <div className="flex-1 overflow-x-auto overflow-y-hidden pb-4 -mx-4 md:mx-0 px-4 md:px-0 custom-scrollbar" onTouchMove={touchDrag ? handleTouchMove : undefined} onTouchEnd={touchDrag ? handleTouchEnd : undefined}>
+          <div className="flex flex-row gap-6 min-w-max md:min-w-[1240px] h-full items-start px-4 md:px-0">
             {COLUMN_CONFIG.map(column => {
               const columnLeads = filteredLeads.filter(l => l.status === column.id);
               const columnTotalValue = getColumnTotal(column.id);
@@ -306,7 +306,7 @@ Podemos agendar uma breve apresentação da proposta?`;
                 <div
                   key={column.id}
                   data-column-id={column.id}
-                  className={`flex flex-col w-full md:w-[320px] shrink-0 h-[calc(100vh-14rem)] bg-zinc-900/40 backdrop-blur-sm border border-white/5 rounded-3xl overflow-hidden transition-all duration-300 shadow-2xl ${touchDrag && touchDrag.lead.status !== column.id ? 'bg-white/5 scale-[1.02] ring-2 ring-lime-500/50' : ''}`}
+                  className={`flex flex-col w-[85vw] md:w-[320px] shrink-0 h-full bg-zinc-900/40 backdrop-blur-sm border border-white/5 rounded-3xl overflow-hidden transition-all duration-300 shadow-2xl ${touchDrag && touchDrag.lead.status !== column.id ? 'bg-white/5 scale-[1.02] ring-2 ring-lime-500/50' : ''}`}
                   onDragOver={handleDragOver}
                   onDrop={(e) => handleDrop(e, column.id)}
                 >
