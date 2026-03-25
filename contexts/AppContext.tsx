@@ -65,9 +65,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // 1. Connection Health Check
     checkSupabaseConnection();
 
+    // Flag to prevent fetchData being called twice on first load
+    // (both getSession + onAuthStateChange fire on mount)
+    let initialLoadHandled = false;
+
     // 2. Check Supabase Session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
+        initialLoadHandled = true;
         const currentUser: User = {
           id: session.user.id,
           email: session.user.email!,
@@ -81,6 +86,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         // 3. Check Local Fallback Session (if Supabase failed previously)
         const offlineUserStr = localStorage.getItem('quark_offline_user');
         if (offlineUserStr) {
+          initialLoadHandled = true;
           const offlineUser: User = JSON.parse(offlineUserStr);
           setUser(offlineUser);
           fetchData();
@@ -95,7 +101,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
 
       if (session?.user) {
-        // Real session detected
+        // Skip if getSession already handled initial load (avoids double fetchData on mount)
+        if (initialLoadHandled && event === 'INITIAL_SESSION') return;
+        initialLoadHandled = true;
+
         const newUser: User = {
           id: session.user.id,
           email: session.user.email!,
@@ -109,9 +118,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         checkSupabaseConnection(); // Re-check connection on auth change
       } else if (!localStorage.getItem('quark_offline_user')) {
         // Only clear user if no offline fallback exists
-        setUser(null);
-        setLeads([]);
-        setTasks([]);
+        if (event !== 'INITIAL_SESSION') {
+          setUser(null);
+          setLeads([]);
+          setTasks([]);
+        }
       }
     });
 
