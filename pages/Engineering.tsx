@@ -106,7 +106,7 @@ const Engineering: React.FC = () => {
 
 
   return (
-    <div className="space-y-6 h-[calc(100vh-6rem)] md:h-[calc(100vh-2rem)] flex flex-col relative animate-enter pb-10">
+    <div className="space-y-6 h-[calc(100vh-10rem)] md:h-[calc(100vh-6rem)] lg:h-[calc(100vh-2rem)] flex flex-col relative animate-enter">
       <div className="flex justify-between items-center shrink-0">
         <div>
           <h1 className="text-3xl font-display font-bold text-white tracking-tight">Engenharia e Obras</h1>
@@ -117,14 +117,14 @@ const Engineering: React.FC = () => {
         </button>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden custom-scrollbar pb-4 -mx-4 md:mx-0 px-4 md:px-0 flex gap-6">
+      <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden custom-scrollbar snap-x-mandatory pb-4 -mx-4 md:mx-0 px-4 md:px-0 flex gap-4 md:gap-6">
         {COLUMNS.map(column => {
           const columnObras = projects.filter(o => o.status === column.id);
 
           return (
             <div
               key={column.id}
-              className={`flex flex-col w-[320px] shrink-0 h-full bg-zinc-900/40 backdrop-blur-sm border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative`}
+              className={`flex flex-col w-[88vw] sm:w-[320px] shrink-0 h-full bg-zinc-900/40 backdrop-blur-sm border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative snap-start`}
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, column.id)}
             >
@@ -134,6 +134,12 @@ const Engineering: React.FC = () => {
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+                {columnObras.length === 0 && (
+                  <div className="h-40 flex flex-col items-center justify-center border-2 border-dashed border-white/5 rounded-2xl text-zinc-600 gap-2">
+                     <HardHat size={24} className="opacity-20" />
+                     <p className="text-[11px] font-bold uppercase tracking-wider">Aguardando Obra</p>
+                  </div>
+                )}
                 {columnObras.map(obra => (
                   <div
                     key={obra.id}
@@ -174,7 +180,7 @@ const Engineering: React.FC = () => {
       {/* Modal / Card Panel da Obra */}
       {selectedObra && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-[#22272b] border border-[#a1bdd914] w-full max-w-5xl max-h-[90vh] rounded-xl shadow-2xl flex flex-col overflow-hidden animate-enter">
+          <div className="bg-[#22272b] border border-[#a1bdd914] w-full max-w-5xl max-h-[90vh] md:max-h-[90vh] rounded-none md:rounded-xl shadow-2xl flex flex-col overflow-hidden animate-enter h-full md:h-auto">
             
             {/* Header/Cover Section */}
             {selectedObra.attachments && selectedObra.attachments.length > 0 && isImageFile(selectedObra.attachments[0]) && (

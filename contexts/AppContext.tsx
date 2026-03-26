@@ -131,42 +131,58 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const checkSupabaseConnection = async () => {
     try {
-      // Simple lightweight query to check connectivity
       const { error } = await supabase.from('leads').select('id').limit(1);
-      // It's connected if there's no network error (even if table is empty or permission denied, the connection itself worked)
-      if (!error || (error.code !== 'PGRST301' && !error.message.includes('fetch'))) {
-        setIsSupabaseConnected(true);
-      } else {
-        setIsSupabaseConnected(false);
-      }
+      const isConnected = !error || (error.code !== 'PGRST301' && !error.message?.includes('fetch') && !error.message?.includes('network'));
+      setIsSupabaseConnected(isConnected);
+      if (!isConnected) console.warn("⚠️ Supabase offline:", error?.message);
     } catch (err) {
-      console.warn("Supabase Connectivity Check Failed");
+      console.warn("Supabase Connectivity Check Failed:", err);
       setIsSupabaseConnected(false);
     }
   };
 
-  const fetchData = async () => {
+  const fetchData = async (retryCount = 0) => {
     setIsLoading(true);
+    console.log(`🚀 Iniciando fetchData (Tentativa ${retryCount + 1})...`);
+    
     try {
-      const [loadedLeads, loadedTasks, loadedUsers, loadedProducts, loadedProjects] = await Promise.all([
-        storageService.getLeads(),
-        storageService.getTasks(),
-        storageService.getUsers(),
-        storageService.getProducts(),
-        storageService.getProjects()
-      ]);
+      // Carregamento Individual para Resiliência
+      // Se um falhar, os outros continuam.
+      
+      const loadSection = async (name: string, fetchFn: () => Promise<any>, stateFn: (data: any) => void) => {
+        try {
+          const startTime = performance.now();
+          const data = await fetchFn();
+          stateFn(data);
+          const duration = (performance.now() - startTime).toFixed(0);
+          console.log(`✅ [${name}] carregado: ${Array.isArray(data) ? data.length : '1'} itens (${duration}ms)`);
+          return true;
+        } catch (err) {
+          console.error(`❌ Erro ao carregar [${name}]:`, err);
+          return false;
+        }
+      };
 
-      setLeads(loadedLeads);
-      setTasks(loadedTasks);
-      setDirectoryUsers(loadedUsers);
-      setProducts(loadedProducts);
-      setProjects(loadedProjects);
+      await Promise.all([
+        loadSection('leads', () => storageService.getLeads(), setLeads),
+        loadSection('tasks', () => storageService.getTasks(), setTasks),
+        loadSection('users', () => storageService.getUsers(), setDirectoryUsers),
+        loadSection('products', () => storageService.getProducts(), setProducts),
+        loadSection('projects', () => storageService.getProjects(), setProjects)
+      ]);
 
       setActivities([
         { id: '1', user: 'Sistema', action: 'sincronizou', target: 'Dados Cloud', time: 'Agora' },
       ]);
+      
+      console.log(`📊 Sincronização finalizada.`);
     } catch (error) {
-      console.error('Erro ao buscar dados:', error);
+      console.error('⚠️ Erro crítico no fetchData:', error);
+      // Auto-retry once after 2 seconds on first failure (mobile cold start)
+      if (retryCount < 1) {
+        console.log('🔄 Tentando novamente em 2s...');
+        setTimeout(() => fetchData(retryCount + 1), 2000);
+      }
     } finally {
       setIsLoading(false);
     }

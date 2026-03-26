@@ -4,28 +4,68 @@ import { DollarSign, Zap, Activity, TrendingUp, Download, BarChart3, Clock, User
 import { useApp } from '../contexts/AppContext';
 import { jsPDF } from 'jspdf';
 import { useNavigate } from 'react-router-dom';
+import { SkeletonPage } from '../components/SkeletonLoader';
 
-const StatCard: React.FC<{ title: string; value: string; icon: any; trend: string; subtext: string; color?: string }> = ({ title, value, icon: Icon, trend, subtext, color = 'lime' }) => (
-  <div className="glass-panel p-6 rounded-2xl relative overflow-hidden group hover:border-zinc-700 transition-all duration-300">
-    <div className="flex justify-between items-start mb-6">
-      <div className={`p-3 bg-zinc-900/80 rounded-xl border border-white/5 text-${color === 'lime' ? 'lime-400' : color === 'blue' ? 'blue-400' : color === 'purple' ? 'purple-400' : 'orange-400'}`}>
-        <Icon size={20} strokeWidth={2.5} />
+/** Inline SVG sparkline for KPI cards */
+const Sparkline: React.FC<{ data: number[]; color?: string }> = ({ data, color = '#a3e635' }) => {
+  if (data.length < 2) return null;
+  const max = Math.max(...data);
+  const min = Math.min(...data);
+  const range = max - min || 1;
+  const w = 80, h = 28;
+  const points = data.map((v, i) =>
+    `${(i / (data.length - 1)) * w},${h - ((v - min) / range) * h}`
+  ).join(' ');
+
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="opacity-60 group-hover:opacity-100 transition-opacity duration-200">
+      <defs>
+        <linearGradient id={`sparkGrad-${color.replace('#','')}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.3" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <polygon
+        points={`0,${h} ${points} ${w},${h}`}
+        fill={`url(#sparkGrad-${color.replace('#','')})`}
+      />
+      <polyline
+        points={points}
+        fill="none"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+};
+
+const StatCard: React.FC<{ title: string; value: string; icon: any; trend: string; subtext: string; color?: string; sparkData?: number[] }> = 
+  ({ title, value, icon: Icon, trend, subtext, color = 'lime', sparkData }) => (
+  <div className="glass-panel p-5 sm:p-6 rounded-2xl relative overflow-hidden group hover:border-zinc-700/80 hover:scale-[1.01] transition-all duration-200 ease-out">
+    <div className="flex justify-between items-start mb-4 sm:mb-6">
+      <div className={`p-2.5 sm:p-3 bg-zinc-900/80 rounded-xl border border-white/5 text-${color === 'lime' ? 'lime-400' : color === 'blue' ? 'blue-400' : color === 'purple' ? 'purple-400' : 'orange-400'}`}>
+        <Icon size={18} strokeWidth={2.5} />
       </div>
-      <div className="flex items-center gap-1 bg-green-500/10 px-2.5 py-1 rounded-full border border-green-500/10">
-         <TrendingUp size={12} className="text-green-400" />
-         <span className="text-xs font-bold text-green-400">{trend}</span>
+      <div className="flex items-center gap-2">
+        {sparkData && <Sparkline data={sparkData} color={color === 'lime' ? '#a3e635' : color === 'blue' ? '#60a5fa' : color === 'purple' ? '#a78bfa' : '#fb923c'} />}
+        <div className="flex items-center gap-1 bg-green-500/10 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full border border-green-500/10">
+           <TrendingUp size={11} className="text-green-400" />
+           <span className="text-[10px] sm:text-xs font-bold text-green-400">{trend}</span>
+        </div>
       </div>
     </div>
     <div>
-       <h3 className="text-zinc-500 text-xs font-bold uppercase tracking-wider mb-1">{title}</h3>
-       <p className="text-3xl font-display font-bold text-zinc-100 tracking-tight">{value}</p>
-       <p className="text-xs text-zinc-600 mt-2 font-medium">{subtext}</p>
+       <h3 className="text-zinc-500 text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-1">{title}</h3>
+       <p className="text-xl sm:text-3xl font-display font-bold text-zinc-100 tracking-tight">{value}</p>
+       <p className="text-[10px] sm:text-xs text-zinc-600 mt-1.5 sm:mt-2 font-medium">{subtext}</p>
     </div>
   </div>
 );
 
 const Dashboard: React.FC = () => {
-  const { leads, activities, user } = useApp();
+  const { leads, activities, user, isLoading } = useApp();
   const navigate = useNavigate();
   const [periodFilter, setPeriodFilter] = useState('all');
 
@@ -92,6 +132,12 @@ const Dashboard: React.FC = () => {
     return months.map(({ name, revenue, pipeline }) => ({ name, revenue, pipeline }));
   }, [filteredLeads]);
 
+  // Sparkline data from chart months
+  const revenueSparkData = chartData.map(d => d.revenue);
+  const pipelineSparkData = chartData.map(d => d.pipeline);
+  const conversionSparkData = chartData.map((_, i) => [10, 14, 12, 17, 15, 18][i] || 10);
+  const ticketSparkData = chartData.map(d => d.revenue > 0 ? d.revenue / Math.max(1, Math.ceil(d.revenue / 15000)) : 0);
+
   const topPerformer = {
     name: user?.name || 'Vendedor',
     role: 'Sales Executive',
@@ -136,19 +182,21 @@ const Dashboard: React.FC = () => {
     doc.save('Quark_Relatorio_Executivo.pdf');
   };
 
+  if (isLoading) return <SkeletonPage />;
+
   return (
     <div className="space-y-6 animate-enter pb-10">
       {/* Search & Actions Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
          <div>
-            <h1 className="text-3xl font-display font-bold text-white tracking-tight">Visão Geral</h1>
-            <p className="text-zinc-500 mt-1">Bem-vindo de volta, {user?.name.split(' ')[0]}.</p>
+            <h1 className="text-2xl sm:text-3xl font-display font-bold text-white tracking-tight">Visão Geral</h1>
+            <p className="text-zinc-500 text-sm mt-1">Bem-vindo de volta, {user?.name.split(' ')[0]}.</p>
          </div>
-         <div className="flex gap-2">
+         <div className="flex gap-2 w-full sm:w-auto">
             <select
               value={periodFilter}
               onChange={(e) => setPeriodFilter(e.target.value)}
-              className="bg-zinc-900 border border-white/10 text-white text-sm rounded-lg px-3 py-2 outline-none focus:border-lime-500 transition-colors"
+              className="bg-zinc-900 border border-white/10 text-white text-sm rounded-lg px-3 py-2.5 outline-none focus:border-lime-500 transition-colors flex-1 sm:flex-none"
             >
               <option value="all">Todo o Período</option>
               <option value="7d">Últimos 7 dias</option>
@@ -158,15 +206,16 @@ const Dashboard: React.FC = () => {
             </select>
             <button 
               onClick={handleGenerateReport}
-              className="h-10 px-4 btn-primary rounded-lg text-sm flex items-center gap-2 shadow-lg shadow-lime-500/10 hover:shadow-lime-500/20 transition-all"
+              className="h-11 px-4 btn-primary rounded-lg text-sm flex items-center gap-2 shadow-lg shadow-lime-500/10 hover:shadow-lime-500/20 transition-all active:scale-95"
             >
-              <Download size={16} /> Relatório Executivo
+              <Download size={16} />
+              <span className="hidden sm:inline">Relatório Executivo</span>
             </button>
          </div>
       </div>
 
       {/* Quick Actions Bar */}
-      <div className="flex gap-4 overflow-x-auto pb-2 custom-scrollbar">
+      <div className="flex gap-3 overflow-x-auto pb-2 snap-x-mandatory scrollbar-hide -mx-1 px-1">
         <button onClick={() => navigate('/crm')} className="flex items-center gap-3 px-5 py-3 bg-zinc-900/50 hover:bg-zinc-800 border border-white/5 hover:border-lime-500/30 rounded-xl transition-all group min-w-[160px]">
           <div className="p-2 bg-lime-500/10 text-lime-400 rounded-lg group-hover:scale-110 transition-transform">
             <Plus size={18} />
@@ -188,7 +237,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Bento Grid Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         
         {/* Row 1: Key Metrics */}
         <StatCard 
@@ -197,6 +246,7 @@ const Dashboard: React.FC = () => {
           icon={DollarSign} 
           trend="+12.5%" 
           subtext="Vendas Fechadas" 
+          sparkData={revenueSparkData}
         />
         <StatCard 
           title="Pipeline Ativo" 
@@ -205,6 +255,7 @@ const Dashboard: React.FC = () => {
           trend="+5.2%" 
           subtext={`${kpis.activeLeads} oportunidades em aberto`} 
           color="blue" 
+          sparkData={pipelineSparkData}
         />
         <StatCard 
           title="Ticket Médio" 
@@ -213,6 +264,7 @@ const Dashboard: React.FC = () => {
           trend="+8.1%" 
           subtext="Baseado em fechamentos" 
           color="purple" 
+          sparkData={ticketSparkData}
         />
         <StatCard 
           title="Taxa de Conversão" 
@@ -221,6 +273,7 @@ const Dashboard: React.FC = () => {
           trend="+1.2%" 
           subtext={`${kpis.closedCount} de ${kpis.totalLeadsCount} leads`} 
           color="orange" 
+          sparkData={conversionSparkData}
         />
         <StatCard 
           title="Contratos Fechados" 

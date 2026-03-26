@@ -14,45 +14,145 @@
   --background-image-glass: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   BASE LAYER — Global resets & accessibility
+   ═══════════════════════════════════════════════════════════════════ */
 @layer base {
   body {
     @apply bg-quark-bg text-zinc-200 antialiased selection:bg-quark-brand/30;
     font-feature-settings: "cv11", "ss01";
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: contain;
   }
 
+  /* Ambient background gradient */
   body::before {
     content: '';
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    inset: 0;
     background:
       radial-gradient(circle at 50% 0%, rgba(163, 230, 53, 0.03) 0%, transparent 40%),
       radial-gradient(circle at 100% 0%, rgba(59, 130, 246, 0.03) 0%, transparent 40%);
     pointer-events: none;
     z-index: -1;
   }
+
+  /* ── CURSOR-POINTER on all clickable elements (UI/UX Pro Max rule) ── */
+  button,
+  a,
+  [role="button"],
+  label[for],
+  select,
+  summary,
+  [tabindex]:not([tabindex="-1"]) {
+    cursor: pointer;
+  }
+
+  /* ── FOCUS STATES for keyboard navigation (WCAG 2.1 AA) ── */
+  :focus-visible {
+    outline: 2px solid rgba(163, 230, 53, 0.6);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Remove default outline only when using mouse */
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* ── MOBILE INPUT ZOOM fix ── */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+
+  @media (min-width: 1024px) {
+    input, select, textarea {
+      font-size: inherit !important;
+    }
+  }
+
+  /* ── SMOOTH SCROLL ── */
+  html {
+    scroll-behavior: smooth;
+  }
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   UTILITY LAYER — Reusable design tokens & components
+   ═══════════════════════════════════════════════════════════════════ */
 @layer utilities {
+
+  /* ── Glass Panel ── */
   .glass-panel {
     @apply bg-zinc-900/60 backdrop-blur-xl border border-white/5 shadow-2xl;
     box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2), 0 8px 20px -6px rgba(0, 0, 0, 0.4);
   }
 
+  /* ── Primary CTA button ── */
   .btn-primary {
-    @apply bg-quark-brand text-black font-bold transition-all hover:bg-quark-brandHover;
-
+    @apply bg-quark-brand text-black font-bold transition-all duration-200 ease-out hover:bg-quark-brandHover;
     &:hover {
       box-shadow: 0 0 20px rgba(163, 230, 53, 0.3);
     }
   }
 
+  /* ── Standard transition ── */
+  .transition-default {
+    transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* ══════════════════════════════════════════
+     ANIMATIONS
+     ══════════════════════════════════════════ */
+
+  /* Enter fade-up (pages, cards) */
   .animate-enter {
     animation: enter 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
+  /* Slide up (modals, drawers) */
+  .animate-slide-up {
+    animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  /* Fade scale (tooltips, popovers) */
+  .animate-fade-scale {
+    animation: fadeScale 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  /* Slide in from right (drawers) */
+  .animate-slide-in-right {
+    animation: slideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  /* Shimmer skeleton loading */
+  .animate-shimmer {
+    background: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.03) 0%,
+      rgba(255, 255, 255, 0.08) 50%,
+      rgba(255, 255, 255, 0.03) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.8s ease-in-out infinite;
+  }
+
+  /* Pulse glow for active status indicators */
+  .animate-pulse-glow {
+    animation: pulseGlow 2s ease-in-out infinite;
+  }
+
+  /* Stagger delays for list items */
+  .stagger-1 { animation-delay: 50ms; }
+  .stagger-2 { animation-delay: 100ms; }
+  .stagger-3 { animation-delay: 150ms; }
+  .stagger-4 { animation-delay: 200ms; }
+  .stagger-5 { animation-delay: 250ms; }
+  .stagger-6 { animation-delay: 300ms; }
+
+  /* ══════════════════════════════════════════
+     SCROLLBAR STYLES
+     ══════════════════════════════════════════ */
   .custom-scrollbar::-webkit-scrollbar {
     width: 5px;
     height: 5px;
@@ -74,16 +174,81 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-}
 
-@keyframes enter {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.98);
+  /* ══════════════════════════════════════════
+     MOBILE SCROLL SNAP
+     ══════════════════════════════════════════ */
+  .snap-x-mandatory {
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
   }
 
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
+  .snap-center { scroll-snap-align: center; }
+  .snap-start  { scroll-snap-align: start; }
+
+  /* ══════════════════════════════════════════
+     SAFE AREAS (iOS notch/bottom bar)
+     ══════════════════════════════════════════ */
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+
+  /* ══════════════════════════════════════════
+     TOUCH TARGETS (min 44px per Apple HIG)
+     ══════════════════════════════════════════ */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   KEYFRAMES
+   ═══════════════════════════════════════════════════════════════════ */
+@keyframes enter {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeScale {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(100%); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { opacity: 1; box-shadow: 0 0 4px rgba(163, 230, 53, 0.3); }
+  50%      { opacity: 0.7; box-shadow: 0 0 12px rgba(163, 230, 53, 0.6); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   REDUCED MOTION — Respect user preference (UI/UX Pro Max rule)
+   ═══════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .animate-shimmer {
+    animation: none !important;
+    background: rgba(255, 255, 255, 0.05) !important;
   }
 }

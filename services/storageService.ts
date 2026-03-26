@@ -1,6 +1,34 @@
 import { Lead, Task, Product, User, Project } from '../types';
 import { supabase } from '../lib/supabaseClient';
 
+// Memory cache fallback for when localStorage is blocked (e.g. mobile private mode)
+const memoryStorage: Record<string, string> = {};
+
+// Safe localStorage wrapper for mobile private mode
+const safeLocalStorage = {
+  getItem: (key: string): string | null => {
+    try { 
+      return localStorage.getItem(key) || memoryStorage[key] || null; 
+    } catch { 
+      return memoryStorage[key] || null; 
+    }
+  },
+  setItem: (key: string, value: string) => {
+    try { 
+      localStorage.setItem(key, value); 
+    } catch { 
+      console.warn(`⚠️ LocalStorage bloqueado. Salvando '${key}' apenas em memória.`);
+    }
+    memoryStorage[key] = value;
+  },
+  removeItem: (key: string) => {
+    try { 
+      localStorage.removeItem(key); 
+    } catch { /* noop */ }
+    delete memoryStorage[key];
+  }
+};
+
 // Initial Mock Data (Fallback only)
 const INITIAL_LEADS: Lead[] = [
   {
@@ -190,63 +218,64 @@ export const storageService = {
   // --- LEADS ---
   getLeads: async (): Promise<Lead[]> => {
     try {
-      // 1. Fetch from Supabase
       const { data, error } = await supabase.from('leads').select('*');
 
       if (error) {
-        console.warn('⚠️ Supabase leads fetch error:', error.message, '| code:', error.code);
+        console.warn('⚠️ Erro ao buscar leads no Supabase:', error.message);
         throw error;
       }
 
-      console.log(`✅ Supabase leads: ${data?.length ?? 0} registros encontrados`);
+      // Robust mapping: handles both {id, data: Lead} and direct {id, name...}
+      const cloudLeads = (data || []).map(row => {
+        if (row.data && typeof row.data === 'object') {
+          return { ...row.data, id: row.id };
+        }
+        return row;
+      }) as Lead[];
 
-      const localStr = localStorage.getItem('quark_leads');
+      console.log(`✅ Leads sincronizados da nuvem: ${cloudLeads.length}`);
+
+      const localStr = safeLocalStorage.getItem('quark_leads');
       const localData: Lead[] = localStr ? JSON.parse(localStr) : [];
 
-      // 2. If Cloud is empty but Local has data, sync local → cloud
-      if ((!data || data.length === 0) && localData.length > 0) {
-        console.log("☁️ Cloud vazio, sincronizando leads locais para a nuvem...");
+      // Cloud empty but local has data → sync local to cloud
+      if (cloudLeads.length === 0 && localData.length > 0) {
+        console.log("☁️ Nuvem vazia, tentando restaurar dados locais...");
         for (const lead of localData) {
           await supabase.from('leads').upsert({ id: lead.id, data: lead, updated_at: lead.updatedAt });
         }
         return localData;
       }
 
-      // 3. Normal Flow: Cloud has data — trust Supabase as source of truth
-      if (data && data.length > 0) {
-        const parsedData = data.map(row => row.data ? { ...row.data, id: row.id } : row);
-        localStorage.setItem('quark_leads', JSON.stringify(parsedData));
-        return parsedData as Lead[];
+      // Save to local cache
+      if (cloudLeads.length > 0) {
+        safeLocalStorage.setItem('quark_leads', JSON.stringify(cloudLeads));
+        return cloudLeads;
       }
 
-      // 4. Both empty → seed with demo data so app doesn't look broken
-      console.log("📋 Nenhum lead encontrado — retornando dados iniciais de demonstração");
-      return INITIAL_LEADS;
+      return localData.length > 0 ? localData : INITIAL_LEADS;
     } catch (err) {
-      console.warn("⚠️ Modo Offline (Leads):", err);
-      const local = localStorage.getItem('quark_leads');
+      console.warn("⚠️ Fallback para cache local (Leads):", err);
+      const local = safeLocalStorage.getItem('quark_leads');
       return local ? JSON.parse(local) : INITIAL_LEADS;
     }
   },
 
   syncLead: async (lead: Lead) => {
     try {
-      // Optimistic Local Save
-      const currentLeadsStr = localStorage.getItem('quark_leads');
+      const currentLeadsStr = safeLocalStorage.getItem('quark_leads');
       const currentLeads: Lead[] = currentLeadsStr ? JSON.parse(currentLeadsStr) : [];
       const updatedLocalLeads = currentLeads.some(l => l.id === lead.id)
         ? currentLeads.map(l => l.id === lead.id ? lead : l)
         : [lead, ...currentLeads];
-      localStorage.setItem('quark_leads', JSON.stringify(updatedLocalLeads));
+      safeLocalStorage.setItem('quark_leads', JSON.stringify(updatedLocalLeads));
 
-      // Cloud Save
       const { error } = await supabase.from('leads').upsert({
         id: lead.id,
         data: lead,
         updated_at: new Date()
       });
-
-      if (error) throw error;
+      if (error) console.warn('⚠️ Lead sync cloud error:', error.message);
     } catch (err) {
       console.error("Sync Error:", err);
     }
@@ -254,10 +283,10 @@ export const storageService = {
 
   deleteLead: async (id: string) => {
     try {
-      const currentLeadsStr = localStorage.getItem('quark_leads');
+      const currentLeadsStr = safeLocalStorage.getItem('quark_leads');
       if (currentLeadsStr) {
         const list = JSON.parse(currentLeadsStr) as Lead[];
-        localStorage.setItem('quark_leads', JSON.stringify(list.filter(l => l.id !== id)));
+        safeLocalStorage.setItem('quark_leads', JSON.stringify(list.filter(l => l.id !== id)));
       }
       await supabase.from('leads').delete().eq('id', id);
     } catch (err) {
@@ -269,13 +298,12 @@ export const storageService = {
   getTasks: async (): Promise<Task[]> => {
     try {
       const { data, error } = await supabase.from('tasks').select('*');
-      if (error) throw error;
+      if (error) { console.warn('⚠️ Tasks fetch error:', error.message); throw error; }
 
-      const localStr = localStorage.getItem('quark_tasks');
+      const localStr = safeLocalStorage.getItem('quark_tasks');
       const localData: Task[] = localStr ? JSON.parse(localStr) : [];
 
       if ((!data || data.length === 0) && localData.length > 0) {
-        console.log("☁️ Cloud empty, syncing local tasks to cloud...");
         for (const task of localData) {
           await supabase.from('tasks').upsert({ id: task.id, data: task, updated_at: new Date() });
         }
@@ -284,33 +312,32 @@ export const storageService = {
 
       if (data && data.length > 0) {
         const parsed = data.map(row => row.data ? { ...row.data, id: row.id } : row);
-        localStorage.setItem('quark_tasks', JSON.stringify(parsed));
+        safeLocalStorage.setItem('quark_tasks', JSON.stringify(parsed));
         return parsed as Task[];
       }
-      return [];
+      return INITIAL_TASKS;
     } catch {
-      const local = localStorage.getItem('quark_tasks');
+      const local = safeLocalStorage.getItem('quark_tasks');
       return local ? JSON.parse(local) : INITIAL_TASKS;
     }
   },
 
   syncTask: async (task: Task) => {
     try {
-      const current = localStorage.getItem('quark_tasks');
+      const current = safeLocalStorage.getItem('quark_tasks');
       const list: Task[] = current ? JSON.parse(current) : [];
       const updated = list.some(t => t.id === task.id) ? list.map(t => t.id === task.id ? task : t) : [...list, task];
-      localStorage.setItem('quark_tasks', JSON.stringify(updated));
-
+      safeLocalStorage.setItem('quark_tasks', JSON.stringify(updated));
       await supabase.from('tasks').upsert({ id: task.id, data: task, updated_at: new Date() });
     } catch (err) { console.error(err); }
   },
 
   deleteTask: async (id: string) => {
     try {
-      const current = localStorage.getItem('quark_tasks');
+      const current = safeLocalStorage.getItem('quark_tasks');
       if (current) {
         const list = JSON.parse(current) as Task[];
-        localStorage.setItem('quark_tasks', JSON.stringify(list.filter(t => t.id !== id)));
+        safeLocalStorage.setItem('quark_tasks', JSON.stringify(list.filter(t => t.id !== id)));
       }
       await supabase.from('tasks').delete().eq('id', id);
     } catch (err) { console.error(err); }
@@ -320,13 +347,12 @@ export const storageService = {
   getProducts: async (): Promise<Product[]> => {
     try {
       const { data, error } = await supabase.from('products').select('*');
-      if (error) throw error;
+      if (error) { console.warn('⚠️ Products fetch error:', error.message); throw error; }
 
-      const localStr = localStorage.getItem('quark_products');
+      const localStr = safeLocalStorage.getItem('quark_products');
       const localData: Product[] = localStr ? JSON.parse(localStr) : [];
 
       if ((!data || data.length === 0) && localData.length > 0) {
-        console.log("☁️ Cloud empty, syncing local products to cloud...");
         for (const prod of localData) {
           await supabase.from('products').upsert({ id: prod.id, data: prod, updated_at: new Date() });
         }
@@ -335,32 +361,32 @@ export const storageService = {
 
       if (data && data.length > 0) {
         const parsed = data.map(row => row.data ? { ...row.data, id: row.id } : row);
-        localStorage.setItem('quark_products', JSON.stringify(parsed));
+        safeLocalStorage.setItem('quark_products', JSON.stringify(parsed));
         return parsed as Product[];
       }
-      return [];
+      return INITIAL_PRODUCTS;
     } catch {
-      const local = localStorage.getItem('quark_products');
+      const local = safeLocalStorage.getItem('quark_products');
       return local ? JSON.parse(local) : INITIAL_PRODUCTS;
     }
   },
 
   syncProduct: async (product: Product) => {
     try {
-      const current = localStorage.getItem('quark_products');
+      const current = safeLocalStorage.getItem('quark_products');
       const list: Product[] = current ? JSON.parse(current) : [];
       const updated = list.some(p => p.id === product.id) ? list.map(p => p.id === product.id ? product : p) : [...list, product];
-      localStorage.setItem('quark_products', JSON.stringify(updated));
+      safeLocalStorage.setItem('quark_products', JSON.stringify(updated));
       await supabase.from('products').upsert({ id: product.id, data: product, updated_at: new Date() });
     } catch (err) { console.error(err); }
   },
 
   deleteProduct: async (id: string) => {
     try {
-      const current = localStorage.getItem('quark_products');
+      const current = safeLocalStorage.getItem('quark_products');
       if (current) {
         const list = JSON.parse(current) as Product[];
-        localStorage.setItem('quark_products', JSON.stringify(list.filter(p => p.id !== id)));
+        safeLocalStorage.setItem('quark_products', JSON.stringify(list.filter(p => p.id !== id)));
       }
       await supabase.from('products').delete().eq('id', id);
     } catch (err) { console.error(err); }
@@ -371,10 +397,9 @@ export const storageService = {
   getUsers: async (): Promise<User[]> => {
     try {
       const { data, error } = await supabase.from('profiles').select('*');
-      if (error) throw error;
+      if (error) { console.warn('⚠️ Profiles fetch error:', error.message); throw error; }
 
       if (data && data.length > 0) {
-        // Map database columns to User interface
         const users: User[] = data.map(p => ({
           id: p.id,
           name: p.name || 'Usuário',
@@ -382,14 +407,13 @@ export const storageService = {
           role: (p.role as any) || 'Sales',
           avatarInitials: p.avatar_initials || 'U'
         }));
-
-        localStorage.setItem('quark_users', JSON.stringify(users));
+        safeLocalStorage.setItem('quark_users', JSON.stringify(users));
         return users;
       }
       return INITIAL_USERS;
     } catch (err) {
       console.warn("⚠️ Error fetching users:", err);
-      const local = localStorage.getItem('quark_users');
+      const local = safeLocalStorage.getItem('quark_users');
       return local ? JSON.parse(local) : INITIAL_USERS;
     }
   },
@@ -398,47 +422,57 @@ export const storageService = {
   getProjects: async (): Promise<Project[]> => {
     try {
       const { data, error } = await supabase.from('projects').select('*');
-      if (error) throw error;
+      if (error) {
+        console.warn('⚠️ Erro ao buscar projetos no Supabase:', error.message);
+        throw error;
+      }
 
-      const localStr = localStorage.getItem('quark_projects');
+      const cloudProjects = (data || []).map(row => {
+        if (row.data && typeof row.data === 'object') {
+          return { ...row.data, id: row.id };
+        }
+        return row;
+      }) as Project[];
+
+      const localStr = safeLocalStorage.getItem('quark_projects');
       const localData: Project[] = localStr ? JSON.parse(localStr) : [];
 
-      if ((!data || data.length === 0) && localData.length > 0) {
-        console.log("☁️ Cloud empty, syncing local projects to cloud...");
+      if (cloudProjects.length === 0 && localData.length > 0) {
         for (const proj of localData) {
           await supabase.from('projects').upsert({ id: proj.id, data: proj, updated_at: new Date() });
         }
         return localData;
       }
 
-      if (data && data.length > 0) {
-        const parsed = data.map(row => row.data ? { ...row.data, id: row.id } : row);
-        localStorage.setItem('quark_projects', JSON.stringify(parsed));
-        return parsed as Project[];
+      if (cloudProjects.length > 0) {
+        safeLocalStorage.setItem('quark_projects', JSON.stringify(cloudProjects));
+        return cloudProjects;
       }
-      return [];
-    } catch {
-      const local = localStorage.getItem('quark_projects');
-      return local ? JSON.parse(local) : []; // No mock data for projects
+
+      return localData.length > 0 ? localData : [];
+    } catch (err) {
+      console.warn("⚠️ Fallback para cache local (Projetos):", err);
+      const local = safeLocalStorage.getItem('quark_projects');
+      return local ? JSON.parse(local) : [];
     }
   },
 
   syncProject: async (project: Project) => {
     try {
-      const current = localStorage.getItem('quark_projects');
+      const current = safeLocalStorage.getItem('quark_projects');
       const list: Project[] = current ? JSON.parse(current) : [];
       const updated = list.some(p => p.id === project.id) ? list.map(p => p.id === project.id ? project : p) : [...list, project];
-      localStorage.setItem('quark_projects', JSON.stringify(updated));
+      safeLocalStorage.setItem('quark_projects', JSON.stringify(updated));
       await supabase.from('projects').upsert({ id: project.id, data: project, updated_at: new Date() });
     } catch (err) { console.error(err); }
   },
 
   deleteProject: async (id: string) => {
     try {
-      const current = localStorage.getItem('quark_projects');
+      const current = safeLocalStorage.getItem('quark_projects');
       if (current) {
         const list = JSON.parse(current) as Project[];
-        localStorage.setItem('quark_projects', JSON.stringify(list.filter(p => p.id !== id)));
+        safeLocalStorage.setItem('quark_projects', JSON.stringify(list.filter(p => p.id !== id)));
       }
       await supabase.from('projects').delete().eq('id', id);
     } catch (err) { console.error(err); }

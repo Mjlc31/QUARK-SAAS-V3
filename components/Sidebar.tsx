@@ -39,16 +39,17 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     <NavLink
       to={item.path}
       onClick={onClose}
-      className={({ isActive }) => `w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative ${isActive
-        ? 'bg-zinc-900 text-white shadow-inner border border-white/5'
-        : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900/50'
+      className={({ isActive }) => `w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative overflow-hidden ${isActive
+        ? 'bg-lime-500/5 text-white border border-lime-500/10'
+        : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900/50 border border-transparent'
         }`}
     >
       {({ isActive }) => (
         <>
-          {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-1 bg-lime-500 rounded-r-full"></div>}
-          <item.icon size={18} strokeWidth={isActive ? 2.5 : 2} className={isActive ? 'text-lime-400' : 'text-zinc-500 group-hover:text-zinc-300'} />
+          {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 bg-lime-500 rounded-r-full shadow-[0_0_8px_rgba(163,230,53,0.4)] transition-all duration-300"></div>}
+          <item.icon size={18} strokeWidth={isActive ? 2.5 : 1.8} className={`transition-colors duration-200 ${isActive ? 'text-lime-400' : 'text-zinc-500 group-hover:text-zinc-300'}`} />
           <span className={`text-sm ${isActive ? 'font-semibold' : 'font-medium'}`}>{item.label}</span>
+          {isActive && <div className="absolute right-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-lime-500 animate-pulse-glow"></div>}
         </>
       )}
     </NavLink>
@@ -73,7 +74,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             <div>
               <h1 className="text-xl font-display font-bold tracking-tight text-white leading-none">Quark<span className="text-lime-400">.</span></h1>
               <div className="flex items-center gap-1.5 mt-1">
-                <div className={`w-1.5 h-1.5 rounded-full ${isSupabaseConnected ? 'bg-green-500 shadow-[0_0_5px_#22c55e]' : 'bg-red-500 shadow-[0_0_5px_#ef4444]'}`}></div>
+                <div className={`w-2 h-2 rounded-full transition-all ${isSupabaseConnected ? 'bg-green-500 shadow-[0_0_8px_#22c55e] animate-pulse-glow' : 'bg-red-500 shadow-[0_0_8px_#ef4444]'}`}></div>
                 <span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">
                   {isSupabaseConnected ? 'Online' : 'Offline'}
                 </span>

@@ -456,15 +456,15 @@ const Financial: React.FC = () => {
     return (
         <div className="min-h-screen pb-16">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+            <div className="flex flex-col gap-4 mb-8">
                 <div>
-                    <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+                    <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
                         <DollarSign className="text-lime-400" size={24} />
                         Financeiro
                     </h1>
                     <p className="text-sm text-slate-500 mt-1">Controle de caixa, DRE e análises — Quark Energia</p>
                 </div>
-                <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
                     {/* View mode */}
                     <div className="flex gap-1 bg-zinc-900/50 border border-white/5 p-1 rounded-xl">
                         {(['monthly', 'ytd'] as const).map(m => (
@@ -528,7 +528,7 @@ const Financial: React.FC = () => {
                     </div>
 
                     {/* ─── Tabs ──────────────────────────────────────────────────── */}
-                    <div className="flex gap-1 bg-zinc-900/50 border border-white/5 p-1 rounded-xl w-fit mb-6">
+                    <div className="flex gap-1 bg-zinc-900/50 border border-white/5 p-1 rounded-xl w-full sm:w-fit mb-6 overflow-x-auto">
                         {([
                             { id: 'dashboard', icon: Activity, label: 'Dashboard' },
                             { id: 'dre', icon: FileText, label: 'DRE' },

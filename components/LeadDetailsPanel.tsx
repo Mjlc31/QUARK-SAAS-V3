@@ -160,7 +160,7 @@ export const LeadDetailsPanel: React.FC<LeadDetailsPanelProps> = ({
                             )}
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4 mt-8">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8">
                             <div className="p-5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
                                 <label className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-1 block">Telefone</label>
                                 {isEditing ? (
@@ -241,10 +241,10 @@ export const LeadDetailsPanel: React.FC<LeadDetailsPanelProps> = ({
                     </div>
                 </div>
 
-                <div className="p-6 border-t border-white/10 bg-zinc-900/80 flex-shrink-0">
+                <div className="p-4 sm:p-6 border-t border-white/10 bg-zinc-900/80 flex-shrink-0" style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 16px), 16px)' }}>
                     <button
                         onClick={() => onWhatsApp(selectedLead)}
-                        className="w-full py-4 rounded-xl bg-lime-500 hover:bg-lime-400 text-black font-bold transition-all shadow-lg shadow-lime-500/20 active:scale-95 flex justify-center gap-2"
+                        className="w-full py-4 rounded-xl bg-lime-500 hover:bg-lime-400 text-black font-bold transition-all shadow-lg shadow-lime-500/20 active:scale-95 flex justify-center gap-2 touch-target"
                     >
                         <Send size={18} /> Iniciar Conversa WhatsApp
                     </button>
