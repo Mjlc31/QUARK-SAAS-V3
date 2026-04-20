@@ -166,7 +166,7 @@ export const LeadDetailsPanel: React.FC<LeadDetailsPanelProps> = ({
                                 {isEditing ? (
                                     <input
                                         type="text"
-                                        value={editingData.phone}
+                                        value={editingData.phone || ''}
                                         onChange={(e) => onDataChange({ ...editingData, phone: e.target.value })}
                                         className="bg-black/50 border border-zinc-700/50 rounded-lg p-1.5 text-white w-full outline-none"
                                     />
@@ -178,9 +178,12 @@ export const LeadDetailsPanel: React.FC<LeadDetailsPanelProps> = ({
                                 <label className="text-[10px] text-lime-600/80 uppercase font-bold tracking-wider mb-1 block">Valor Agregado (R$)</label>
                                 {isEditing ? (
                                     <input
-                                        type="number"
-                                        value={editingData.value === 0 ? '' : editingData.value}
-                                        onChange={(e) => onDataChange({ value: e.target.value === '' ? 0 : Number(e.target.value) })}
+                                        type="text"
+                                        value={editingData.value ? editingData.value.toString() : ''}
+                                        onChange={(e) => {
+                                            const val = e.target.value.replace(/\D/g, '');
+                                            onDataChange({ ...editingData, value: val ? Number(val) : 0 });
+                                        }}
                                         className="bg-black/50 border border-lime-500/30 rounded-lg p-1.5 text-lime-400 w-full outline-none font-bold"
                                         placeholder="Ex: 45000"
                                     />
