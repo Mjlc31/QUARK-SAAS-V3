@@ -179,9 +179,10 @@ export const LeadDetailsPanel: React.FC<LeadDetailsPanelProps> = ({
                                 {isEditing ? (
                                     <input
                                         type="number"
-                                        value={editingData.value}
-                                        onChange={(e) => onDataChange({ ...editingData, value: Number(e.target.value) })}
+                                        value={editingData.value === 0 ? '' : editingData.value}
+                                        onChange={(e) => onDataChange({ value: e.target.value === '' ? 0 : Number(e.target.value) })}
                                         className="bg-black/50 border border-lime-500/30 rounded-lg p-1.5 text-lime-400 w-full outline-none font-bold"
+                                        placeholder="Ex: 45000"
                                     />
                                 ) : (
                                     <p className="text-lime-400 font-display text-lg font-bold">R$ {selectedLead.value.toLocaleString()}</p>
