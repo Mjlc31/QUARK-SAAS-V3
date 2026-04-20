@@ -531,7 +531,7 @@ const Conversations: React.FC = () => {
                 flex-1 flex flex-col bg-[#050b14] relative min-w-0
                 ${!mobileShowChat ? 'hidden md:flex' : 'flex'}
             `}>
-                <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
+                <div className="absolute inset-0 opacity-[0.04] pointer-events-none" style={{ backgroundImage: 'url("https://w0.peakpx.com/wallpaper/818/148/HD-wallpaper-whatsapp-background-cool-dark-green-new-theme-whatsapp.jpg")', backgroundSize: '400px', backgroundRepeat: 'repeat', filter: 'grayscale(100%) contrast(120%)' }} />
 
                 {activeChat ? (
                     <>
@@ -610,20 +610,52 @@ const Conversations: React.FC = () => {
                                 </span>
                             </div>
 
-                            {activeChat.messages && activeChat.messages.map((msg: ChatMessage, idx: number) => (
-                                <div key={msg.id || idx} className={`flex flex-col gap-1 max-w-[85%] md:max-w-[75%] ${msg.fromMe ? 'self-end items-end' : 'self-start items-start'}`}>
-                                    <div className={`px-3.5 py-2.5 shadow-md ${msg.fromMe
-                                        ? 'bg-lime-500 text-black rounded-2xl rounded-tr-sm'
-                                        : 'bg-zinc-800 border border-white/5 text-slate-100 rounded-2xl rounded-tl-sm'
-                                        }`}>
-                                        <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{msg.body}</p>
+                            {activeChat.messages && activeChat.messages.map((msg: ChatMessage, idx: number) => {
+                                const msgDate = new Date(msg.timestamp * 1000);
+                                const dateString = msgDate.toLocaleDateString('pt-BR');
+                                const prevMsgDate = idx > 0 ? new Date(activeChat.messages[idx - 1].timestamp * 1000).toLocaleDateString('pt-BR') : null;
+                                const showDate = dateString !== prevMsgDate;
+
+                                return (
+                                    <React.Fragment key={msg.id || idx}>
+                                        {showDate && (
+                                            <div className="flex justify-center my-3">
+                                                <span className="bg-zinc-900 border border-white/10 text-[10px] text-zinc-400 font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">
+                                                    {dateString === new Date().toLocaleDateString('pt-BR') ? 'Hoje' : dateString}
+                                                </span>
+                                            </div>
+                                        )}
+                                        <div className={`flex flex-col gap-1 max-w-[85%] md:max-w-[75%] ${msg.fromMe ? 'self-end items-end' : 'self-start items-start'}`}>
+                                            <div className={`px-3.5 py-2.5 shadow-md relative group ${msg.fromMe
+                                                ? 'bg-lime-500 text-black rounded-2xl rounded-tr-sm'
+                                                : 'bg-zinc-800 border border-white/5 text-slate-100 rounded-2xl rounded-tl-sm'
+                                                }`}>
+                                                <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{msg.body}</p>
+                                            </div>
+                                            <span className="text-[10px] text-slate-500 flex items-center gap-1 font-medium">
+                                                {msgDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                {msg.fromMe && (
+                                                    <svg viewBox="0 0 18 18" width="14" height="14" className="text-lime-500 ml-0.5">
+                                                        <path fill="currentColor" d="M17.394 5.035l-.57-.444a.434.434 0 0 0-.609.076l-6.39 8.198a.38.38 0 0 1-.577.039l-.427-.388a.381.381 0 0 0-.578.038l-.451.576a.497.497 0 0 0 .043.645l1.575 1.51c.2.193.53.193.73-.01.206-.21.21-.54.015-.748L8.74 13.06l5.965-7.653a.434.434 0 0 0-.077-.611H17.4z"></path>
+                                                        <path fill="currentColor" d="M10.776 5.035l-.57-.444a.434.434 0 0 0-.609.076l-6.39 8.198a.38.38 0 0 1-.577.039L1.04 11.458a.43.43 0 0 0-.604.032l-.46.568a.43.43 0 0 0 .032.604l2.844 2.302c.2.164.492.148.67-.043l6.096-7.854a.434.434 0 0 0-.077-.61z"></path>
+                                                    </svg>
+                                                )}
+                                            </span>
+                                        </div>
+                                    </React.Fragment>
+                                );
+                            })}
+                            
+                            {aiLoading && (
+                                <div className="self-start items-start flex flex-col gap-1 max-w-[85%] md:max-w-[75%] animate-pulse">
+                                    <div className="px-4 py-3 shadow-md bg-zinc-800 border border-white/5 text-slate-100 rounded-2xl rounded-tl-sm flex items-center gap-1.5">
+                                        <div className="w-1.5 h-1.5 bg-lime-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                                        <div className="w-1.5 h-1.5 bg-lime-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                                        <div className="w-1.5 h-1.5 bg-lime-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                                     </div>
-                                    <span className="text-[10px] text-slate-600 flex items-center gap-1">
-                                        {new Date(msg.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        {msg.fromMe && <Clock size={9} />}
-                                    </span>
+                                    <span className="text-[10px] text-lime-500 font-bold ml-1">IA digitando...</span>
                                 </div>
-                            ))}
+                            )}
                             {/* Auto-scroll anchor */}
                             <div ref={messagesEndRef} />
                         </div>

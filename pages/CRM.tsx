@@ -44,6 +44,7 @@ const CRM: React.FC = () => {
 
   const [editFormData, setEditFormData] = useState<Partial<Lead>>({});
   const [formData, setFormData] = useState({ name: '', phone: '', value: '', city: '', consumption: '' });
+  const [rescueMode, setRescueMode] = useState(false);
 
   useEffect(() => {
     setIsEditing(false);
@@ -241,6 +242,8 @@ Podemos agendar uma breve apresentação da proposta?`;
     l.city.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const finalLeads = rescueMode ? filteredLeads.filter(l => isStagnant(l.updatedAt)) : filteredLeads;
+
   return (
     <div className="h-[calc(100vh-10rem)] md:h-[calc(100vh-6rem)] lg:h-[calc(100vh-2rem)] flex flex-col relative animate-enter">
 
@@ -266,6 +269,21 @@ Podemos agendar uma breve apresentação da proposta?`;
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+          </div>
+
+          {/* Filtro de Saúde: Modo Resgate */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setRescueMode(!rescueMode)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-bold transition-all ${rescueMode ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' : 'bg-zinc-900/50 border-white/5 text-zinc-400 hover:bg-zinc-800'}`}
+              title="Filtrar apenas leads parados há mais de 7 dias"
+            >
+              <Clock size={16} />
+              <span className="hidden md:inline">Modo Resgate</span>
+              <div className={`w-8 h-4 rounded-full p-0.5 ml-1 transition-colors ${rescueMode ? 'bg-rose-500' : 'bg-zinc-700'}`}>
+                <div className={`w-3 h-3 rounded-full bg-white shadow-sm transform transition-transform ${rescueMode ? 'translate-x-4' : 'translate-x-0'}`} />
+              </div>
+            </button>
           </div>
 
           {/* View Toggle */}
@@ -301,7 +319,7 @@ Podemos agendar uma breve apresentação da proposta?`;
         <div className="flex-1 overflow-x-auto overflow-y-hidden pb-4 -mx-4 md:mx-0 px-4 md:px-0 custom-scrollbar snap-x-mandatory" onTouchMove={touchDrag ? handleTouchMove : undefined} onTouchEnd={touchDrag ? handleTouchEnd : undefined}>
           <div className="flex flex-row gap-4 md:gap-6 min-w-max md:min-w-[1240px] h-full items-start px-1 md:px-0">
             {COLUMN_CONFIG.map(column => {
-              const columnLeads = filteredLeads.filter(l => l.status === column.id);
+              const columnLeads = finalLeads.filter(l => l.status === column.id);
               const columnTotalValue = getColumnTotal(column.id);
 
               return (
@@ -369,12 +387,6 @@ Podemos agendar uma breve apresentação da proposta?`;
                         onClick={() => setSelectedLead(lead)}
                         className="bg-[#0c121a] border border-white/5 hover:border-lime-500/30 p-5 rounded-2xl cursor-pointer transition-all duration-200 shadow-lg hover:shadow-[0_8px_30px_rgba(163,230,53,0.1)] group relative active:scale-95 touch-manipulation hover:-translate-y-1"
                       >
-                        {isStagnant(lead.updatedAt) && (
-                          <div className="absolute -top-3 -right-3 bg-red-600/90 text-white px-2.5 py-1 rounded-lg border border-red-400/50 z-10 shadow-lg shadow-red-500/20 flex items-center gap-1.5 animate-pulse" title="Lead estagnado (+7 dias)">
-                            <AlertTriangle size={12} />
-                            <span className="text-[10px] font-bold tracking-wide">+7 dias sem contato</span>
-                          </div>
-                        )}
                         <div
                           className="lg:hidden absolute top-0 left-0 bottom-0 w-12 flex items-center justify-center text-zinc-600 active:text-lime-400 z-20"
                           onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(e, lead); }}
@@ -384,7 +396,15 @@ Podemos agendar uma breve apresentação da proposta?`;
 
                         <div className="flex justify-between items-start mb-3 pl-6 lg:pl-0">
                           <div className="flex-1 min-w-0 pr-6">
-                            <h4 className="font-bold text-zinc-100 truncate text-[15px] mb-1.5 tracking-tight group-hover:text-lime-400 transition-colors">{lead.name}</h4>
+                            <div className="flex items-center gap-2 mb-1.5">
+                               <h4 className="font-bold text-zinc-100 truncate text-[15px] tracking-tight group-hover:text-lime-400 transition-colors">{lead.name}</h4>
+                               {isStagnant(lead.updatedAt) && (
+                                 <div className="flex items-center gap-1 text-[9px] text-rose-400/80 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/10 shrink-0" title="Lead frio (+7 dias)">
+                                   <Clock size={10} />
+                                   <span>7d inativo</span>
+                                 </div>
+                               )}
+                            </div>
                             <div className="flex items-center gap-1.5 text-[11px] text-zinc-500 font-medium">
                               <MapPin size={12} /> {lead.city}
                             </div>
@@ -443,15 +463,20 @@ Podemos agendar uma breve apresentação da proposta?`;
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {filteredLeads.map(lead => (
+                {finalLeads.map(lead => (
                   <tr
                     key={lead.id}
                     onClick={() => setSelectedLead(lead)}
                     className="hover:bg-white/5 transition-colors cursor-pointer group"
                   >
-                    <td className="px-6 py-4 font-bold text-white">
+                    <td className="px-6 py-4 font-bold text-white flex items-center gap-2">
                       {lead.name}
-                      {isStagnant(lead.updatedAt) && <span className="ml-2 text-[10px] text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">Atenção</span>}
+                      {isStagnant(lead.updatedAt) && (
+                        <div className="flex items-center gap-1 text-[9px] text-rose-400/80 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/10 shrink-0" title="Lead frio (+7 dias)">
+                          <Clock size={10} />
+                          <span>7d inativo</span>
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase ${lead.status === 'Lead' ? 'bg-blue-500/10 text-blue-400' :
