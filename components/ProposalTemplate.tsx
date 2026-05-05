@@ -262,7 +262,7 @@ export const ProposalTemplate = React.forwardRef<HTMLDivElement, ProposalProps>(
                </div>
                <div className="text-right">
                  <p className="text-white font-bold text-xl mb-1">Payback</p>
-                 <p className="text-slate-300 text-lg">{props.paybackYears} anos</p>
+                 <p className="text-slate-300 text-lg">{props.paybackYears < 3 ? `${Math.round(props.paybackYears * 12)} meses` : `${props.paybackYears.toFixed(1)} anos`}</p>
                  <p className="text-white font-bold text-xl mb-1 mt-8">Retorno anual em 25 anos</p>
                  <p className="text-slate-300 text-lg">{props.roi25Years}%</p>
                </div>

@@ -1,53 +1,49 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
-import { PieChart as PieChartIcon, TrendingUp, Download, Target, Users, Wallet } from 'lucide-react';
+import { PieChart as PieChartIcon, TrendingUp, Download, Target, Users, Wallet, Loader2 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
+import { supabase } from '../lib/supabaseClient';
 
-const COLORS = ['#84cc16', '#3b82f6', '#eab308', '#ef4444'];
-
-const dataSales = [
-  { name: 'Seg', leads: 4, vendas: 1 },
-  { name: 'Ter', leads: 7, vendas: 2 },
-  { name: 'Qua', leads: 5, vendas: 1 },
-  { name: 'Qui', leads: 9, vendas: 3 },
-  { name: 'Sex', leads: 12, vendas: 5 },
-  { name: 'Sáb', leads: 3, vendas: 0 },
-];
-
-const dataSource = [
-  { name: 'Google Ads', value: 45 },
-  { name: 'Orgânico', value: 25 },
-  { name: 'Indicação', value: 20 },
-  { name: 'Outros', value: 10 },
-];
-
-// Mock Data for advanced metrics
-const financialGrowth = [
-    { month: 'Jan', revenue: 150000, cac: 200 },
-    { month: 'Fev', revenue: 180000, cac: 180 },
-    { month: 'Mar', revenue: 220000, cac: 190 },
-    { month: 'Abr', revenue: 200000, cac: 175 },
-    { month: 'Mai', revenue: 260000, cac: 160 },
-    { month: 'Jun', revenue: 310000, cac: 155 },
-];
+const COLORS = ['#84cc16', '#3b82f6', '#eab308', '#ef4444', '#8b5cf6', '#ec4899'];
 
 const Reports: React.FC = () => {
-  const { leads, projects } = useApp();
+  const { leads, projects, tags } = useApp();
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [loadingFinancial, setLoadingFinancial] = useState(true);
+
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      setLoadingFinancial(true);
+      const { data } = await supabase.from('financial_transactions').select('*');
+      if (data) {
+        setTransactions(data);
+      }
+      setLoadingFinancial(false);
+    };
+    fetchTransactions();
+  }, []);
 
   const metrics = useMemo(() => {
     const totalLeads = leads.length;
     const closedLeads = leads.filter(l => l.status === 'Fechado').length;
     const conversionRate = totalLeads > 0 ? ((closedLeads / totalLeads) * 100).toFixed(1) : '0.0';
     
-    // Calcula LTV via ticket médio dos projetos/leads fechados
-    const totalRevenue = leads.filter(l => l.status === 'Fechado').reduce((acc, l) => acc + (l.value || 0), 0);
-    const mockRevenueIfZero = closedLeads * 35000; // Mock se não tiver valor customizado
-    const finalRevenue = totalRevenue > 0 ? totalRevenue : mockRevenueIfZero;
-    const ltv = closedLeads > 0 ? finalRevenue / closedLeads : 0;
+    // Receita e Custos
+    let totalRevenue = 0;
+    let marketingSpend = 0;
 
-    // CAC fictício baseado em um investimento fixo de marketing (R$5.000) dividido por vendas
-    const fixedMarketingSpend = 5000;
-    const cac = closedLeads > 0 ? fixedMarketingSpend / closedLeads : fixedMarketingSpend;
+    transactions.forEach(t => {
+      const amt = Number(t.amount || 0);
+      if (t.type === 'receita') totalRevenue += amt;
+      if (t.type === 'despesa' && t.category === 'marketing') marketingSpend += amt;
+    });
+
+    // Se n tivermos transações reais suficientes, use fallback baseado no valor do CRM (Leads "Fechados")
+    const crmRevenue = leads.filter(l => l.status === 'Fechado').reduce((acc, l) => acc + (l.value || 0), 0);
+    const finalRevenue = totalRevenue > 0 ? totalRevenue : crmRevenue;
+
+    const ltv = closedLeads > 0 ? finalRevenue / closedLeads : 0;
+    const cac = closedLeads > 0 ? marketingSpend / closedLeads : 0;
 
     return {
       conversionRate,
@@ -55,7 +51,88 @@ const Reports: React.FC = () => {
       cac,
       totalRevenue: finalRevenue
     };
-  }, [leads, projects]);
+  }, [leads, transactions]);
+
+  // Dynamic Data Sales (Weekly)
+  const dataSales = useMemo(() => {
+    const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    const map = new Map(days.map(d => [d, { name: d, leads: 0, vendas: 0 }]));
+    
+    leads.forEach(l => {
+      if (!l.createdAt) return;
+      const date = new Date(l.createdAt);
+      const dayName = days[date.getDay()];
+      const dayData = map.get(dayName);
+      if (dayData) {
+        dayData.leads += 1;
+        if (l.status === 'Fechado') dayData.vendas += 1;
+      }
+    });
+
+    return Array.from(map.values()).slice(1, 7); // Seg a Sab
+  }, [leads]);
+
+  // Dynamic Data Source based on Tags
+  const dataSource = useMemo(() => {
+    const tagCount: Record<string, number> = {};
+    let untagged = 0;
+
+    leads.forEach(l => {
+      if (!l.tags || l.tags.length === 0) {
+        untagged += 1;
+      } else {
+        l.tags.forEach(t => {
+          tagCount[t.name] = (tagCount[t.name] || 0) + 1;
+        });
+      }
+    });
+
+    const result = Object.entries(tagCount).map(([name, value]) => ({ name, value }));
+    if (untagged > 0) result.push({ name: 'Sem Tag / Outros', value: untagged });
+    
+    return result.length > 0 ? result.sort((a,b) => b.value - a.value).slice(0, 5) : [{ name: 'Sem dados', value: 1 }];
+  }, [leads]);
+
+  // Financial Growth over the last 6 months
+  const financialGrowth = useMemo(() => {
+    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const currentMonth = new Date().getMonth(); // 0-11
+    
+    // Pegar ultimos 6 meses
+    const last6 = Array.from({length: 6}, (_, i) => {
+      let m = currentMonth - 5 + i;
+      if (m < 0) m += 12;
+      return m;
+    });
+
+    const result = last6.map(mIndex => {
+      const txInMonth = transactions.filter(t => {
+        if (!t.date) return false;
+        const d = new Date(t.date + 'T00:00:00');
+        return d.getMonth() === mIndex;
+      });
+
+      const rev = txInMonth.filter(t => t.type === 'receita').reduce((acc, t) => acc + Number(t.amount || 0), 0);
+      const mkt = txInMonth.filter(t => t.type === 'despesa' && t.category === 'marketing').reduce((acc, t) => acc + Number(t.amount || 0), 0);
+      
+      // Calculate CAC per month
+      // How many sales closed in this month?
+      const salesInMonth = leads.filter(l => {
+         if (l.status !== 'Fechado' || !l.updatedAt) return false;
+         return new Date(l.updatedAt).getMonth() === mIndex;
+      }).length;
+
+      const calcCac = salesInMonth > 0 ? (mkt / salesInMonth) : 0;
+
+      return {
+        month: months[mIndex],
+        revenue: rev,
+        cac: calcCac
+      };
+    });
+
+    return result;
+  }, [transactions, leads]);
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(val);
@@ -168,7 +245,12 @@ const Reports: React.FC = () => {
       </div>
 
       {/* Advanced Financial Growth */}
-      <div className="glass-panel p-6 rounded-2xl border border-white/10">
+      <div className="glass-panel p-6 rounded-2xl border border-white/10 relative">
+         {loadingFinancial && (
+           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm z-10 flex items-center justify-center rounded-2xl">
+              <Loader2 className="animate-spin text-lime-400" size={32} />
+           </div>
+         )}
          <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-bold text-white">Crescimento de Receita vs Otimização de CAC</h3>
          </div>
@@ -178,7 +260,7 @@ const Reports: React.FC = () => {
                   <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                   <XAxis dataKey="month" stroke="#64748b" tickLine={false} axisLine={false} />
                   <YAxis yAxisId="left" stroke="#64748b" tickLine={false} axisLine={false} tickFormatter={(val) => `R$${val/1000}k`}/>
-                  <YAxis yAxisId="right" orientation="right" stroke="#64748b" tickLine={false} axisLine={false} />
+                  <YAxis yAxisId="right" orientation="right" stroke="#64748b" tickLine={false} axisLine={false} tickFormatter={(val) => `R$${val}`}/>
                   <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', color: '#fff' }} />
                   <Legend />
                   <Line yAxisId="left" type="monotone" dataKey="revenue" name="Receita" stroke="#84cc16" strokeWidth={3} dot={{r:4}} />

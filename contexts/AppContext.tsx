@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Lead, Task, User, LeadHistoryLog, Product, Project } from '../types';
+import { Lead, Task, User, LeadHistoryLog, Product, Project, Pipeline, Tag, LeadPipelineEntry, LeadStatus } from '../types';
 import { storageService } from '../services/storageService';
 import { supabase } from '../lib/supabaseClient';
 
@@ -21,6 +21,12 @@ interface AppContextType {
   isLoading: boolean;
   isRecoveryMode: boolean;
   isSupabaseConnected: boolean;
+  // CRM v2
+  pipelines: Pipeline[];
+  tags: Tag[];
+  addPipeline: (name: string, type: Pipeline['type'], color: string) => Promise<void>;
+  updateLeadTags: (leadId: string, tags: Tag[]) => Promise<void>;
+  updateLeadPipelineStage: (leadId: string, pipelineId: string, stage: LeadStatus) => Promise<void>;
   login: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (name: string, email: string, password: string) => Promise<{ error: any }>;
   resetPassword: (email: string) => Promise<{ error: any }>;
@@ -44,7 +50,28 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    // Initial sync load to prevent Login flash
+    try {
+      const offlineUserStr = localStorage.getItem('quark_offline_user');
+      if (offlineUserStr) return JSON.parse(offlineUserStr);
+      
+      const sbSession = localStorage.getItem('quark-auth-token');
+      if (sbSession) {
+         const parsed = JSON.parse(sbSession);
+         if (parsed?.user) {
+            return {
+              id: parsed.user.id,
+              email: parsed.user.email!,
+              name: parsed.user.user_metadata?.name || 'Usuário',
+              role: 'Sales',
+              avatarInitials: (parsed.user.user_metadata?.name || 'U').substring(0, 2).toUpperCase()
+            };
+         }
+      }
+    } catch (e) {}
+    return null;
+  });
   const [leads, setLeads] = useState<Lead[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -54,6 +81,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [directoryUsers, setDirectoryUsers] = useState<User[]>([]);
   const [isRecoveryMode, setIsRecoveryMode] = useState(false);
   const [isSupabaseConnected, setIsSupabaseConnected] = useState(false);
+  // CRM v2
+  const [pipelines, setPipelines] = useState<Pipeline[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
 
   // Initialize Auth Listener & Check for Offline Session
   useEffect(() => {
@@ -69,6 +99,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // (both getSession + onAuthStateChange fire on mount)
     let initialLoadHandled = false;
 
+    // Load data from cache immediately to prevent waiting for auth
+    loadDataFromCache();
+    
+    // Background fetch if user was synchronously loaded
+    if (user) {
+       fetchDataBackground();
+    }
+
     // 2. Check Supabase Session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
@@ -76,12 +114,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const currentUser: User = {
           id: session.user.id,
           email: session.user.email!,
-          name: session.user.user_metadata.name || 'Usuário',
+          name: session.user.user_metadata?.name || 'Usuário',
           role: 'Sales',
-          avatarInitials: (session.user.user_metadata.name || 'U').substring(0, 2).toUpperCase()
+          avatarInitials: (session.user.user_metadata?.name || 'U').substring(0, 2).toUpperCase()
         };
-        setUser(currentUser);
-        fetchData();
+        if (!user) { // only fetch if we didn't already
+           fetchDataBackground();
+        }
       } else {
         // 3. Check Local Fallback Session (if Supabase failed previously)
         const offlineUserStr = localStorage.getItem('quark_offline_user');
@@ -89,7 +128,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           initialLoadHandled = true;
           const offlineUser: User = JSON.parse(offlineUserStr);
           setUser(offlineUser);
-          fetchData();
+          // Data is already loaded from cache
         }
       }
     });
@@ -101,23 +140,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
 
       if (session?.user) {
-        // Skip if getSession already handled initial load (avoids double fetchData on mount)
         if (initialLoadHandled && event === 'INITIAL_SESSION') return;
         initialLoadHandled = true;
 
         const newUser: User = {
           id: session.user.id,
           email: session.user.email!,
-          name: session.user.user_metadata.name || 'Usuário',
+          name: session.user.user_metadata?.name || 'Usuário',
           role: 'Sales',
-          avatarInitials: (session.user.user_metadata.name || 'U').substring(0, 2).toUpperCase()
+          avatarInitials: (session.user.user_metadata?.name || 'U').substring(0, 2).toUpperCase()
         };
         setUser(newUser);
-        localStorage.removeItem('quark_offline_user'); // Clear offline if real exists
-        fetchData();
-        checkSupabaseConnection(); // Re-check connection on auth change
+        localStorage.removeItem('quark_offline_user');
+        fetchDataBackground();
+        checkSupabaseConnection();
       } else if (!localStorage.getItem('quark_offline_user')) {
-        // Only clear user if no offline fallback exists
         if (event !== 'INITIAL_SESSION') {
           setUser(null);
           setLeads([]);
@@ -141,24 +178,52 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const fetchData = async (retryCount = 0) => {
-    setIsLoading(true);
-    console.log(`🚀 Iniciando fetchData (Tentativa ${retryCount + 1})...`);
+  const loadDataFromCache = () => {
+    try {
+      const getCached = (key: string, defaultVal: any) => {
+        const val = localStorage.getItem(key);
+        return val ? JSON.parse(val) : defaultVal;
+      };
+
+      const cachedLeads = getCached('quark_leads', []);
+      if (cachedLeads.length > 0) setLeads(cachedLeads);
+
+      const cachedTasks = getCached('quark_tasks', []);
+      if (cachedTasks.length > 0) setTasks(cachedTasks);
+
+      const cachedProjects = getCached('quark_projects', []);
+      if (cachedProjects.length > 0) setProjects(cachedProjects);
+
+      const cachedPipelines = getCached('quark_pipelines', []);
+      if (cachedPipelines.length > 0) setPipelines(cachedPipelines);
+
+      const cachedTags = getCached('quark_tags', []);
+      if (cachedTags.length > 0) setTags(cachedTags);
+
+      const cachedProducts = getCached('quark_products', []);
+      if (cachedProducts.length > 0) setProducts(cachedProducts);
+
+      console.log('⚡ Dados em cache carregados instantaneamente.');
+    } catch (err) {
+      console.warn('Erro ao carregar do cache local', err);
+    }
+  };
+
+  const fetchDataBackground = async (retryCount = 0) => {
+    console.log(`🚀 Iniciando sincronização em background (Tentativa ${retryCount + 1})...`);
     
     try {
       // Carregamento Individual para Resiliência
-      // Se um falhar, os outros continuam.
-      
       const loadSection = async (name: string, fetchFn: () => Promise<any>, stateFn: (data: any) => void) => {
         try {
           const startTime = performance.now();
           const data = await fetchFn();
           stateFn(data);
           const duration = (performance.now() - startTime).toFixed(0);
-          console.log(`✅ [${name}] carregado: ${Array.isArray(data) ? data.length : '1'} itens (${duration}ms)`);
+          console.log(`✅ [${name}] sincronizado: ${Array.isArray(data) ? data.length : '1'} itens (${duration}ms)`);
           return true;
         } catch (err) {
-          console.error(`❌ Erro ao carregar [${name}]:`, err);
+          console.error(`❌ Erro ao sincronizar [${name}]:`, err);
           return false;
         }
       };
@@ -168,7 +233,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         loadSection('tasks', () => storageService.getTasks(), setTasks),
         loadSection('users', () => storageService.getUsers(), setDirectoryUsers),
         loadSection('products', () => storageService.getProducts(), setProducts),
-        loadSection('projects', () => storageService.getProjects(), setProjects)
+        loadSection('projects', () => storageService.getProjects(), setProjects),
+        loadSection('pipelines', () => storageService.getPipelines(), setPipelines),
+        loadSection('tags', () => storageService.getTags(), setTags),
       ]);
 
       setActivities([
@@ -177,14 +244,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       
       console.log(`📊 Sincronização finalizada.`);
     } catch (error) {
-      console.error('⚠️ Erro crítico no fetchData:', error);
-      // Auto-retry once after 2 seconds on first failure (mobile cold start)
+      console.error('⚠️ Erro crítico na sincronização background:', error);
       if (retryCount < 1) {
         console.log('🔄 Tentando novamente em 2s...');
-        setTimeout(() => fetchData(retryCount + 1), 2000);
+        setTimeout(() => fetchDataBackground(retryCount + 1), 2000);
       }
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -220,7 +284,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         setUser(fallbackUser);
         localStorage.setItem('quark_offline_user', JSON.stringify(fallbackUser));
-        fetchData();
+        fetchDataBackground();
 
         return { error: null };
       }
@@ -422,6 +486,96 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  // ── CRM v2: Pipelines e Tags ──────────────────────────────────────────
+
+  const addPipeline = async (name: string, type: Pipeline['type'], color: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('pipelines')
+        .insert([{ name, type, color }])
+        .select()
+        .single();
+      if (error) throw error;
+      const newPipeline: Pipeline = { id: data.id, name: data.name, type: data.type, color: data.color };
+      setPipelines(prev => [...prev, newPipeline]);
+    } catch (err) {
+      console.error('Erro ao criar pipeline:', err);
+    }
+  };
+
+  const updateLeadTags = async (leadId: string, newTags: Tag[]) => {
+    // Atualiza tags no lead localmente + Supabase
+    const leadToUpdate = leads.find(l => l.id === leadId);
+    if (!leadToUpdate) return;
+    const updatedLead = { ...leadToUpdate, tags: newTags, updatedAt: new Date().toISOString() };
+    setLeads(prev => prev.map(l => l.id === leadId ? updatedLead : l));
+    await storageService.syncLead(updatedLead);
+    // Sincroniza na tabela lead_tags
+    try {
+      await supabase.from('lead_tags').delete().eq('lead_id', leadId);
+      if (newTags.length > 0) {
+        await supabase.from('lead_tags').insert(
+          newTags.map(t => ({ lead_id: leadId, tag_id: t.id }))
+        );
+      }
+    } catch (err) {
+      console.warn('Erro ao sincronizar tags:', err);
+    }
+  };
+
+  const updateLeadPipelineStage = async (leadId: string, pipelineId: string, stage: LeadStatus) => {
+    const leadToUpdate = leads.find(l => l.id === leadId);
+    if (!leadToUpdate) return;
+    const entries = leadToUpdate.pipelineEntries || [];
+    const existing = entries.find(e => e.pipelineId === pipelineId);
+    const oldStage = existing?.stage;
+
+    const updatedEntries: LeadPipelineEntry[] = existing
+      ? entries.map(e => e.pipelineId === pipelineId ? { ...e, stage } : e)
+      : [...entries, { pipelineId, stage }];
+    const updatedLead = { ...leadToUpdate, pipelineEntries: updatedEntries, updatedAt: new Date().toISOString() };
+    setLeads(prev => prev.map(l => l.id === leadId ? updatedLead : l));
+    await storageService.syncLead(updatedLead);
+    // Sincroniza na tabela lead_pipelines
+    try {
+      await supabase.from('lead_pipelines').upsert(
+        { lead_id: leadId, pipeline_id: pipelineId, stage, updated_at: new Date() },
+        { onConflict: 'lead_id,pipeline_id' }
+      );
+    } catch (err) {
+      console.warn('Erro ao sincronizar pipeline stage:', err);
+    }
+
+    // INTEGRAÇÃO: Se mudou para "Fechado" no pipeline, gera lançamento automático de Receita e envia para a Engenharia
+    if (stage === 'Fechado' && oldStage !== 'Fechado' && user) {
+      try {
+        const payload = {
+            description: `Venda Sistema Solar - ${leadToUpdate.name}`,
+            type: 'receita',
+            category: 'instalacao_residencial',
+            amount: leadToUpdate.value,
+            date: new Date().toISOString().split('T')[0],
+            note: `Lançamento automático do CRM (Pipeline)`,
+            user_id: user.id
+        };
+        await supabase.from('financial_transactions').insert([payload]);
+        addActivity('fechou negócio no pipeline: gerou receita', leadToUpdate.name);
+        
+        // Também jogar pra Engenharia!
+        await addProject({
+          clientId: leadToUpdate.id,
+          clientName: leadToUpdate.name,
+          clientPhone: leadToUpdate.phone,
+          city: leadToUpdate.city,
+          systemSizeKw: leadToUpdate.monthlyConsumption / 123,
+          status: 'Vistoria'
+        });
+      } catch (err) {
+        console.error("Falha ao gerar receita ou obra automática via pipeline", err);
+      }
+    }
+  };
+
   const addLeadLog = async (leadId: string, action: string, details: string) => {
     const currentLead = leads.find(l => l.id === leadId);
     if (!currentLead) return;
@@ -515,6 +669,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   return (
     <AppContext.Provider value={{
       user, leads, tasks, users: directoryUsers, products, activities, isLoading, isRecoveryMode, isSupabaseConnected,
+      pipelines, tags, addPipeline, updateLeadTags, updateLeadPipelineStage,
       login, signUp, resetPassword, updatePassword, logout, addLead, updateLead, deleteLead, updateLeadStatus, addLeadLog, addTask, toggleTask, deleteTask,
       projects, addProject, updateProjectStatus, updateProject, deleteProject
     }}>

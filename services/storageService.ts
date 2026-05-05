@@ -476,5 +476,65 @@ export const storageService = {
       }
       await supabase.from('projects').delete().eq('id', id);
     } catch (err) { console.error(err); }
-  }
+  },
+
+  // --- PIPELINES (CRM v2) ---
+  getPipelines: async () => {
+    const FALLBACK_PIPELINES = [
+      { id: '00000000-0000-0000-0000-000000000001', name: 'Geral',          type: 'Geral',  color: '#a3e635' },
+      { id: '00000000-0000-0000-0000-000000000002', name: 'Evento — Tênis', type: 'Evento', color: '#38bdf8' },
+      { id: '00000000-0000-0000-0000-000000000003', name: 'Evento — Poker', type: 'Evento', color: '#f472b6' },
+      { id: '00000000-0000-0000-0000-000000000004', name: 'Evento — Ritmo', type: 'Evento', color: '#fb923c' },
+    ];
+    try {
+      const { data, error } = await supabase.from('pipelines').select('*').order('created_at');
+      if (error) throw error;
+      if (data && data.length > 0) {
+        safeLocalStorage.setItem('quark_pipelines', JSON.stringify(data));
+        return data;
+      }
+      const cached = safeLocalStorage.getItem('quark_pipelines');
+      return cached ? JSON.parse(cached) : FALLBACK_PIPELINES;
+    } catch {
+      const cached = safeLocalStorage.getItem('quark_pipelines');
+      return cached ? JSON.parse(cached) : FALLBACK_PIPELINES;
+    }
+  },
+
+  // --- TAGS (CRM v2) ---
+  getTags: async () => {
+    const FALLBACK_TAGS = [
+      { id: 'tag-1', name: 'Anúncios',           color: '#f59e0b' },
+      { id: 'tag-2', name: 'Indicação',          color: '#10b981' },
+      { id: 'tag-3', name: 'Instagram orgânico', color: '#8b5cf6' },
+      { id: 'tag-4', name: 'Google Ads',         color: '#3b82f6' },
+      { id: 'tag-5', name: 'Indicação interna',  color: '#ec4899' },
+    ];
+    try {
+      const { data, error } = await supabase.from('tags').select('*').order('name');
+      if (error) throw error;
+      if (data && data.length > 0) {
+        safeLocalStorage.setItem('quark_tags', JSON.stringify(data));
+        return data;
+      }
+      const cached = safeLocalStorage.getItem('quark_tags');
+      return cached ? JSON.parse(cached) : FALLBACK_TAGS;
+    } catch {
+      const cached = safeLocalStorage.getItem('quark_tags');
+      return cached ? JSON.parse(cached) : FALLBACK_TAGS;
+    }
+  },
+
+  // --- STORAGE (Arquivos) ---
+  uploadFile: async (bucket: string, path: string, fileBlob: Blob): Promise<string | null> => {
+    try {
+      const { data, error } = await supabase.storage.from(bucket).upload(path, fileBlob, { upsert: true });
+      if (error) throw error;
+      const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(path);
+      return publicUrl;
+    } catch (err) {
+      console.error('⚠️ Erro ao fazer upload do arquivo:', err);
+      return null;
+    }
+  },
 };

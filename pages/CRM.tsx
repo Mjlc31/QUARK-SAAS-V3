@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, MapPin, Search, X, Clock, Send, Edit2, Trash2, Save, Sparkles, Copy, Check, Loader2, Pencil, DollarSign, GripVertical, List, LayoutGrid, AlertTriangle } from 'lucide-react';
-import { Lead, LeadStatus } from '../types';
+import { Plus, MapPin, Search, X, Clock, Send, Edit2, Trash2, Save, Sparkles, Copy, Check, Loader2, Pencil, DollarSign, GripVertical, List, LayoutGrid, ChevronDown, Tag } from 'lucide-react';
+import { Lead, LeadStatus, Pipeline } from '../types';
 import { useApp } from '../contexts/AppContext';
 import { ai } from '../lib/ai';
 import { LeadDetailsPanel } from '../components/LeadDetailsPanel';
@@ -13,7 +13,10 @@ const COLUMN_CONFIG: { id: LeadStatus; defaultLabel: string; color: string }[] =
 ];
 
 const CRM: React.FC = () => {
-  const { leads, updateLeadStatus, addLead, addLeadLog, updateLead, deleteLead } = useApp();
+  const { leads, updateLeadStatus, addLead, addLeadLog, updateLead, deleteLead, pipelines, updateLeadPipelineStage } = useApp();
+  const [activePipelineId, setActivePipelineId] = useState<string>('00000000-0000-0000-0000-000000000001');
+  const [showPipelineDropdown, setShowPipelineDropdown] = useState(false);
+  const activePipeline = pipelines.find(p => p.id === activePipelineId) || pipelines[0];
 
   // Default to list view on mobile
   const [viewMode, setViewMode] = useState<'board' | 'list'>(
@@ -37,6 +40,9 @@ const CRM: React.FC = () => {
 
   const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
   const [tempTitle, setTempTitle] = useState('');
+
+  const [isNewPipelineOpen, setIsNewPipelineOpen] = useState(false);
+  const [newPipelineName, setNewPipelineName] = useState('');
 
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [aiProposal, setAiProposal] = useState('');
@@ -237,6 +243,27 @@ Podemos agendar uma breve apresentação da proposta?`;
     }
   };
 
+  const handleCreatePipeline = async () => {
+    if (!newPipelineName.trim()) return;
+    await useApp().addPipeline(newPipelineName, 'Geral', '#a3e635'); // defaulting to green for now
+    setIsNewPipelineOpen(false);
+    setNewPipelineName('');
+  };
+
+  // Determina o stage do lead no pipeline ativo
+  const getLeadStageInPipeline = (lead: Lead): LeadStatus => {
+    const entry = lead.pipelineEntries?.find(e => e.pipelineId === activePipelineId);
+    return entry?.stage ?? lead.status;
+  };
+
+  const handlePipelineDrop = (e: React.DragEvent, stage: LeadStatus) => {
+    e.preventDefault();
+    if (draggedLead) {
+      updateLeadPipelineStage(draggedLead, activePipelineId, stage);
+      setDraggedLead(null);
+    }
+  };
+
   const filteredLeads = leads.filter(l =>
     l.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     l.city.toLowerCase().includes(searchTerm.toLowerCase())
@@ -259,51 +286,74 @@ Podemos agendar uma breve apresentação da proposta?`;
 
       {/* Header Actions */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <div className="flex items-center gap-4 w-full md:w-auto">
-          <div className="relative w-full md:w-96">
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+
+          {/* Pipeline Selector */}
+          <div className="relative">
+            <button
+              onClick={() => setShowPipelineDropdown(!showPipelineDropdown)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-white/10 bg-zinc-900/70 text-sm font-bold text-white hover:bg-zinc-800 transition-all"
+              style={{ borderColor: activePipeline ? `${activePipeline.color}40` : undefined }}
+            >
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: activePipeline?.color ?? '#a3e635' }} />
+              <span>Pipeline: {activePipeline?.name ?? 'Geral'}</span>
+              <ChevronDown size={14} className="text-zinc-400" />
+            </button>
+            {showPipelineDropdown && (
+              <div className="absolute top-full mt-2 left-0 z-50 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl py-2 min-w-[200px] animate-enter">
+                {pipelines.map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => { setActivePipelineId(p.id); setShowPipelineDropdown(false); }}
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium hover:bg-white/5 transition-colors text-left ${
+                      p.id === activePipelineId ? 'text-white' : 'text-zinc-400'
+                    }`}
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+                    {p.name}
+                  </button>
+                ))}
+                <div className="h-px bg-white/10 my-1 mx-2"></div>
+                <button
+                  onClick={() => { setShowPipelineDropdown(false); setIsNewPipelineOpen(true); }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-lime-400 hover:bg-lime-500/10 transition-colors text-left"
+                >
+                  <Plus size={14} className="shrink-0" />
+                  Nova Pipeline
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Search */}
+          <div className="relative flex-1 min-w-[200px] md:min-w-[280px]">
             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
             <input
               type="text"
-              placeholder="Buscar Lead por nome ou cidade..."
-              className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl py-3 pl-12 pr-4 text-zinc-200 focus:border-lime-500/50 focus:ring-1 focus:ring-lime-500/50 outline-none transition-all placeholder-zinc-600"
+              placeholder="Buscar lead..."
+              className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl py-3 pl-12 pr-4 text-zinc-200 focus:border-lime-500/50 outline-none transition-all placeholder-zinc-600"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
 
-          {/* Filtro de Saúde: Modo Resgate */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setRescueMode(!rescueMode)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-bold transition-all ${rescueMode ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' : 'bg-zinc-900/50 border-white/5 text-zinc-400 hover:bg-zinc-800'}`}
-              title="Filtrar apenas leads parados há mais de 7 dias"
-            >
-              <Clock size={16} />
-              <span className="hidden md:inline">Modo Resgate</span>
-              <div className={`w-8 h-4 rounded-full p-0.5 ml-1 transition-colors ${rescueMode ? 'bg-rose-500' : 'bg-zinc-700'}`}>
-                <div className={`w-3 h-3 rounded-full bg-white shadow-sm transform transition-transform ${rescueMode ? 'translate-x-4' : 'translate-x-0'}`} />
-              </div>
-            </button>
-          </div>
+          {/* Modo Resgate */}
+          <button
+            onClick={() => setRescueMode(!rescueMode)}
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-bold transition-all ${rescueMode ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' : 'bg-zinc-900/50 border-white/5 text-zinc-400 hover:bg-zinc-800'}`}
+            title="Leads parados há +7 dias"
+          >
+            <Clock size={16} />
+            <span className="hidden md:inline">Modo Resgate</span>
+          </button>
 
           {/* View Toggle */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-1 flex">
-            <button
-              onClick={() => setViewMode('board')}
-              className={`p-2 rounded-lg transition-colors ${viewMode === 'board' ? 'bg-zinc-800 text-lime-400' : 'text-zinc-500 hover:text-zinc-300'}`}
-              title="Visualização em Quadro"
-            >
-              <LayoutGrid size={18} />
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-2 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-zinc-800 text-lime-400' : 'text-zinc-500 hover:text-zinc-300'}`}
-              title="Visualização em Lista"
-            >
-              <List size={18} />
-            </button>
+            <button onClick={() => setViewMode('board')} className={`p-2 rounded-lg transition-colors ${viewMode === 'board' ? 'bg-zinc-800 text-lime-400' : 'text-zinc-500 hover:text-zinc-300'}`} title="Quadro"><LayoutGrid size={18} /></button>
+            <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-zinc-800 text-lime-400' : 'text-zinc-500 hover:text-zinc-300'}`} title="Lista"><List size={18} /></button>
           </div>
         </div>
+
         <button
           onClick={() => setIsFormOpen(true)}
           className="btn-primary px-6 py-3 rounded-xl flex items-center gap-2 shadow-lg shadow-lime-500/10 active:scale-95 w-full md:w-auto justify-center"
@@ -319,8 +369,8 @@ Podemos agendar uma breve apresentação da proposta?`;
         <div className="flex-1 overflow-x-auto overflow-y-hidden pb-4 -mx-4 md:mx-0 px-4 md:px-0 custom-scrollbar snap-x-mandatory" onTouchMove={touchDrag ? handleTouchMove : undefined} onTouchEnd={touchDrag ? handleTouchEnd : undefined}>
           <div className="flex flex-row gap-4 md:gap-6 min-w-max md:min-w-[1240px] h-full items-start px-1 md:px-0">
             {COLUMN_CONFIG.map(column => {
-              const columnLeads = finalLeads.filter(l => l.status === column.id);
-              const columnTotalValue = getColumnTotal(column.id);
+              const columnLeads = finalLeads.filter(l => getLeadStageInPipeline(l) === column.id);
+              const columnTotalValue = columnLeads.reduce((acc, l) => acc + l.value, 0);
 
               return (
                 <div
@@ -328,7 +378,7 @@ Podemos agendar uma breve apresentação da proposta?`;
                   data-column-id={column.id}
                   className={`flex flex-col w-[88vw] md:w-[320px] shrink-0 h-full bg-zinc-900/40 backdrop-blur-sm border border-white/5 rounded-3xl overflow-hidden transition-all duration-300 shadow-2xl ${touchDrag && touchDrag.lead.status !== column.id ? 'bg-white/5 scale-[1.02] ring-2 ring-lime-500/50' : ''}`}
                   onDragOver={handleDragOver}
-                  onDrop={(e) => handleDrop(e, column.id)}
+                  onDrop={(e) => handlePipelineDrop(e, column.id)}
                 >
                   <div className={`p-4 border-b-2 ${column.color} bg-black/20 flex flex-col gap-3 group/header shrink-0 relative overflow-hidden`}>
                     <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
@@ -408,6 +458,16 @@ Podemos agendar uma breve apresentação da proposta?`;
                             <div className="flex items-center gap-1.5 text-[11px] text-zinc-500 font-medium">
                               <MapPin size={12} /> {lead.city}
                             </div>
+                            {/* Tags badges */}
+                            {lead.tags && lead.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1.5">
+                                {lead.tags.map(tag => (
+                                  <span key={tag.id} className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `${tag.color}20`, color: tag.color, border: `1px solid ${tag.color}30` }}>
+                                    {tag.name}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -574,6 +634,29 @@ Podemos agendar uma breve apresentação da proposta?`;
             <div className="flex gap-4 mt-10">
               <button onClick={() => setIsFormOpen(false)} className="flex-1 py-4 text-zinc-400 hover:text-white font-medium transition-colors">Cancelar</button>
               <button onClick={submitNewLead} className="flex-1 btn-primary py-4 rounded-xl shadow-lg active:scale-95">Salvar Lead</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* New Pipeline Modal */}
+      {isNewPipelineOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+          <div className="glass-panel w-full max-w-sm rounded-3xl p-8 border border-white/10 shadow-2xl animate-enter">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-white font-display">Nova Pipeline</h2>
+              <button onClick={() => setIsNewPipelineOpen(false)} className="text-zinc-500 hover:text-white transition-colors"><X size={20} /></button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 block">Nome da Pipeline</label>
+                <input type="text" placeholder="Ex: Vendas B2B" className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 text-white focus:border-lime-500 outline-none transition-all placeholder-zinc-600" value={newPipelineName} onChange={e => setNewPipelineName(e.target.value)} autoFocus />
+              </div>
+            </div>
+            <div className="flex gap-4 mt-8">
+              <button onClick={() => setIsNewPipelineOpen(false)} className="flex-1 py-3 text-zinc-400 hover:text-white font-medium transition-colors">Cancelar</button>
+              <button onClick={handleCreatePipeline} className="flex-1 btn-primary py-3 rounded-xl shadow-lg active:scale-95">Criar</button>
             </div>
           </div>
         </div>

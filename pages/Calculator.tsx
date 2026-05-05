@@ -126,7 +126,11 @@ const Calculator: React.FC = () => {
 
     const totalInvestment = selectedKit.finalPrice * multiplier;
     const modulesCount = Math.ceil(selectedKit.modules * multiplier);
-    const installedPowerKw = selectedKit.power * multiplier;
+    
+    // CORREÇÃO DE GRANDEZA (W vs kW):
+    const panel = products.find(p => p.id === selectedModuleId);
+    const modulePower = panel?.power || DEFAULT_MODULE_POWER;
+    const installedPowerKw = (modulesCount * modulePower) / 1000;
     
     // Atualizar os selects visuais implicitamente
     const actualInverterPower = selectedKit.invPower * multiplier;
@@ -159,7 +163,7 @@ const Calculator: React.FC = () => {
 
     cashFlow.push({
       year: 0,
-      balance: Math.floor(cumulativeBalance),
+      balance: cumulativeBalance,
       economy: 0,
       loanPayment: 0
     });
@@ -192,10 +196,10 @@ const Calculator: React.FC = () => {
 
       cashFlow.push({
         year,
-        balance: Math.floor(cumulativeBalance),
-        economy: Math.floor(yearSavings),
-        loanPayment: Math.floor(annualLoanPayment),
-        cumulativeGridCost: Math.floor(cumulativeGridCost)
+        balance: cumulativeBalance,
+        economy: yearSavings,
+        loanPayment: annualLoanPayment,
+        cumulativeGridCost: cumulativeGridCost
       });
 
       currentTariff *= tariffInflationFactor;
@@ -222,8 +226,8 @@ const Calculator: React.FC = () => {
     const newBill = isFinanced ? (gridTax + monthlyPayment) : gridTax;
 
     setComparisonData([
-      { name: 'Conta Atual', valor: Math.floor(oldBill), fill: '#ef4444' }, // Red
-      { name: 'Conta Nova', valor: Math.floor(newBill), fill: '#84cc16' }  // Green
+      { name: 'Conta Atual', valor: oldBill, fill: '#ef4444' }, // Red
+      { name: 'Conta Nova', valor: newBill, fill: '#84cc16' }  // Green
     ]);
 
     setResult({
@@ -232,17 +236,17 @@ const Calculator: React.FC = () => {
       inverterSizeKw: actualInverterPower,
       oversizingFactor: Number(oversizing.toFixed(2)),
       areaM2: Number((modulesCount * MODULE_AREA).toFixed(1)),
-      monthlyGeneration: Math.floor(currentGenerationMonthlyAvg),
-      monthlySavings: Math.floor(currentGenerationMonthlyAvg * tariff),
-      annualSavings: Math.floor(currentGenerationMonthlyAvg * 12 * tariff),
+      monthlyGeneration: currentGenerationMonthlyAvg,
+      monthlySavings: currentGenerationMonthlyAvg * tariff,
+      annualSavings: currentGenerationMonthlyAvg * 12 * tariff,
       paybackYears: paybackYear > 25 ? 25 : Number(paybackYear.toFixed(1)),
-      totalInvestment: Math.floor(totalInvestment),
-      roi25Years: Math.floor(roi25),
+      totalInvestment: totalInvestment,
+      roi25Years: roi25,
       co2SavedTons: Number(co2SavedTons.toFixed(1)),
       treesPlanted,
       financed: isFinanced,
-      monthlyPayment: Math.floor(monthlyPayment),
-      totalFinancingCost: Math.floor(totalFinancingCost)
+      monthlyPayment: monthlyPayment,
+      totalFinancingCost: totalFinancingCost
     });
 
     setCashFlowData(cashFlow);
@@ -597,7 +601,7 @@ const Calculator: React.FC = () => {
                       : result.totalInvestment * (i * Math.pow(1 + i, n)) / (Math.pow(1 + i, n) - 1);
                     return (
                       <div key={n} className="flex justify-between items-center text-xs py-2 border-b border-white/5 last:border-0">
-                        <span className="text-slate-400 font-medium">{n}x de R$ {Math.round(pmt).toLocaleString('pt-BR')}</span>
+                        <span className="text-slate-400 font-medium">{n}x de {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pmt)}</span>
                         <span className="text-amber-400 font-bold bg-amber-500/10 px-2.5 py-1 rounded-md text-[10px] tracking-wider uppercase">Cartão</span>
                       </div>
                     );
@@ -652,19 +656,19 @@ const Calculator: React.FC = () => {
                     <div>
                       <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Redução Mensal Média</p>
                       <div className="flex items-baseline gap-2 mb-2">
-                        <span className="text-5xl font-black text-lime-400 tracking-tighter drop-shadow-[0_0_15px_rgba(132,204,34,0.3)]">R$ {result.monthlySavings.toLocaleString('pt-BR')}</span>
+                        <span className="text-5xl font-black text-lime-400 tracking-tighter drop-shadow-[0_0_15px_rgba(132,204,34,0.3)]">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(result.monthlySavings)}</span>
                       </div>
-                      <p className="text-xs text-slate-500 font-medium">Economia anualizada estimada em <span className="text-white font-bold">R$ {result.annualSavings.toLocaleString('pt-BR')}</span></p>
+                      <p className="text-xs text-slate-500 font-medium">Economia anualizada estimada em <span className="text-white font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(result.annualSavings)}</span></p>
 
                       {isFinanced && (
                         <div className="mt-8 p-4 bg-sky-500/10 rounded-2xl border border-sky-500/20 backdrop-blur-md">
                           <div className="flex justify-between items-center mb-1.5">
                             <span className="text-[10px] text-sky-400 font-bold uppercase tracking-wider">Parcela do Financiamento</span>
-                            <span className="text-white font-bold tracking-tight">R$ {result.monthlyPayment?.toLocaleString('pt-BR')}</span>
+                            <span className="text-white font-bold tracking-tight">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(result.monthlyPayment || 0)}</span>
                           </div>
                           <div className="flex justify-between items-center">
                             <span className="text-[10px] text-slate-400 uppercase tracking-wider">Investimento Inicial</span>
-                            <span className="text-slate-300 font-bold">R$ {downPayment.toLocaleString('pt-BR')}</span>
+                            <span className="text-slate-300 font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(downPayment)}</span>
                           </div>
                         </div>
                       )}
@@ -676,7 +680,7 @@ const Calculator: React.FC = () => {
                         <BarChart data={comparisonData.map(d => ({ ...d, valorDisplay: d.valor }))} layout="vertical" barSize={32}>
                           <XAxis type="number" hide />
                           <YAxis dataKey="name" type="category" width={90} tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 'bold' }} axisLine={false} tickLine={false} />
-                          <Tooltip cursor={{ fill: 'rgba(255,255,255,0.02)' }} contentStyle={{ backgroundColor: '#0B0A10', borderColor: '#ffffff1a', borderRadius: '12px', color: '#fff', fontSize: '12px', fontWeight: 'bold' }} formatter={(val: number) => `R$ ${val.toLocaleString('pt-BR')}`} />
+                          <Tooltip cursor={{ fill: 'rgba(255,255,255,0.02)' }} contentStyle={{ backgroundColor: '#0B0A10', borderColor: '#ffffff1a', borderRadius: '12px', color: '#fff', fontSize: '12px', fontWeight: 'bold' }} formatter={(val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)} />
                           <Bar dataKey="valorDisplay" radius={[0, 6, 6, 0]}>
                             {comparisonData.map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={entry.fill} />
@@ -698,10 +702,14 @@ const Calculator: React.FC = () => {
                 </div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 relative z-10">Retorno do Investimento</p>
                 <div className="flex items-baseline gap-2 relative z-10">
-                  <span className="text-4xl font-black text-white tracking-tighter">{result.paybackYears}</span>
-                  <span className="text-sm font-bold text-slate-500">anos</span>
+                  <span className="text-4xl font-black text-white tracking-tighter">
+                    {result.paybackYears < 3 ? Math.round(result.paybackYears * 12) : result.paybackYears}
+                  </span>
+                  <span className="text-sm font-bold text-slate-500">
+                    {result.paybackYears < 3 ? 'meses' : 'anos'}
+                  </span>
                 </div>
-                <p className="text-[10px] text-lime-400 font-bold mt-2 uppercase tracking-wider relative z-10">{result.roi25Years}% ROI em 25 anos</p>
+                <p className="text-[10px] text-lime-400 font-bold mt-2 uppercase tracking-wider relative z-10">{result.roi25Years.toFixed(1)}% ROI em 25 anos</p>
               </div>
 
               <div className="flex-1 bg-white/5 backdrop-blur-3xl rounded-3xl border border-white/5 p-6 flex flex-col justify-center relative overflow-hidden group hover:bg-white/10 transition-colors">
@@ -710,7 +718,7 @@ const Calculator: React.FC = () => {
                 </div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 relative z-10">Geração Média Mensal</p>
                 <div className="flex items-baseline gap-2 relative z-10">
-                  <span className="text-4xl font-black text-white tracking-tighter">{result.monthlyGeneration}</span>
+                  <span className="text-4xl font-black text-white tracking-tighter">{Math.round(result.monthlyGeneration)}</span>
                   <span className="text-sm font-bold text-slate-500">kWh</span>
                 </div>
                 <p className="text-[10px] text-slate-500 font-bold mt-2 uppercase tracking-wider relative z-10">Sistema de {result.systemSizeKw} kWp</p>
@@ -743,7 +751,7 @@ const Calculator: React.FC = () => {
                     <YAxis stroke="#64748b" tickLine={false} axisLine={false} fontSize={10} fontWeight={600} tickFormatter={(val) => `R$${val / 1000}k`} />
                     <Tooltip
                       contentStyle={{ backgroundColor: '#0B0A10', borderColor: '#ffffff1a', borderRadius: '12px', color: '#fff', fontSize: '12px', fontWeight: 'bold' }}
-                      formatter={(value: any) => [`R$ ${value.toLocaleString('pt-BR')}`, '']}
+                      formatter={(value: any) => [new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value), '']}
                       itemStyle={{ color: '#84cc16' }}
                     />
                     <Area type="monotone" dataKey="balance" name="Saldo Acumulado" stroke="#84cc16" fill="url(#colorBalance)" strokeWidth={3} />

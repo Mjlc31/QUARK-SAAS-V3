@@ -112,6 +112,9 @@ const Financial: React.FC = () => {
 
     // DRE expand
     const [expanded, setExpanded] = useState({ receitas: true, cpv: true, despesas: true, impostos: true });
+    
+    // Tax Rate (Impostos editáveis)
+    const [taxRate, setTaxRate] = useState<number>(0);
 
     // ─── Fetch monthly data ───────────────────────────────────────────────────
     useEffect(() => {
@@ -183,7 +186,12 @@ const Financial: React.FC = () => {
         const despOp = depSal + depMkt + depAlq + depCom + depSof + depOut;
 
         const ebit = lucroBruto - despOp;
-        const impostos = sum('despesa', ['imposto']);
+        
+        // Impostos (transações + provisão)
+        const transacoesImposto = sum('despesa', ['imposto']);
+        const provisaoImposto = receitaBruta * (taxRate / 100);
+        const impostos = transacoesImposto + provisaoImposto;
+        
         const lucroLiquido = ebit - impostos;
         const margemLiquida = receitaBruta === 0 ? 0 : (lucroLiquido / receitaBruta) * 100;
 
@@ -192,9 +200,9 @@ const Financial: React.FC = () => {
             cpvEq, cpvMO, cpvFr, cpvOut, cpv,
             lucroBruto, margemBruta,
             depSal, depMkt, depAlq, depCom, depSof, depOut, despOp,
-            ebit, impostos, lucroLiquido, margemLiquida,
+            ebit, impostos, lucroLiquido, margemLiquida, transacoesImposto, provisaoImposto
         };
-    }, [filtered]);
+    }, [filtered, taxRate]);
 
     // ─── Monthly chart data (last 6 months of year) ───────────────────────────
     const monthlyChartData = useMemo(() => {
@@ -698,8 +706,31 @@ const Financial: React.FC = () => {
                             </div>
                             <hr className="border-white/5" />
                             <div className="space-y-1">
-                                <SectionHeader title="4. Imposto de Renda e CSLL" k="impostos" count={filtered.filter(t => t.category === 'imposto').length} />
-                                {expanded.impostos && <DRERow label="IR / CSLL / Simples Nacional" value={dre.impostos} indent={1} />}
+                                <div className="flex items-center justify-between py-2.5 px-3 bg-zinc-900/50 border border-white/5 rounded-lg hover:bg-zinc-900 transition-colors">
+                                    <button onClick={() => setExpanded(p => ({ ...p, impostos: !p.impostos }))} className="flex-1 flex items-center justify-between text-left">
+                                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">4. Impostos e Taxas</span>
+                                        <div className="flex items-center gap-2 mr-4">
+                                            <span className="text-xs text-slate-600">{filtered.filter(t => t.category === 'imposto').length}</span>
+                                            {expanded.impostos ? <ChevronUp size={14} className="text-slate-500" /> : <ChevronDown size={14} className="text-slate-500" />}
+                                        </div>
+                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] text-slate-500 uppercase font-bold">Provisão (%)</span>
+                                        <input 
+                                           type="number" 
+                                           value={taxRate} 
+                                           onChange={e => setTaxRate(Number(e.target.value))}
+                                           className="w-16 bg-black/40 border border-white/10 rounded px-2 py-1 text-xs text-white text-right focus:border-lime-500 outline-none"
+                                           placeholder="Ex: 6"
+                                        />
+                                    </div>
+                                </div>
+                                {expanded.impostos && (
+                                    <div className="pl-4 space-y-0.5">
+                                        <DRERow label="Lançamentos Manuais (Impostos)" value={dre.transacoesImposto} indent={1} />
+                                        <DRERow label={`Provisão S/ Faturamento (${taxRate}%)`} value={dre.provisaoImposto} indent={1} />
+                                    </div>
+                                )}
                                 <DRERow label="(-) Impostos Total" value={-dre.impostos} red />
                             </div>
                             <hr className="border-white/5" />

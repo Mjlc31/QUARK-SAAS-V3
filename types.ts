@@ -1,6 +1,26 @@
 export type LeadStatus = 'Lead' | 'Qualificacao' | 'Proposta' | 'Fechado';
 export type ProjectStatus = 'Vistoria' | 'Projeto' | 'Homologacao' | 'Instalacao' | 'Finalizado';
 export type UserRole = 'Admin' | 'Sales' | 'Engineering';
+export type PersonType = 'PF' | 'PJ';
+export type PipelineType = 'Geral' | 'Evento' | 'Produto';
+
+export interface Pipeline {
+  id: string;
+  name: string;
+  type: PipelineType;
+  color: string;
+}
+
+export interface Tag {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export interface LeadPipelineEntry {
+  pipelineId: string;
+  stage: LeadStatus;
+}
 
 export interface User {
   id: string;
@@ -40,6 +60,14 @@ export interface Lead {
   history: LeadHistoryLog[];
   assignee?: string;
   notes?: string;
+  // ── Dados Empresa (PJ) ──
+  personType?: PersonType;
+  companyName?: string;
+  cnpj?: string;
+  stateRegistration?: string;
+  // ── CRM v2: Tags e Multi-Pipeline ──
+  tags?: Tag[];
+  pipelineEntries?: LeadPipelineEntry[];
 }
 
 export interface Project {

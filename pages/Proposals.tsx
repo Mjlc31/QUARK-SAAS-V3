@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ProposalEditor, ProposalData } from '../components/ProposalEditor';
 import { FileText, Plus, ChevronRight, Calculator, CheckCircle } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
+const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
 const Proposals: React.FC = () => {
   const { addLead } = useApp();
@@ -10,6 +11,7 @@ const Proposals: React.FC = () => {
     return saved ? JSON.parse(saved) : [];
   });
 
+  const [searchTerm, setSearchTerm] = useState('');
   const [step, setStep] = useState(0); // 0 = List, 1 = Form1 (Client), 2 = Form2 (Modules/Inv), 3 = Config (Value), 4 = Preview
   const [formData, setFormData] = useState<Partial<ProposalData>>({
     clientName: '',
@@ -76,21 +78,36 @@ const Proposals: React.FC = () => {
   };
 
   const handleSavePreview = (payload: ProposalData) => {
-    setProposals([...proposals, payload]);
-    
-    // Auto-cadastrar Lead no CRM!
-    addLead({
-      name: payload.clientName,
-      city: payload.city,
-      value: payload.finalPrice,
-      monthlyConsumption: payload.consumption,
-      phone: '', 
-      status: 'Proposta'
-    });
+    if (payload.id) {
+      setProposals(proposals.map(p => p.id === payload.id ? payload : p));
+    } else {
+      const newProposal = { ...payload, id: crypto.randomUUID() };
+      setProposals([...proposals, newProposal]);
+      
+      // Auto-cadastrar Lead no CRM apenas se for nova!
+      addLead({
+        name: newProposal.clientName,
+        city: newProposal.city,
+        value: newProposal.finalPrice,
+        monthlyConsumption: newProposal.consumption,
+        phone: '', 
+        status: 'Proposta'
+      });
+    }
 
     setStep(0); // Volta pra lista
     setFormData({}); // Limpa
   };
+
+  const handleEditProposal = (proposal: ProposalData) => {
+    setFormData(proposal);
+    setStep(1); // Vai pro editor
+  };
+
+  const filteredProposals = proposals.filter(p => 
+    (p.clientName || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+    (p.city || '').toLowerCase().includes(searchTerm.toLowerCase())
+  ).reverse();
 
   return (
     <div className="space-y-6 h-full flex flex-col animate-enter">
@@ -111,19 +128,25 @@ const Proposals: React.FC = () => {
       </div>
 
       {step === 0 && (
-         <div className="flex-1 min-h-0 bg-zinc-900/50 rounded-2xl border border-white/5 p-6">
-            {proposals.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-center py-20">
+         <div className="flex-1 min-h-0 bg-zinc-900/50 rounded-2xl border border-white/5 p-6 flex flex-col gap-6">
+            {/* Filtro de Busca */}
+            <div className="relative max-w-sm w-full shrink-0">
+               <input type="text" placeholder="Buscar proposta por nome ou cidade..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full bg-black/40 border border-zinc-800 rounded-xl p-3 text-white focus:border-lime-500 outline-none text-sm" />
+            </div>
+
+            {filteredProposals.length === 0 ? (
+                <div className="flex flex-col items-center justify-center flex-1 text-center py-20">
                     <div className="w-16 h-16 bg-lime-500/10 rounded-2xl flex items-center justify-center text-lime-400 mb-6">
                         <FileText size={32} />
                     </div>
-                    <h3 className="text-xl font-bold text-white mb-2">Nenhuma proposta gerada ainda</h3>
-                    <p className="text-zinc-500 max-w-sm">Crie orçamentos premium e personalizados para seus clientes utilizando nosso Wizard exclusivo.</p>
+                    <h3 className="text-xl font-bold text-white mb-2">Nenhuma proposta encontrada</h3>
+                    <p className="text-zinc-500 max-w-sm">Tente mudar sua busca ou crie um novo orçamento.</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {proposals.reverse().map((p, idx) => (
-                        <div key={idx} className="glass-panel p-5 rounded-2xl border border-white/10 hover:border-lime-500/30 transition-colors cursor-pointer group">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto custom-scrollbar pb-4 pr-2">
+                    {filteredProposals.map((p, idx) => (
+                        <div key={idx} onClick={() => handleEditProposal(p)} className="glass-panel p-5 rounded-2xl border border-white/10 hover:border-lime-500/30 transition-all cursor-pointer group active:scale-[0.98]">
                             <h4 className="font-bold text-white text-lg group-hover:text-lime-400 transition-colors uppercase">{p.clientName}</h4>
                             <p className="text-xs text-zinc-500 mb-4">{p.city}</p>
                             <div className="grid grid-cols-2 gap-2 mb-4">
@@ -138,7 +161,7 @@ const Proposals: React.FC = () => {
                             </div>
                             <div className="flex items-center justify-between text-xs font-bold pt-2 border-t border-white/5">
                                <span className="text-zinc-500">Valor Final</span>
-                               <span className="text-white">R$ {(p.finalPrice).toLocaleString()}</span>
+                               <span className="text-white">{formatCurrency(p.finalPrice)}</span>
                             </div>
                         </div>
                     ))}
@@ -324,12 +347,12 @@ const Proposals: React.FC = () => {
 
                           <div className="mt-6 bg-zinc-900 border border-white/10 rounded-xl p-6 text-sm text-zinc-400">
                              <strong className="text-white text-lg block mb-4">Extrato Transparente:</strong>
-                             <div className="flex justify-between"><span>Custo de Equipamentos + CA + Serviços:</span> <span className="font-bold text-white">R$ {((formData.priceKit || 0) + ((formData.modulesCount || 0) * (formData.pricePerModule || 0)) + ((formData.systemSizeKw || 0) * (formData.priceCA || 0)) + (formData.additionalCosts || 0)).toLocaleString('pt-BR', {maximumFractionDigits:2})}</span></div>
-                             <div className="flex justify-between text-yellow-500 mt-2"><span>Impostos ({formData.taxPercentage}%):</span> <span className="font-bold">R$ {(((formData.priceKit || 0) + ((formData.modulesCount || 0) * (formData.pricePerModule || 0)) + ((formData.systemSizeKw || 0) * (formData.priceCA || 0)) + (formData.additionalCosts || 0)) / (1 - (((formData.taxPercentage || 0)/100) + ((formData.profitPercentage || 0)/100))) * ((formData.taxPercentage || 0)/100)).toLocaleString('pt-BR', {maximumFractionDigits:2})}</span></div>
-                             <div className="flex justify-between text-lime-400"><span>Lucratividade ({formData.profitPercentage}%):</span> <span className="font-bold">R$ {(((formData.priceKit || 0) + ((formData.modulesCount || 0) * (formData.pricePerModule || 0)) + ((formData.systemSizeKw || 0) * (formData.priceCA || 0)) + (formData.additionalCosts || 0)) / (1 - (((formData.taxPercentage || 0)/100) + ((formData.profitPercentage || 0)/100))) * ((formData.profitPercentage || 0)/100)).toLocaleString('pt-BR', {maximumFractionDigits:2})}</span></div>
+                             <div className="flex justify-between"><span>Custo de Equipamentos + CA + Serviços:</span> <span className="font-bold text-white">{formatCurrency(((formData.priceKit || 0) + ((formData.modulesCount || 0) * (formData.pricePerModule || 0)) + ((formData.systemSizeKw || 0) * (formData.priceCA || 0)) + (formData.additionalCosts || 0)))}</span></div>
+                             <div className="flex justify-between text-yellow-500 mt-2"><span>Impostos ({formData.taxPercentage}%):</span> <span className="font-bold">{formatCurrency((((formData.priceKit || 0) + ((formData.modulesCount || 0) * (formData.pricePerModule || 0)) + ((formData.systemSizeKw || 0) * (formData.priceCA || 0)) + (formData.additionalCosts || 0)) / (1 - (((formData.taxPercentage || 0)/100) + ((formData.profitPercentage || 0)/100))) * ((formData.taxPercentage || 0)/100)))}</span></div>
+                             <div className="flex justify-between text-lime-400"><span>Lucratividade ({formData.profitPercentage}%):</span> <span className="font-bold">{formatCurrency((((formData.priceKit || 0) + ((formData.modulesCount || 0) * (formData.pricePerModule || 0)) + ((formData.systemSizeKw || 0) * (formData.priceCA || 0)) + (formData.additionalCosts || 0)) / (1 - (((formData.taxPercentage || 0)/100) + ((formData.profitPercentage || 0)/100))) * ((formData.profitPercentage || 0)/100)))}</span></div>
                              <div className="mt-6 pt-4 border-t border-white/20 text-2xl font-display font-bold flex justify-between text-white">
                                 <span>Preço de Venda Sugerido:</span>
-                                <span className="text-lime-500">R$ {(((formData.priceKit || 0) + ((formData.modulesCount || 0) * (formData.pricePerModule || 0)) + ((formData.systemSizeKw || 0) * (formData.priceCA || 0)) + (formData.additionalCosts || 0)) / (1 - (((formData.taxPercentage || 0)/100) + ((formData.profitPercentage || 0)/100)))).toLocaleString('pt-BR', {maximumFractionDigits:2})}</span>
+                                <span className="text-lime-500">{formatCurrency((((formData.priceKit || 0) + ((formData.modulesCount || 0) * (formData.pricePerModule || 0)) + ((formData.systemSizeKw || 0) * (formData.priceCA || 0)) + (formData.additionalCosts || 0)) / (1 - (((formData.taxPercentage || 0)/100) + ((formData.profitPercentage || 0)/100)))))}</span>
                              </div>
                           </div>
 
