@@ -20,6 +20,8 @@ export interface ProposalTheme {
   secondaryColor: string; // hex — ex: #1a3a5c (navy)
   fontFamily: FontFamily;
   logoUrl: string | null; // blob URL ou URL remota
+  backgroundColor?: string;
+  textColor?: string;
 }
 
 export const DEFAULT_THEME: ProposalTheme = {
@@ -27,6 +29,8 @@ export const DEFAULT_THEME: ProposalTheme = {
   secondaryColor: '#0f1a30',
   fontFamily: 'inter',
   logoUrl: null,
+  backgroundColor: '#0A0A0A',
+  textColor: '#ffffff',
 };
 
 export const FONT_FAMILY_MAP: Record<FontFamily, string> = {
@@ -66,6 +70,8 @@ export interface TechSpecsContent {
 }
 
 export interface FinancialContent {
+  title?: string;
+  description?: string;
   finalPrice: number;
   monthlyBill: number;
   tariffRate: number;
@@ -88,6 +94,7 @@ export interface HowItWorksContent {
 
 export interface GenerationChartContent {
   title: string;
+  subtitle?: string;
   data: Array<{ month: string; generation: number; consumption: number; balance: number }>;
 }
 
@@ -143,4 +150,10 @@ export interface ProposalData {
   profitPercentage: number;
   additionalCosts: number;
   finalPrice: number;
+  // Metadados de persistência
+  blocks?: ProposalBlock[];         // Snapshot dos blocos do editor WYSIWYG
+  createdAt?: string;               // ISO string
+  updatedAt?: string;               // ISO string
+  status?: 'draft' | 'sent' | 'approved' | 'rejected';
+  tags?: string[];
 }

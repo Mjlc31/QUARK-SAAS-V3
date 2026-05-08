@@ -1,6 +1,7 @@
 import React from 'react';
 import { GenerationChartContent, ProposalTheme } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { editable } from '../utils';
 
 interface Props {
   content: GenerationChartContent;
@@ -21,13 +22,13 @@ export function BlockGenerationChart({ content, onUpdate, theme }: Props) {
       }}
     >
       <div style={{ marginBottom: '40px' }}>
-        <h2 style={{
+        <h2 {...editable('title', onUpdate)} style={{
           fontSize: '28px', fontWeight: 800, color: '#fff',
           letterSpacing: '-1px', marginBottom: '8px',
         }}>
           {content.title}
         </h2>
-        <p style={{
+        <p {...editable('subtitle', onUpdate)} style={{
           fontSize: '13px', color: 'rgba(255,255,255,0.4)',
           letterSpacing: '0.05em', textTransform: 'uppercase', fontWeight: 600,
         }}>

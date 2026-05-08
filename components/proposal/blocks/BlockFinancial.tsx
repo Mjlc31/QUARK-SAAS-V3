@@ -8,7 +8,7 @@ import {
   CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts';
 import { FinancialContent, ProposalTheme } from '../types';
-import { formatCurrency } from '../utils';
+import { formatCurrency, editable } from '../utils';
 
 interface Props {
   content: FinancialContent;
@@ -69,7 +69,7 @@ export function BlockFinancial({ content, onUpdate, theme }: Props) {
   const paybackChartData = projection.slice(0, Math.min(paybackYear + 5, projection.length));
 
   return (
-    <div style={{ background: '#ffffff', overflow: 'hidden' }}>
+    <div style={{ background: '#0A0A0A', overflow: 'hidden' }}>
 
       {/* ── Header ── */}
       <div style={{ padding: '52px 48px 0' }}>
@@ -79,15 +79,15 @@ export function BlockFinancial({ content, onUpdate, theme }: Props) {
         }}>
           Análise de Investimento
         </p>
-        <h2 style={{ fontSize: '32px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.7px', marginBottom: '8px' }}>
+        <h2 {...editable('title', onUpdate)} style={{ fontSize: '32px', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.7px', marginBottom: '8px', outline: 'none', cursor: 'text' }}>
           Retorno sobre o Investimento
         </h2>
-        <p style={{ fontSize: '13px', color: '#64748b', lineHeight: 1.65, maxWidth: '540px', marginBottom: '40px' }}>
+        <p {...editable('description', onUpdate)} style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', lineHeight: 1.65, maxWidth: '540px', marginBottom: '40px', outline: 'none', cursor: 'text' }}>
           Projeção baseada no consumo histórico e reajuste tarifário ANEEL. Seu caixa protegido pelas próximas décadas.
         </p>
 
         {/* ── KPIs GIGANTES — atração principal ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0', marginBottom: '0', borderRadius: '16px', overflow: 'hidden', border: '1px solid #e8edf5' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0', marginBottom: '0', borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
           {[
             { label: 'Payback', value: `${paybackYear}`, unit: 'anos', sub: 'Retorno do capital', color: primary },
             { label: `Economia em ${c.systemLifeYears} Anos`, value: formatCurrency(totalSavings), unit: '', sub: 'Economia acumulada projetada', color: '#10b981' },
@@ -95,15 +95,15 @@ export function BlockFinancial({ content, onUpdate, theme }: Props) {
           ].map(({ label, value, unit, sub, color }, i) => (
             <div key={label} style={{
               padding: '28px 24px',
-              borderRight: i < 2 ? '1px solid #e8edf5' : 'none',
-              background: i === 0 ? `${primary}06` : '#fff',
+              borderRight: i < 2 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+              background: i === 0 ? `${primary}10` : 'rgba(255,255,255,0.02)',
             }}>
-              <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#94a3b8', marginBottom: '10px' }}>{label}</p>
+              <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: '10px' }}>{label}</p>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '4px' }}>
                 <p style={{ fontSize: '42px', fontWeight: 800, color, letterSpacing: '-1.5px', lineHeight: 1 }}>{value}</p>
                 {unit && <p style={{ fontSize: '16px', fontWeight: 600, color, opacity: 0.7 }}>{unit}</p>}
               </div>
-              <p style={{ fontSize: '11px', color: '#94a3b8' }}>{sub}</p>
+              <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>{sub}</p>
             </div>
           ))}
         </div>
@@ -112,8 +112,8 @@ export function BlockFinancial({ content, onUpdate, theme }: Props) {
       {/* ── Painel de Reajuste — iOS-style ── */}
       <div style={{ padding: '32px 48px 0' }}>
         <div style={{
-          background: '#f8fafc',
-          border: '1px solid #e8edf5',
+          background: 'rgba(255,255,255,0.02)',
+          border: '1px solid rgba(255,255,255,0.05)',
           borderRadius: '16px',
           padding: '20px 24px',
           display: 'flex',
@@ -123,7 +123,7 @@ export function BlockFinancial({ content, onUpdate, theme }: Props) {
           {/* Ícone */}
           <div style={{
             width: '44px', height: '44px', borderRadius: '12px', flexShrink: 0,
-            background: `${primary}12`, border: `1px solid ${primary}25`,
+            background: `${primary}15`, border: `1px solid ${primary}30`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -132,17 +132,17 @@ export function BlockFinancial({ content, onUpdate, theme }: Props) {
           </div>
           {/* Info */}
           <div style={{ flex: 1 }}>
-            <p style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a', marginBottom: '2px' }}>Taxa de Reajuste Tarifário</p>
-            <p style={{ fontSize: '11px', color: '#64748b', lineHeight: 1.4 }}>
+            <p style={{ fontSize: '13px', fontWeight: 600, color: '#ffffff', marginBottom: '2px' }}>Taxa de Reajuste Tarifário</p>
+            <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', lineHeight: 1.4 }}>
               Média histórica ANEEL: 7% a.a. — Ajuste para recalcular toda a projeção.
             </p>
           </div>
           {/* Input nativo estilizado */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
             <div style={{
-              background: '#fff', border: '1px solid #e2e8f0',
+              background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)',
               borderRadius: '12px', padding: '2px',
-              boxShadow: '0 1px 4px rgba(0,0,0,0.06), inset 0 1px 2px rgba(0,0,0,0.04)',
+              boxShadow: 'inset 0 1px 4px rgba(0,0,0,0.5)',
             }}>
               <input
                 type="number"
@@ -153,12 +153,12 @@ export function BlockFinancial({ content, onUpdate, theme }: Props) {
                   width: '60px', padding: '8px 10px',
                   borderRadius: '10px', border: 'none',
                   background: 'transparent',
-                  fontSize: '22px', fontWeight: 800, color: '#0f172a',
+                  fontSize: '22px', fontWeight: 800, color: '#ffffff',
                   textAlign: 'center', outline: 'none',
                 }}
               />
             </div>
-            <span style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a' }}>%</span>
+            <span style={{ fontSize: '22px', fontWeight: 800, color: '#ffffff' }}>%</span>
           </div>
         </div>
       </div>
@@ -167,10 +167,10 @@ export function BlockFinancial({ content, onUpdate, theme }: Props) {
       <div style={{ padding: '28px 48px 0' }}>
         {/* Payback */}
         <div style={{ marginBottom: '20px' }}>
-          <p style={{ fontSize: '11px', fontWeight: 700, color: '#334155', marginBottom: '4px', letterSpacing: '0.02em' }}>
+          <p style={{ fontSize: '11px', fontWeight: 700, color: '#ffffff', marginBottom: '4px', letterSpacing: '0.02em' }}>
             Curva de Payback — Fluxo de Caixa Acumulado
           </p>
-          <p style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '12px' }}>
+          <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginBottom: '12px' }}>
             Ponto de equilíbrio no <strong style={{ color: primary }}>Ano {paybackYear}</strong>
           </p>
           <ResponsiveContainer width="100%" height={180}>
@@ -181,9 +181,9 @@ export function BlockFinancial({ content, onUpdate, theme }: Props) {
                   <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-              <XAxis dataKey="year" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={(v) => `A${v}`} />
-              <YAxis tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+              <XAxis dataKey="year" tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.4)' }} axisLine={false} tickLine={false} tickFormatter={(v) => `A${v}`} />
+              <YAxis tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.4)' }} axisLine={false} tickLine={false} />
               <Tooltip content={<CustomTooltip />} />
               <ReferenceLine y={0} stroke={primary} strokeWidth={1.5} strokeDasharray="5 4" />
               <Area type="monotone" dataKey="fluxoCaixa" name="Fluxo de Caixa" stroke="#10b981" strokeWidth={2} fill="url(#gPos)" dot={false} />
@@ -193,7 +193,7 @@ export function BlockFinancial({ content, onUpdate, theme }: Props) {
 
         {/* Economia Anual */}
         <div style={{ marginBottom: '20px' }}>
-          <p style={{ fontSize: '11px', fontWeight: 700, color: '#334155', marginBottom: '12px' }}>
+          <p style={{ fontSize: '11px', fontWeight: 700, color: '#ffffff', marginBottom: '12px' }}>
             Economia Anual Projetada ({c.tariffAdjustmentRate}% a.a.)
           </p>
           <ResponsiveContainer width="100%" height={160}>
@@ -204,9 +204,9 @@ export function BlockFinancial({ content, onUpdate, theme }: Props) {
                   <stop offset="100%" stopColor={primary} stopOpacity={0.4} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-              <XAxis dataKey="year" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} interval={4} tickFormatter={(v) => `A${v}`} />
-              <YAxis tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+              <XAxis dataKey="year" tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.4)' }} axisLine={false} tickLine={false} interval={4} tickFormatter={(v) => `A${v}`} />
+              <YAxis tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.4)' }} axisLine={false} tickLine={false} />
               <Tooltip content={<CustomTooltip />} />
               <Bar dataKey="economiaAno" name="Economia" fill="url(#bGrad)" radius={[3, 3, 0, 0]} />
             </BarChart>

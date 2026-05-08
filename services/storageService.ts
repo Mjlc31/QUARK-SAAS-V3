@@ -7,23 +7,23 @@ const memoryStorage: Record<string, string> = {};
 // Safe localStorage wrapper for mobile private mode
 const safeLocalStorage = {
   getItem: (key: string): string | null => {
-    try { 
-      return localStorage.getItem(key) || memoryStorage[key] || null; 
-    } catch { 
-      return memoryStorage[key] || null; 
+    try {
+      return localStorage.getItem(key) || memoryStorage[key] || null;
+    } catch {
+      return memoryStorage[key] || null;
     }
   },
   setItem: (key: string, value: string) => {
-    try { 
-      localStorage.setItem(key, value); 
-    } catch { 
+    try {
+      localStorage.setItem(key, value);
+    } catch {
       console.warn(`⚠️ LocalStorage bloqueado. Salvando '${key}' apenas em memória.`);
     }
     memoryStorage[key] = value;
   },
   removeItem: (key: string) => {
-    try { 
-      localStorage.removeItem(key); 
+    try {
+      localStorage.removeItem(key);
     } catch { /* noop */ }
     delete memoryStorage[key];
   }
@@ -221,7 +221,12 @@ export const storageService = {
       const { data, error } = await supabase.from('leads').select('*');
 
       if (error) {
-        console.warn('⚠️ Erro ao buscar leads no Supabase:', error.message);
+        console.error('🔴 SUPABASE ERRO [getLeads]:', {
+          message: error.message,
+          code: error.code,
+          details: (error as any).details,
+          hint: (error as any).hint,
+        });
         throw error;
       }
 
@@ -261,7 +266,8 @@ export const storageService = {
     }
   },
 
-  syncLead: async (lead: Lead) => {
+  syncLead: async (lead: Lead): Promise<{ success: boolean; error?: any }> => {
+    // 1. Salva localmente SEMPRE (cache first)
     try {
       const currentLeadsStr = safeLocalStorage.getItem('quark_leads');
       const currentLeads: Lead[] = currentLeadsStr ? JSON.parse(currentLeadsStr) : [];
@@ -269,15 +275,36 @@ export const storageService = {
         ? currentLeads.map(l => l.id === lead.id ? lead : l)
         : [lead, ...currentLeads];
       safeLocalStorage.setItem('quark_leads', JSON.stringify(updatedLocalLeads));
+    } catch (localErr) {
+      console.warn('⚠️ Falha ao salvar lead no cache local:', localErr);
+    }
 
+    // 2. Sincroniza com Supabase
+    // Agora o banco será limpo e otimizado, usando apenas JSONB
+    try {
       const { error } = await supabase.from('leads').upsert({
         id: lead.id,
         data: lead,
         updated_at: new Date()
       });
-      if (error) console.warn('⚠️ Lead sync cloud error:', error.message);
+
+      if (error) {
+        console.error('🔴 SUPABASE ERRO [syncLead] — Lead NÃO salvo na nuvem!', {
+          leadId: lead.id,
+          leadName: lead.name,
+          errorCode: error.code,
+          errorMessage: error.message,
+          hint: (error as any).hint,
+          details: (error as any).details,
+        });
+        return { success: false, error };
+      }
+
+      console.log(`✅ Lead "${lead.name}" salvo na nuvem com sucesso.`);
+      return { success: true };
     } catch (err) {
-      console.error("Sync Error:", err);
+      console.error('🔴 ERRO CRÍTICO [syncLead]:', err);
+      return { success: false, error: err };
     }
   },
 
@@ -481,7 +508,7 @@ export const storageService = {
   // --- PIPELINES (CRM v2) ---
   getPipelines: async () => {
     const FALLBACK_PIPELINES = [
-      { id: '00000000-0000-0000-0000-000000000001', name: 'Geral',          type: 'Geral',  color: '#a3e635' },
+      { id: '00000000-0000-0000-0000-000000000001', name: 'Geral', type: 'Geral', color: '#a3e635' },
       { id: '00000000-0000-0000-0000-000000000002', name: 'Evento — Tênis', type: 'Evento', color: '#38bdf8' },
       { id: '00000000-0000-0000-0000-000000000003', name: 'Evento — Poker', type: 'Evento', color: '#f472b6' },
       { id: '00000000-0000-0000-0000-000000000004', name: 'Evento — Ritmo', type: 'Evento', color: '#fb923c' },
@@ -504,11 +531,11 @@ export const storageService = {
   // --- TAGS (CRM v2) ---
   getTags: async () => {
     const FALLBACK_TAGS = [
-      { id: 'tag-1', name: 'Anúncios',           color: '#f59e0b' },
-      { id: 'tag-2', name: 'Indicação',          color: '#10b981' },
+      { id: 'tag-1', name: 'Anúncios', color: '#f59e0b' },
+      { id: 'tag-2', name: 'Indicação', color: '#10b981' },
       { id: 'tag-3', name: 'Instagram orgânico', color: '#8b5cf6' },
-      { id: 'tag-4', name: 'Google Ads',         color: '#3b82f6' },
-      { id: 'tag-5', name: 'Indicação interna',  color: '#ec4899' },
+      { id: 'tag-4', name: 'Google Ads', color: '#3b82f6' },
+      { id: 'tag-5', name: 'Indicação interna', color: '#ec4899' },
     ];
     try {
       const { data, error } = await supabase.from('tags').select('*').order('name');

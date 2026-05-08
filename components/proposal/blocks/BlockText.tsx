@@ -61,15 +61,15 @@ export function BlockText({ content, onUpdate, theme }: Props) {
   }, [onUpdate]);
 
   return (
-    <div style={{ padding: '32px 48px 40px', background: '#ffffff' }}>
+    <div style={{ padding: '32px 48px 40px', background: '#0A0A0A' }}>
       {/* Toolbar de formatação */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
         gap: '2px',
         padding: '6px 10px',
-        background: '#f8fafc',
-        border: '1px solid #e8edf5',
+        background: 'rgba(255,255,255,0.05)',
+        border: '1px solid rgba(255,255,255,0.1)',
         borderRadius: '10px',
         marginBottom: '16px',
         flexWrap: 'wrap',
@@ -90,7 +90,7 @@ export function BlockText({ content, onUpdate, theme }: Props) {
           <s>S</s>
         </ToolbarButton>
 
-        <div style={{ width: '1px', height: '20px', background: '#e2e8f0', margin: '0 4px' }} />
+        <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.1)', margin: '0 4px' }} />
 
         {/* Listas */}
         <ToolbarButton command="insertUnorderedList" title="Lista com marcadores">
@@ -106,7 +106,7 @@ export function BlockText({ content, onUpdate, theme }: Props) {
           </svg>
         </ToolbarButton>
 
-        <div style={{ width: '1px', height: '20px', background: '#e2e8f0', margin: '0 4px' }} />
+        <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.1)', margin: '0 4px' }} />
 
         {/* Alinhamento */}
         <ToolbarButton command="justifyLeft" title="Alinhar à esquerda">
@@ -122,7 +122,7 @@ export function BlockText({ content, onUpdate, theme }: Props) {
           </svg>
         </ToolbarButton>
 
-        <div style={{ width: '1px', height: '20px', background: '#e2e8f0', margin: '0 4px' }} />
+        <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.1)', margin: '0 4px' }} />
 
         {/* Heading */}
         <ToolbarButton command="formatBlock" value="h2" title="Título">
@@ -132,7 +132,7 @@ export function BlockText({ content, onUpdate, theme }: Props) {
           <span style={{ fontSize: '11px' }}>¶</span>
         </ToolbarButton>
 
-        <div style={{ width: '1px', height: '20px', background: '#e2e8f0', margin: '0 4px' }} />
+        <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.1)', margin: '0 4px' }} />
 
         {/* Limpar formatação */}
         <ToolbarButton command="removeFormat" title="Remover formatação">
@@ -144,7 +144,7 @@ export function BlockText({ content, onUpdate, theme }: Props) {
 
         {/* Separador e dica */}
         <span style={{
-          marginLeft: 'auto', fontSize: '10px', color: '#94a3b8',
+          marginLeft: 'auto', fontSize: '10px', color: '#64748b',
           fontStyle: 'italic', paddingRight: '4px',
         }}>
           {isFocused ? 'Editando...' : 'Clique para editar'}
@@ -162,7 +162,7 @@ export function BlockText({ content, onUpdate, theme }: Props) {
         style={{
           minHeight: '120px',
           fontSize: '14px',
-          color: '#334155',
+          color: '#ffffff',
           lineHeight: 1.8,
           outline: 'none',
           padding: '4px 0',
@@ -172,14 +172,14 @@ export function BlockText({ content, onUpdate, theme }: Props) {
 
       {/* Estilo do editor injetado globalmente */}
       <style>{`
-        [contenteditable] h1 { font-size: 28px; font-weight: 800; color: #1a2540; margin: 16px 0 8px; }
-        [contenteditable] h2 { font-size: 22px; font-weight: 700; color: #1a2540; margin: 14px 0 6px; }
-        [contenteditable] h3 { font-size: 18px; font-weight: 700; color: #334155; margin: 12px 0 6px; }
-        [contenteditable] ul { list-style: disc; padding-left: 24px; }
-        [contenteditable] ol { list-style: decimal; padding-left: 24px; }
+        [contenteditable] h1 { font-size: 28px; font-weight: 800; color: #ffffff; margin: 16px 0 8px; }
+        [contenteditable] h2 { font-size: 22px; font-weight: 700; color: #ffffff; margin: 14px 0 6px; }
+        [contenteditable] h3 { font-size: 18px; font-weight: 700; color: rgba(255,255,255,0.8); margin: 12px 0 6px; }
+        [contenteditable] ul { list-style: disc; padding-left: 24px; color: #ffffff; }
+        [contenteditable] ol { list-style: decimal; padding-left: 24px; color: #ffffff; }
         [contenteditable] li { margin-bottom: 4px; }
-        [contenteditable] strong { font-weight: 700; color: #1a2540; }
-        [contenteditable] em { font-style: italic; color: #475569; }
+        [contenteditable] strong { font-weight: 700; color: #ffffff; }
+        [contenteditable] em { font-style: italic; color: rgba(255,255,255,0.6); }
         [contenteditable]:focus-visible { outline: none; }
       `}</style>
 
@@ -187,13 +187,13 @@ export function BlockText({ content, onUpdate, theme }: Props) {
       <div style={{
         marginTop: '16px',
         paddingTop: '12px',
-        borderTop: '1px solid #f1f5f9',
+        borderTop: '1px solid rgba(255,255,255,0.1)',
         display: 'flex',
         alignItems: 'center',
         gap: '6px',
       }}>
-        <span style={{ fontSize: '12px' }}>📝</span>
-        <p style={{ fontSize: '11px', color: '#cbd5e1', fontStyle: 'italic' }}>
+        <span style={{ fontSize: '12px' }}>💡</span>
+        <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>
           Este campo suporta formatação rica. Use para adicionar cláusulas, observações ou condições específicas.
         </p>
       </div>

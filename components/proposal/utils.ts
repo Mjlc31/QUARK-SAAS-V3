@@ -22,3 +22,15 @@ export function formatNumber(value: number, decimals = 2): string {
     maximumFractionDigits: decimals,
   }).format(value);
 }
+
+// Helper para edição inline de texto
+export const editable = <T,>(
+  field: keyof T,
+  onUpdate: (content: Partial<T>) => void
+) => ({
+  contentEditable: true as const,
+  suppressContentEditableWarning: true,
+  onBlur: (e: any) =>
+    onUpdate({ [field]: e.currentTarget.innerText } as any),
+  style: { outline: 'none', cursor: 'text' } as any,
+});

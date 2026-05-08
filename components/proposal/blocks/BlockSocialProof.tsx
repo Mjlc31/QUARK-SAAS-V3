@@ -4,7 +4,7 @@
 // ============================================================
 import React, { useCallback, useRef } from 'react';
 import { SocialProofContent, ProposalTheme } from '../types';
-import { nanoid } from '../utils';
+import { nanoid, editable } from '../utils';
 
 interface Props {
   content: SocialProofContent;
@@ -57,11 +57,11 @@ function ImageSlot({ image, onImageChange, onCaptionChange, onRemove, isFeatured
 
       {isEmpty && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '8px' }}>
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="1.5">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5">
             <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" />
             <polyline points="21 15 16 10 5 21" />
           </svg>
-          <p style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 500 }}>Arrastar foto</p>
+          <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', fontWeight: 500 }}>Arrastar foto</p>
         </div>
       )}
 
@@ -72,8 +72,7 @@ function ImageSlot({ image, onImageChange, onCaptionChange, onRemove, isFeatured
           padding: '16px 18px 14px',
         }}>
           <p
-            contentEditable suppressContentEditableWarning
-            onBlur={(e) => onCaptionChange(image.id, e.currentTarget.innerText)}
+            {...editable('caption', (c: any) => onCaptionChange(image.id, c.caption))}
             style={{ fontSize: isFeatured ? '14px' : '12px', fontWeight: 700, color: '#fff', outline: 'none', cursor: 'text' }}
           >
             {image.caption}
@@ -129,23 +128,21 @@ export function BlockSocialProof({ content, onUpdate, theme }: Props) {
   const [featured, ...rest] = c.images;
 
   return (
-    <div style={{ background: '#ffffff', overflow: 'hidden' }}>
+    <div style={{ background: '#0A0A0A', overflow: 'hidden' }}>
       {/* Header editorial */}
       <div style={{ padding: '48px 48px 36px' }}>
         <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: primary, marginBottom: '12px' }}>
           Prova Social
         </p>
         <h2
-          contentEditable suppressContentEditableWarning
-          onBlur={(e) => onUpdate({ headline: e.currentTarget.innerText })}
-          style={{ fontSize: '32px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.7px', lineHeight: 1.1, marginBottom: '12px', outline: 'none', cursor: 'text' }}
+          {...editable('headline', onUpdate)}
+          style={{ fontSize: '32px', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.7px', lineHeight: 1.1, marginBottom: '12px', outline: 'none', cursor: 'text' }}
         >
           {c.headline}
         </h2>
         <p
-          contentEditable suppressContentEditableWarning
-          onBlur={(e) => onUpdate({ subheadline: e.currentTarget.innerText })}
-          style={{ fontSize: '14px', color: '#64748b', lineHeight: 1.65, maxWidth: '540px', outline: 'none', cursor: 'text' }}
+          {...editable('subheadline', onUpdate)}
+          style={{ fontSize: '14px', color: 'rgba(255,255,255,0.5)', lineHeight: 1.65, maxWidth: '540px', outline: 'none', cursor: 'text' }}
         >
           {c.subheadline}
         </p>
@@ -168,29 +165,29 @@ export function BlockSocialProof({ content, onUpdate, theme }: Props) {
       )}
 
       {/* Grid de logos */}
-      <div style={{ padding: '28px 48px 32px', borderTop: c.images.length > 0 ? '1px solid #f1f5f9' : 'none' }}>
-        <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: '#cbd5e1', marginBottom: '16px', textAlign: 'center' }}>
+      <div style={{ padding: '28px 48px 32px', borderTop: c.images.length > 0 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+        <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '16px', textAlign: 'center' }}>
           Empresas que confiam na Quark
         </p>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
           {CLIENT_LOGOS.map((name) => (
-            <div key={name} style={{ padding: '6px 14px', borderRadius: '6px', background: '#f8fafc', border: '1px solid #e8edf5' }}>
-              <p style={{ fontSize: '13px', fontWeight: 700, color: '#94a3b8' }}>{name}</p>
+            <div key={name} style={{ padding: '6px 14px', borderRadius: '6px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+              <p style={{ fontSize: '13px', fontWeight: 700, color: 'rgba(255,255,255,0.5)' }}>{name}</p>
             </div>
           ))}
         </div>
       </div>
 
       {/* Métricas footer */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', borderTop: '1px solid #f1f5f9' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
         {[
           { value: '+500', label: 'Projetos Entregues' },
           { value: '100%', label: 'Dentro do Prazo' },
           { value: '25 anos', label: 'Garantia Inclusa' },
         ].map(({ value, label }, i) => (
-          <div key={label} style={{ padding: '24px', textAlign: 'center', borderRight: i < 2 ? '1px solid #f1f5f9' : 'none' }}>
+          <div key={label} style={{ padding: '24px', textAlign: 'center', borderRight: i < 2 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
             <p style={{ fontSize: '28px', fontWeight: 800, color: primary, letterSpacing: '-0.5px', lineHeight: 1, marginBottom: '4px' }}>{value}</p>
-            <p style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</p>
+            <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</p>
           </div>
         ))}
       </div>

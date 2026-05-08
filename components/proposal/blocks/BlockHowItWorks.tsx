@@ -1,6 +1,7 @@
 import React from 'react';
 import { HowItWorksContent, ProposalTheme } from '../types';
 import { Sun, Cpu, Home } from 'lucide-react';
+import { editable } from '../utils';
 
 interface Props {
   content: HowItWorksContent;
@@ -32,13 +33,13 @@ export function BlockHowItWorks({ content, onUpdate, theme }: Props) {
       <div style={{ position: 'relative', zIndex: 10 }}>
         {/* Header */}
         <div style={{ marginBottom: '48px', textAlign: 'center' }}>
-          <h2 style={{
+          <h2 {...editable('title', onUpdate)} style={{
             fontSize: '32px', fontWeight: 800, color: '#fff',
             letterSpacing: '-1px', marginBottom: '12px',
           }}>
             {content.title}
           </h2>
-          <p style={{
+          <p {...editable('subtitle', onUpdate)} style={{
             fontSize: '14px', color: 'rgba(255,255,255,0.5)',
             letterSpacing: '0.05em', fontWeight: 400,
           }}>

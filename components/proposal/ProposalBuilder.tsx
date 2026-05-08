@@ -41,7 +41,13 @@ interface ProposalBuilderProps {
 // ─────────────────────────────────────────────────────────────
 export function ProposalBuilder({ data, onClose, onSave }: ProposalBuilderProps) {
   // ── Estado Central ─────────────────────────────────────────
-  const [blocks, setBlocks] = useState<ProposalBlock[]>(() => buildInitialBlocks(data));
+  const [blocks, setBlocks] = useState<ProposalBlock[]>(() => {
+    // Restaura blocos salvos se existirem, senão gera inicial
+    if (data.blocks && data.blocks.length > 0) {
+      return data.blocks;
+    }
+    return buildInitialBlocks(data);
+  });
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -241,7 +247,10 @@ export function ProposalBuilder({ data, onClose, onSave }: ProposalBuilderProps)
           {/* Salvar */}
           {onSave && (
             <button
-              onClick={() => { onSave({ ...data }); setIsDirty(false); }}
+              onClick={() => { 
+                onSave({ ...data, blocks, updatedAt: new Date().toISOString() }); 
+                setIsDirty(false); 
+              }}
               className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] text-white/50 hover:text-white border border-white/8 hover:border-white/15 rounded-lg transition-all"
             >
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

@@ -87,10 +87,17 @@ const Dashboard: React.FC = () => {
 
   // --- Real-time Data Calculation ---
   const kpis = useMemo(() => {
-    const totalPipeline = filteredLeads.reduce((acc, curr) => acc + (curr.status !== 'Fechado' ? curr.value : 0), 0);
-    const totalRevenue = filteredLeads.filter(l => l.status === 'Fechado').reduce((acc, curr) => acc + curr.value, 0);
-    const activeLeads = filteredLeads.filter(l => l.status !== 'Fechado').length;
-    const closedCount = filteredLeads.filter(l => l.status === 'Fechado').length;
+    // Normalização: se o lead tiver 'Fechado' em alguma pipelineEntry, contamos como fechado global
+    const isLeadFechado = (lead: any) => {
+      if (lead.status === 'Fechado' || lead.status === 'Fechado / Ganho') return true;
+      if (lead.pipelineEntries && lead.pipelineEntries.some((e: any) => e.stage === 'Fechado')) return true;
+      return false;
+    };
+
+    const totalPipeline = filteredLeads.reduce((acc, curr) => acc + (!isLeadFechado(curr) ? curr.value : 0), 0);
+    const totalRevenue = filteredLeads.filter(l => isLeadFechado(l)).reduce((acc, curr) => acc + curr.value, 0);
+    const activeLeads = filteredLeads.filter(l => !isLeadFechado(l)).length;
+    const closedCount = filteredLeads.filter(l => isLeadFechado(l)).length;
     const totalLeadsCount = filteredLeads.length;
     const avgTicket = closedCount > 0 ? totalRevenue / closedCount : 0;
     const conversionRate = totalLeadsCount > 0 ? ((closedCount / totalLeadsCount) * 100).toFixed(1) : '0.0';
@@ -113,6 +120,13 @@ const Dashboard: React.FC = () => {
       });
     }
 
+    // Função de normalização espelhada para garantir consistência
+    const isLeadFechado = (lead: any) => {
+      if (lead.status === 'Fechado' || lead.status === 'Fechado / Ganho') return true;
+      if (lead.pipelineEntries && lead.pipelineEntries.some((e: any) => e.stage === 'Fechado')) return true;
+      return false;
+    };
+
     filteredLeads.forEach(lead => {
       const leadDate = new Date(lead.createdAt);
       const monthData = months.find(m => 
@@ -121,7 +135,7 @@ const Dashboard: React.FC = () => {
       );
 
       if (monthData) {
-        if (lead.status === 'Fechado') {
+        if (isLeadFechado(lead)) {
           monthData.revenue += lead.value;
         } else {
           monthData.pipeline += lead.value;

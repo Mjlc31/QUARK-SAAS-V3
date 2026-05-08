@@ -1,8 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { ProposalEditor, ProposalData } from '../components/ProposalEditor';
-import { FileText, Plus, ChevronRight, Calculator, CheckCircle } from 'lucide-react';
+import { FileText, Plus, ChevronRight, Calculator, CheckCircle, LayoutGrid, List, Search, Trash2, Copy, Edit3, TrendingUp, Calendar, Zap } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
+
 const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+const formatDate = (iso?: string) => iso ? new Date(iso).toLocaleDateString('pt-BR') : '—';
+
+const STATUS_CONFIG = {
+  draft:    { label: 'Rascunho',  color: 'bg-zinc-700/60 text-zinc-300' },
+  sent:     { label: 'Enviada',   color: 'bg-blue-500/20 text-blue-400' },
+  approved: { label: 'Aprovada', color: 'bg-lime-500/20 text-lime-400' },
+  rejected: { label: 'Recusada', color: 'bg-red-500/20 text-red-400'   },
+} as const;
+
+// Gera cor de avatar determinística a partir do nome
+function hashColor(str: string) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+  const hue = Math.abs(h) % 360;
+  return `hsl(${hue}, 60%, 45%)`;
+}
+
 
 const Proposals: React.FC = () => {
   const { addLead } = useApp();
@@ -12,7 +30,9 @@ const Proposals: React.FC = () => {
   });
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [step, setStep] = useState(0); // 0 = List, 1 = Form1 (Client), 2 = Form2 (Modules/Inv), 3 = Config (Value), 4 = Preview
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [step, setStep] = useState(0);
   const [formData, setFormData] = useState<Partial<ProposalData>>({
     clientName: '',
     city: '',
@@ -32,6 +52,7 @@ const Proposals: React.FC = () => {
     finalPrice: 0,
     systemSizeKw: 0
   });
+
 
   useEffect(() => {
     localStorage.setItem('quark_proposals', JSON.stringify(proposals));
@@ -79,96 +100,302 @@ const Proposals: React.FC = () => {
 
   const handleSavePreview = (payload: ProposalData) => {
     if (payload.id) {
-      setProposals(proposals.map(p => p.id === payload.id ? payload : p));
+      setProposals(prev => prev.map(p => p.id === payload.id ? { ...payload, updatedAt: new Date().toISOString() } : p));
     } else {
-      const newProposal = { ...payload, id: crypto.randomUUID() };
-      setProposals([...proposals, newProposal]);
-      
-      // Auto-cadastrar Lead no CRM apenas se for nova!
+      const newProposal = { 
+        ...payload, 
+        id: crypto.randomUUID(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        status: 'draft' as const,
+      };
+      setProposals(prev => [...prev, newProposal]);
       addLead({
         name: newProposal.clientName,
         city: newProposal.city,
         value: newProposal.finalPrice,
         monthlyConsumption: newProposal.consumption,
-        phone: '', 
+        phone: '',
         status: 'Proposta'
       });
     }
-
-    setStep(0); // Volta pra lista
-    setFormData({}); // Limpa
+    setStep(0);
+    setFormData({});
   };
 
   const handleEditProposal = (proposal: ProposalData) => {
     setFormData(proposal);
-    setStep(1); // Vai pro editor
+    setStep(4); // Abre direto no editor WYSIWYG
   };
 
-  const filteredProposals = proposals.filter(p => 
-    (p.clientName || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+  const handleDeleteProposal = (id: string) => {
+    setProposals(prev => prev.filter(p => p.id !== id));
+    setDeleteConfirmId(null);
+  };
+
+  const handleDuplicateProposal = (proposal: ProposalData) => {
+    const copy: ProposalData = {
+      ...proposal,
+      id: crypto.randomUUID(),
+      clientName: `${proposal.clientName} (cópia)`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      status: 'draft',
+    };
+    setProposals(prev => [copy, ...prev]);
+  };
+
+  const thisMonth = new Date().getMonth();
+  const thisYear = new Date().getFullYear();
+  const totalValue = proposals.reduce((s, p) => s + (p.finalPrice || 0), 0);
+  const monthCount = proposals.filter(p => {
+    if (!p.createdAt) return false;
+    const d = new Date(p.createdAt);
+    return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+  }).length;
+
+  const filteredProposals = proposals.filter(p =>
+    (p.clientName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (p.city || '').toLowerCase().includes(searchTerm.toLowerCase())
   ).reverse();
 
   return (
     <div className="space-y-6 h-full flex flex-col animate-enter">
+      {/* ── Header ── */}
       <div className="flex justify-between items-center shrink-0">
         <div>
           <h1 className="text-3xl font-display font-bold text-white tracking-tight">Propostas Comerciais</h1>
-          <p className="text-slate-400 mt-1">Gere propostas super profissionais em 3 passos.</p>
+          <p className="text-slate-400 mt-1">Crie, edite e envie propostas profissionais.</p>
         </div>
         {step === 0 && (
-            <button 
-              onClick={() => setStep(1)}
-              className="flex items-center gap-2 px-6 py-3 bg-lime-500 text-black font-bold rounded-xl hover:bg-lime-400 transition-colors shadow-lg shadow-lime-500/20 active:scale-95"
-            >
-              <Plus size={20} />
-              Nova Proposta
-            </button>
+          <button
+            onClick={() => setStep(1)}
+            className="flex items-center gap-2 px-6 py-3 bg-lime-500 text-black font-bold rounded-xl hover:bg-lime-400 transition-all shadow-lg shadow-lime-500/20 active:scale-95"
+          >
+            <Plus size={20} />
+            Nova Proposta
+          </button>
         )}
       </div>
 
       {step === 0 && (
-         <div className="flex-1 min-h-0 bg-zinc-900/50 rounded-2xl border border-white/5 p-6 flex flex-col gap-6">
-            {/* Filtro de Busca */}
-            <div className="relative max-w-sm w-full shrink-0">
-               <input type="text" placeholder="Buscar proposta por nome ou cidade..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-black/40 border border-zinc-800 rounded-xl p-3 text-white focus:border-lime-500 outline-none text-sm" />
-            </div>
+        <div className="flex-1 min-h-0 flex flex-col gap-4">
 
+          {/* ── Stats Bar ── */}
+          <div className="grid grid-cols-3 gap-3 shrink-0">
+            {[
+              { icon: <FileText size={16}/>, label: 'Total de Propostas', value: proposals.length, color: 'text-white' },
+              { icon: <TrendingUp size={16}/>, label: 'Valor Total', value: formatCurrency(totalValue), color: 'text-amber-400' },
+              { icon: <Calendar size={16}/>, label: 'Este Mês', value: monthCount, color: 'text-lime-400' },
+            ].map((stat, i) => (
+              <div key={i} className="glass-panel rounded-xl p-4 border border-white/5 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white/30" style={{background:'rgba(255,255,255,0.04)'}}>
+                  {stat.icon}
+                </div>
+                <div>
+                  <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold">{stat.label}</p>
+                  <p className={`text-lg font-display font-bold ${stat.color}`}>{stat.value}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* ── Toolbar ── */}
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="relative flex-1 max-w-sm">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+              <input
+                type="text"
+                placeholder="Buscar por nome ou cidade..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="w-full bg-black/40 border border-zinc-800 rounded-xl py-2.5 pl-9 pr-4 text-white focus:border-amber-500/50 outline-none text-sm transition-all"
+              />
+            </div>
+            <div className="flex rounded-xl border border-white/8 p-1 gap-1" style={{background:'rgba(255,255,255,0.03)'}}>
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white/10 text-white' : 'text-white/30 hover:text-white/60'}`}
+                title="Visualização em grid"
+              >
+                <LayoutGrid size={16}/>
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white/10 text-white' : 'text-white/30 hover:text-white/60'}`}
+                title="Visualização em lista"
+              >
+                <List size={16}/>
+              </button>
+            </div>
+          </div>
+
+          {/* ── Content ── */}
+          <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1">
             {filteredProposals.length === 0 ? (
-                <div className="flex flex-col items-center justify-center flex-1 text-center py-20">
-                    <div className="w-16 h-16 bg-lime-500/10 rounded-2xl flex items-center justify-center text-lime-400 mb-6">
-                        <FileText size={32} />
-                    </div>
-                    <h3 className="text-xl font-bold text-white mb-2">Nenhuma proposta encontrada</h3>
-                    <p className="text-zinc-500 max-w-sm">Tente mudar sua busca ou crie um novo orçamento.</p>
+              <div className="flex flex-col items-center justify-center h-full text-center py-20">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-amber-400 mb-6"
+                  style={{background:'rgba(196,160,80,0.08)', border:'1px solid rgba(196,160,80,0.15)'}}>
+                  <Zap size={32}/>
                 </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto custom-scrollbar pb-4 pr-2">
-                    {filteredProposals.map((p, idx) => (
-                        <div key={idx} onClick={() => handleEditProposal(p)} className="glass-panel p-5 rounded-2xl border border-white/10 hover:border-lime-500/30 transition-all cursor-pointer group active:scale-[0.98]">
-                            <h4 className="font-bold text-white text-lg group-hover:text-lime-400 transition-colors uppercase">{p.clientName}</h4>
-                            <p className="text-xs text-zinc-500 mb-4">{p.city}</p>
-                            <div className="grid grid-cols-2 gap-2 mb-4">
-                               <div className="bg-black/40 rounded-xl p-3 border border-white/5">
-                                   <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest mb-1">Módulos</p>
-                                   <p className="text-sm font-bold text-zinc-300">{p.modulesCount} un.</p>
-                               </div>
-                               <div className="bg-lime-500/5 rounded-xl p-3 border border-lime-500/10">
-                                   <p className="text-[10px] text-lime-600 uppercase font-bold tracking-widest mb-1">Potência</p>
-                                   <p className="text-sm font-display font-bold text-lime-400">{p.systemSizeKw.toFixed(2)} kWp</p>
-                               </div>
+                <h3 className="text-xl font-bold text-white mb-2">Nenhuma proposta</h3>
+                <p className="text-zinc-500 max-w-sm mb-6">Crie sua primeira proposta e comece a fechar negócios.</p>
+                <button onClick={() => setStep(1)}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-lime-500 text-black font-bold rounded-xl hover:bg-lime-400 transition-all text-sm">
+                  <Plus size={16}/> Criar Proposta
+                </button>
+              </div>
+            ) : viewMode === 'grid' ? (
+              /* ── Grid View ── */
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-4">
+                {filteredProposals.map((p, idx) => {
+                  const avatarColor = hashColor(p.clientName || 'Q');
+                  const st = STATUS_CONFIG[(p.status || 'draft') as keyof typeof STATUS_CONFIG];
+                  return (
+                    <div
+                      key={p.id || idx}
+                      className="group relative rounded-2xl border border-white/8 flex flex-col overflow-hidden transition-all duration-200 hover:border-amber-500/30 hover:shadow-[0_0_30px_rgba(196,160,80,0.08)] cursor-pointer active:scale-[0.99]"
+                      style={{background:'linear-gradient(135deg,rgba(255,255,255,0.03) 0%,rgba(0,0,0,0.2) 100%)'}}
+                      onClick={() => handleEditProposal(p)}
+                    >
+                      {/* Header colorido */}
+                      <div className="h-1.5 w-full" style={{background:`linear-gradient(90deg,${avatarColor},transparent)`}}/>
+                      <div className="p-5 flex flex-col gap-4">
+                        {/* Top row */}
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-sm shrink-0"
+                              style={{background:avatarColor}}>
+                              {(p.clientName || 'Q').charAt(0).toUpperCase()}
                             </div>
-                            <div className="flex items-center justify-between text-xs font-bold pt-2 border-t border-white/5">
-                               <span className="text-zinc-500">Valor Final</span>
-                               <span className="text-white">{formatCurrency(p.finalPrice)}</span>
+                            <div>
+                              <h4 className="font-bold text-white text-sm leading-tight group-hover:text-amber-300 transition-colors line-clamp-1">{p.clientName}</h4>
+                              <p className="text-[11px] text-zinc-500 mt-0.5">{p.city}</p>
                             </div>
+                          </div>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${st.color}`}>{st.label}</span>
                         </div>
-                    ))}
-                </div>
+
+                        {/* Stats grid */}
+                        <div className="grid grid-cols-3 gap-2">
+                          {[
+                            { label: 'kWp', value: (p.systemSizeKw || 0).toFixed(1) },
+                            { label: 'Módulos', value: p.modulesCount || 0 },
+                            { label: 'Data', value: formatDate(p.createdAt) },
+                          ].map((s, i) => (
+                            <div key={i} className="rounded-lg p-2 text-center" style={{background:'rgba(255,255,255,0.03)'}}>
+                              <p className="text-[9px] text-zinc-600 uppercase tracking-wider font-bold">{s.label}</p>
+                              <p className="text-[12px] font-bold text-zinc-300 mt-0.5">{s.value}</p>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Value */}
+                        <div className="flex items-center justify-between pt-3 border-t border-white/5">
+                          <span className="text-[11px] text-zinc-600 font-semibold">Valor Final</span>
+                          <span className="text-base font-display font-bold" style={{color:'#C4A050'}}>{formatCurrency(p.finalPrice)}</span>
+                        </div>
+                      </div>
+
+                      {/* Ações hover */}
+                      <div className="absolute bottom-0 left-0 right-0 flex items-center gap-1 p-3 opacity-0 group-hover:opacity-100 transition-all duration-200"
+                        style={{background:'linear-gradient(0deg,rgba(9,9,11,0.95) 0%,transparent 100%)'}}>
+                        <button
+                          onClick={e => { e.stopPropagation(); handleEditProposal(p); }}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-bold text-white transition-all hover:bg-white/10"
+                          title="Editar">
+                          <Edit3 size={13}/> Editar
+                        </button>
+                        <button
+                          onClick={e => { e.stopPropagation(); handleDuplicateProposal(p); }}
+                          className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/8 transition-all"
+                          title="Duplicar">
+                          <Copy size={13}/>
+                        </button>
+                        <button
+                          onClick={e => { e.stopPropagation(); setDeleteConfirmId(p.id || null); }}
+                          className="p-2 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                          title="Excluir">
+                          <Trash2 size={13}/>
+                        </button>
+                      </div>
+
+                      {/* Confirmação de exclusão */}
+                      {deleteConfirmId === p.id && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-2xl z-10 p-4"
+                          style={{background:'rgba(9,9,11,0.95)', backdropFilter:'blur(8px)'}}
+                          onClick={e => e.stopPropagation()}>
+                          <Trash2 size={24} className="text-red-400"/>
+                          <p className="text-sm font-bold text-white text-center">Excluir esta proposta?</p>
+                          <p className="text-xs text-zinc-500 text-center">Esta ação não pode ser desfeita.</p>
+                          <div className="flex gap-2 w-full">
+                            <button onClick={() => setDeleteConfirmId(null)}
+                              className="flex-1 py-2 rounded-lg border border-white/10 text-zinc-400 text-xs font-bold hover:text-white transition-all">
+                              Cancelar
+                            </button>
+                            <button onClick={() => handleDeleteProposal(p.id!)}
+                              className="flex-1 py-2 rounded-lg bg-red-500/20 text-red-400 text-xs font-bold hover:bg-red-500/30 transition-all">
+                              Excluir
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              /* ── List View ── */
+              <div className="rounded-2xl border border-white/8 overflow-hidden" style={{background:'rgba(255,255,255,0.02)'}}>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-white/5">
+                      {['Cliente','Cidade','Sistema','Valor','Status','Data',''].map((h,i) => (
+                        <th key={i} className="px-4 py-3 text-left text-[10px] font-bold text-zinc-600 uppercase tracking-wider">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredProposals.map((p, idx) => {
+                      const avatarColor = hashColor(p.clientName || 'Q');
+                      const st = STATUS_CONFIG[(p.status || 'draft') as keyof typeof STATUS_CONFIG];
+                      return (
+                        <tr key={p.id || idx}
+                          onClick={() => handleEditProposal(p)}
+                          className="border-b border-white/5 hover:bg-white/[0.02] cursor-pointer transition-colors group">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0"
+                                style={{background:avatarColor}}>
+                                {(p.clientName||'Q').charAt(0).toUpperCase()}
+                              </div>
+                              <span className="font-semibold text-white group-hover:text-amber-300 transition-colors text-sm">{p.clientName}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-zinc-400 text-sm">{p.city}</td>
+                          <td className="px-4 py-3 text-zinc-300 font-bold text-sm">{(p.systemSizeKw||0).toFixed(2)} kWp</td>
+                          <td className="px-4 py-3 font-display font-bold text-sm" style={{color:'#C4A050'}}>{formatCurrency(p.finalPrice)}</td>
+                          <td className="px-4 py-3">
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${st.color}`}>{st.label}</span>
+                          </td>
+                          <td className="px-4 py-3 text-zinc-600 text-xs">{formatDate(p.createdAt)}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                              <button onClick={e=>{e.stopPropagation();handleDuplicateProposal(p);}} className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-white/8 transition-all"><Copy size={13}/></button>
+                              <button onClick={e=>{e.stopPropagation();setDeleteConfirmId(deleteConfirmId===p.id?null:p.id||null);}} className="p-1.5 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-all"><Trash2 size={13}/></button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
-         </div>
+          </div>
+        </div>
       )}
+
 
       {/* WIZARD DA PROPOSTA */}
       {(step === 1 || step === 2 || step === 3) && (

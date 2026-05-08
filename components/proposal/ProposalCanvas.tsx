@@ -146,16 +146,17 @@ export function ProposalCanvas({
       <div
         ref={setNodeRef}
         id="proposal-canvas-a4"
-        className="relative w-full overflow-hidden"
+        className="relative w-full overflow-visible"
         style={{
           // A4 exato: 794px × 1123px @ 96dpi
           maxWidth: '794px',
           minHeight: '1123px',
-          background: '#ffffff',
-          borderRadius: '2px',
+          background: theme.backgroundColor || '#0A0A0A',
+          borderRadius: '4px',
           // Sombra profunda — simula papel físico sobre mesa escura
           boxShadow: '0 4px 12px rgba(0,0,0,0.25), 0 20px 60px rgba(0,0,0,0.45), 0 60px 120px rgba(0,0,0,0.3)',
           fontFamily,
+          color: theme.textColor || '#ffffff',
         }}
       >
         {blocks.length === 0 ? (
@@ -165,8 +166,9 @@ export function ProposalCanvas({
             items={blocks.map((b) => b.id)}
             strategy={verticalListSortingStrategy}
           >
-            {/* Offset à esquerda para os handles de controle */}
-            <div className="relative" style={{ paddingLeft: '40px' }}>
+            {/* Não usamos padding left interno para não quebrar a folha A4.
+                As ferramentas vão flutuar na área externa graças ao overflow-visible. */}
+            <div className="relative">
               {blocks.map((block) => (
                 <SortableBlockItem
                   key={block.id}

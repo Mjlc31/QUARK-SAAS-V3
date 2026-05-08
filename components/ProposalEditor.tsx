@@ -25,7 +25,14 @@ export interface ProposalData {
   profitPercentage: number;
   additionalCosts: number;
   finalPrice: number;
+  // Metadados
+  blocks?: any[];
+  createdAt?: string;
+  updatedAt?: string;
+  status?: 'draft' | 'sent' | 'approved' | 'rejected';
+  tags?: string[];
 }
+
 
 interface Props {
   data: ProposalData;

@@ -3,7 +3,7 @@
 // ============================================================
 import React from 'react';
 import { TechSpecsContent, ProposalTheme } from '../types';
-import { formatNumber } from '../utils';
+import { formatNumber, editable } from '../utils';
 
 interface Props {
   content: TechSpecsContent;
@@ -57,25 +57,25 @@ function SpecRow({ icon, label, value, isAccent, accentColor }: {
   isAccent?: boolean; accentColor?: string;
 }) {
   return (
-    <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
       <td style={{ padding: '14px 0', width: '44px', verticalAlign: 'middle' }}>
         <div style={{
           width: '32px', height: '32px', borderRadius: '8px',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: isAccent ? `${accentColor}12` : '#f8fafc',
-          color: isAccent ? accentColor : '#94a3b8',
-          border: isAccent ? `1px solid ${accentColor}25` : '1px solid #e8edf5',
+          background: isAccent ? `${accentColor}15` : 'rgba(255,255,255,0.03)',
+          color: isAccent ? accentColor : 'rgba(255,255,255,0.4)',
+          border: isAccent ? `1px solid ${accentColor}25` : '1px solid rgba(255,255,255,0.1)',
         }}>
           {icon}
         </div>
       </td>
       <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
-        <p style={{ fontSize: '13px', fontWeight: 500, color: '#334155' }}>{label}</p>
+        <p style={{ fontSize: '13px', fontWeight: 500, color: 'rgba(255,255,255,0.7)' }}>{label}</p>
       </td>
       <td style={{ padding: '14px 0', verticalAlign: 'middle', textAlign: 'right' }}>
         <p style={{
           fontSize: '15px', fontWeight: 700,
-          color: isAccent ? accentColor : '#0f172a',
+          color: isAccent ? accentColor : '#ffffff',
           letterSpacing: '-0.2px',
         }}>
           {value}
@@ -91,7 +91,7 @@ export function BlockTechSpecs({ content, onUpdate, theme }: Props) {
   const totalPower = (c.modulesCount * c.modulePower) / 1000;
 
   return (
-    <div style={{ padding: '52px 48px', background: '#ffffff' }}>
+    <div style={{ padding: '52px 48px', background: '#0A0A0A' }}>
       {/* ── Cabeçalho ── */}
       <div style={{ marginBottom: '40px' }}>
         <p style={{
@@ -100,10 +100,10 @@ export function BlockTechSpecs({ content, onUpdate, theme }: Props) {
         }}>
           Engenharia do Sistema
         </p>
-        <h2 style={{ fontSize: '32px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.7px', lineHeight: 1.1, marginBottom: '12px' }}>
+        <h2 style={{ fontSize: '32px', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.7px', lineHeight: 1.1, marginBottom: '12px' }}>
           Ficha Técnica
         </h2>
-        <p style={{ fontSize: '13px', color: '#64748b', lineHeight: 1.65, maxWidth: '520px' }}>
+        <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', lineHeight: 1.65, maxWidth: '520px' }}>
           Sistema dimensionado para o perfil de consumo. Equipamentos Tier 1 com garantia de fábrica.
         </p>
       </div>
@@ -111,32 +111,34 @@ export function BlockTechSpecs({ content, onUpdate, theme }: Props) {
       {/* ── 3 KPIs em destaque ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '40px' }}>
         {[
-          { label: 'Potência Total', value: `${totalPower.toFixed(2)} kWp`, color: primary },
-          { label: 'Consumo de Referência', value: `${c.consumption} kWh/mês`, color: '#3b82f6' },
-          { label: 'Área Necessária', value: `${c.roofArea} m²`, color: '#10b981' },
-        ].map(({ label, value, color }) => (
+          { label: 'Potência Total', value: `${totalPower.toFixed(2)} kWp`, color: primary, field: 'systemPowerKw' },
+          { label: 'Consumo de Referência', value: `${c.consumption} kWh/mês`, color: '#3b82f6', field: 'consumption' },
+          { label: 'Área Necessária', value: `${c.roofArea} m²`, color: '#10b981', field: 'roofArea' },
+        ].map(({ label, value, color, field }) => (
           <div key={label} style={{
             padding: '20px',
-            background: `${color}08`,
-            border: `1px solid ${color}20`,
+            background: `rgba(255,255,255,0.03)`,
+            border: `1px solid rgba(255,255,255,0.05)`,
             borderRadius: '14px',
           }}>
-            <p style={{ fontSize: '22px', fontWeight: 800, color, letterSpacing: '-0.5px', lineHeight: 1, marginBottom: '6px' }}>{value}</p>
-            <p style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</p>
+            <p style={{ fontSize: '22px', fontWeight: 800, color, letterSpacing: '-0.5px', lineHeight: 1, marginBottom: '6px' }}>
+              <span {...editable(field as any, onUpdate)}>{value}</span>
+            </p>
+            <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</p>
           </div>
         ))}
       </div>
 
       {/* ── Tabela minimalista de alto contraste ── */}
-      <div style={{ border: '1px solid #e8edf5', borderRadius: '14px', overflow: 'hidden' }}>
+      <div style={{ border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px', overflow: 'hidden' }}>
         {/* Cabeçalho da tabela */}
         <div style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          padding: '12px 20px', background: '#f8fafc',
-          borderBottom: '1px solid #e8edf5',
+          padding: '12px 20px', background: 'rgba(255,255,255,0.02)',
+          borderBottom: '1px solid rgba(255,255,255,0.1)',
         }}>
-          <p style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Componente</p>
-          <p style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Especificação</p>
+          <p style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Componente</p>
+          <p style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Especificação</p>
         </div>
         <table style={{ width: '100%', borderCollapse: 'collapse', padding: '0 20px' }}>
           <tbody>

@@ -326,7 +326,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         };
         setUser(fallbackUser);
         localStorage.setItem('quark_offline_user', JSON.stringify(fallbackUser));
-        fetchData();
+        fetchDataBackground();
         return { error: null };
       }
 
@@ -533,9 +533,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const updatedEntries: LeadPipelineEntry[] = existing
       ? entries.map(e => e.pipelineId === pipelineId ? { ...e, stage } : e)
       : [...entries, { pipelineId, stage }];
-    const updatedLead = { ...leadToUpdate, pipelineEntries: updatedEntries, updatedAt: new Date().toISOString() };
+      
+    // SINCRONIZAÇÃO CRÍTICA: Manter o status legado igual ao stage do pipeline 
+    // para garantir que o Dashboard conte os leads corretamente!
+    const updatedLead = { 
+      ...leadToUpdate, 
+      pipelineEntries: updatedEntries, 
+      status: stage, 
+      updatedAt: new Date().toISOString() 
+    };
+    
     setLeads(prev => prev.map(l => l.id === leadId ? updatedLead : l));
     await storageService.syncLead(updatedLead);
+    
     // Sincroniza na tabela lead_pipelines
     try {
       await supabase.from('lead_pipelines').upsert(
@@ -546,20 +556,97 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       console.warn('Erro ao sincronizar pipeline stage:', err);
     }
 
-    // INTEGRAÇÃO: Se mudou para "Fechado" no pipeline, gera lançamento automático de Receita e envia para a Engenharia
+    // INTEGRAÇÃO FINANCEIRA MINUCIOSA (CRM -> DRE)
     if (stage === 'Fechado' && oldStage !== 'Fechado' && user) {
       try {
-        const payload = {
-            description: `Venda Sistema Solar - ${leadToUpdate.name}`,
-            type: 'receita',
-            category: 'instalacao_residencial',
-            amount: leadToUpdate.value,
-            date: new Date().toISOString().split('T')[0],
-            note: `Lançamento automático do CRM (Pipeline)`,
-            user_id: user.id
-        };
-        await supabase.from('financial_transactions').insert([payload]);
-        addActivity('fechou negócio no pipeline: gerou receita', leadToUpdate.name);
+        // Tenta buscar a proposta detalhada salva no banco
+        const { data: proposalData } = await supabase
+          .from('proposals')
+          .select('data')
+          .eq('lead_id', leadId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        const hoje = new Date().toISOString().split('T')[0];
+        const payloads = [];
+
+        // Nova engenharia de Custos (7 Itens) baseada em propostas ou fallback padrão de mercado
+        const valorTotal = proposalData?.data?.finalPrice || leadToUpdate.value || 0;
+        
+        // 1. Custo Kit (45%)
+        const custoKit = proposalData?.data?.priceKit 
+            ? (proposalData.data.priceKit + (proposalData.data.modulesCount * proposalData.data.pricePerModule))
+            : valorTotal * 0.45; 
+        
+        // 2. Mão de Obra (10%)
+        const custoOperacao = proposalData?.data?.priceCA 
+            ? ((proposalData.data.systemSizeKw * proposalData.data.priceCA) + (proposalData.data.additionalCosts || 0))
+            : valorTotal * 0.10; 
+
+        // 3. Impostos (10%)
+        const impostos = proposalData?.data?.taxPercentage 
+            ? (valorTotal * (proposalData.data.taxPercentage / 100))
+            : valorTotal * 0.10; 
+
+        // 4. Engenharia/Homologação (3%)
+        const custoEngenharia = valorTotal * 0.03;
+
+        // 5. Frete (2%)
+        const custoFrete = valorTotal * 0.02;
+
+        // 6. Comissão (5%)
+        const custoComissao = valorTotal * 0.05;
+
+        if (valorTotal > 0) {
+          // [+] 1. RECEITA BRUTA
+          payloads.push({
+              description: `Venda Sistema Solar - ${leadToUpdate.name}`,
+              type: 'receita', category: 'instalacao_residencial', amount: valorTotal,
+              date: hoje, note: proposalData ? 'Proposta Oficial' : 'Receita gerada do CRM', user_id: user.id
+          });
+          // [-] 2. CUSTO DO KIT E EQUIPAMENTOS
+          payloads.push({
+              description: `Kit Fotovoltaico e Inversores - ${leadToUpdate.name}`,
+              type: 'custo', category: 'equipamentos', amount: custoKit,
+              date: hoje, note: proposalData ? 'Cálculo da Proposta' : 'Estimativa Padrão (45%)', user_id: user.id
+          });
+          // [-] 3. CUSTO OPERACIONAL (Mão de obra)
+          payloads.push({
+              description: `Instalação e Montagem - ${leadToUpdate.name}`,
+              type: 'custo', category: 'mao_de_obra', amount: custoOperacao,
+              date: hoje, note: proposalData ? 'Custos CA' : 'Estimativa Padrão (10%)', user_id: user.id
+          });
+          // [-] 4. IMPOSTOS
+          payloads.push({
+              description: `Impostos Incidentes (DAS/ICMS) - ${leadToUpdate.name}`,
+              type: 'despesa', category: 'imposto', amount: impostos,
+              date: hoje, note: proposalData ? `Alíquota da proposta: ${proposalData.data.taxPercentage}%` : 'Estimativa Padrão (10%)', user_id: user.id
+          });
+          // [-] 5. ENGENHARIA / HOMOLOGAÇÃO
+          payloads.push({
+              description: `Projeto e Homologação na Concessionária - ${leadToUpdate.name}`,
+              type: 'custo', category: 'outros_cpv', amount: custoEngenharia,
+              date: hoje, note: 'Estimativa Padrão (3%)', user_id: user.id
+          });
+          // [-] 6. FRETE E LOGÍSTICA
+          payloads.push({
+              description: `Frete de Equipamentos - ${leadToUpdate.name}`,
+              type: 'custo', category: 'frete', amount: custoFrete,
+              date: hoje, note: 'Estimativa Padrão (2%)', user_id: user.id
+          });
+          // [-] 7. COMISSÃO DE VENDAS
+          payloads.push({
+              description: `Comissão do Vendedor - ${leadToUpdate.name}`,
+              type: 'despesa', category: 'salarios', amount: custoComissao,
+              date: hoje, note: 'Estimativa Padrão (5%)', user_id: user.id
+          });
+        }
+
+        if (payloads.length > 0) {
+          await supabase.from('financial_transactions').insert(payloads);
+          addActivity('fechou negócio: gerou DRE minuciosa completa', leadToUpdate.name);
+        }
         
         // Também jogar pra Engenharia!
         await addProject({
@@ -567,11 +654,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           clientName: leadToUpdate.name,
           clientPhone: leadToUpdate.phone,
           city: leadToUpdate.city,
-          systemSizeKw: leadToUpdate.monthlyConsumption / 123,
+          systemSizeKw: proposalData?.data?.systemSizeKw || (leadToUpdate.monthlyConsumption ? leadToUpdate.monthlyConsumption / 123 : 5),
           status: 'Vistoria'
         });
       } catch (err) {
-        console.error("Falha ao gerar receita ou obra automática via pipeline", err);
+        console.error("Falha ao gerar DRE minuciosa ou obra automática via pipeline", err);
       }
     }
   };
