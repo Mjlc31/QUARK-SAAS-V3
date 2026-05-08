@@ -38,8 +38,9 @@ interface Props {
   data: ProposalData;
   onClose: () => void;
   onSave?: (data: ProposalData) => void;
+  onDelete?: (id: string) => void;
 }
 
-export const ProposalEditor: React.FC<Props> = ({ data, onClose, onSave }) => {
-  return <ProposalBuilder data={data} onClose={onClose} onSave={onSave} />;
+export const ProposalEditor: React.FC<Props> = ({ data, onClose, onSave, onDelete }) => {
+  return <ProposalBuilder data={data} onClose={onClose} onSave={onSave} onDelete={onDelete} />;
 };

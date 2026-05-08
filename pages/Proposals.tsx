@@ -59,42 +59,49 @@ const Proposals: React.FC = () => {
   }, [proposals]);
 
   const handleNextStep1 = () => {
-    if (!formData.clientName || !formData.city || formData.consumption === 0) {
+    if (!formData.clientName || !formData.city || !formData.consumption) {
       alert("Preencha todos os dados básicos.");
       return;
     }
-    // Calcular Potência Esperada ~= Consumo / 123 (Rendimento Base)
-    const expectedPower = (formData.consumption as number) / 123;
-    setFormData(prev => ({ ...prev, systemSizeKw: expectedPower }));
+    // kWp = consumo_kWh / (HSP_médio × 30 dias × eficiência)
+    // HSP médio Brasil ≈ 4.5 h/dia. Eficiência do sistema ≈ 80%
+    const expectedPower = (formData.consumption as number) / (4.5 * 30 * 0.80);
+    setFormData(prev => ({ ...prev, systemSizeKw: parseFloat(expectedPower.toFixed(2)) }));
     setStep(2);
   };
 
   const handleNextStep2 = () => {
-    // Calculando novo kWp baseado na placa preenchida (Placas x Potência Placa W) / 1000
+    // kWp real = (nº módulos × Wp do módulo) / 1000
     const kwpReal = ((formData.modulesCount || 0) * (formData.modulePower || 0)) / 1000;
-    
-    setFormData(prev => ({ ...prev, systemSizeKw: kwpReal }));
-    setStep(3); // Vamos para as perguntas de preço personalizadas
+    setFormData(prev => ({ ...prev, systemSizeKw: parseFloat(kwpReal.toFixed(2)) }));
+    setStep(3);
   };
 
   const handleCalculatePrice = () => {
-    const totalModules = (formData.modulesCount || 0) * (formData.pricePerModule || 0);
-    const totalKit = (formData.priceKit || 0);
-    const totalCA = (formData.systemSizeKw || 0) * (formData.priceCA || 0);
-    
-    const custoEquipamentos = totalModules + totalKit + totalCA;
-    const custoTotalBase = custoEquipamentos + (formData.additionalCosts || 0);
-    
+    const kwp = formData.systemSizeKw || 0;
+    const modulesCount = formData.modulesCount || 0;
+
+    // Custo módulos
+    const custoModulos = modulesCount * (formData.pricePerModule || 0);
+    // Custo kit (inversores + estrutura) — inserido diretamente
+    const custoKit = formData.priceKit || 0;
+    // Custo CA — inserido como R$/kWp
+    const custoCA = kwp * (formData.priceCA || 0);
+
+    const custoBruto = custoModulos + custoKit + custoCA + (formData.additionalCosts || 0);
+
+    // Markup reverso: preço = custo / (1 - imposto% - lucro%)
     const taxFactor = (formData.taxPercentage || 0) / 100;
     const profitFactor = (formData.profitPercentage || 0) / 100;
-    const totalFactor = taxFactor + profitFactor;
-    
-    // Formula de Markup reverso
-    const safeFactor = totalFactor >= 0.95 ? 0.95 : totalFactor;
-    
-    const finalCalculated = custoTotalBase / (1 - safeFactor);
-    
-    setFormData(prev => ({ ...prev, finalPrice: finalCalculated }));
+    const discount = taxFactor + profitFactor;
+    const safeFactor = Math.min(discount, 0.94); // máx 94% para evitar divisão por zero
+
+    const finalCalculated = custoBruto / (1 - safeFactor);
+
+    setFormData(prev => ({
+      ...prev,
+      finalPrice: parseFloat(finalCalculated.toFixed(2)),
+    }));
     setStep(4);
   };
 
@@ -600,8 +607,9 @@ const Proposals: React.FC = () => {
       {step === 4 && (
         <ProposalEditor 
           data={formData as ProposalData} 
-          onClose={() => setStep(0)} 
-          onSave={handleSavePreview} 
+          onClose={() => { setStep(0); setFormData({}); }} 
+          onSave={handleSavePreview}
+          onDelete={(id) => { handleDeleteProposal(id); setStep(0); setFormData({}); }}
         />
       )}
     </div>

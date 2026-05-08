@@ -49,6 +49,9 @@ export interface CoverContent {
   currentBill?: number;
   newBill?: number;
   tagline: string;
+  categoryLabel?: string;
+  headlineLine1?: string;
+  headlineLine2?: string;
 }
 
 export interface SocialProofContent {

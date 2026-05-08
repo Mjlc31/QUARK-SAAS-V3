@@ -34,12 +34,14 @@ interface ProposalBuilderProps {
   data: ProposalData;
   onClose: () => void;
   onSave?: (data: ProposalData) => void;
+  onDelete?: (id: string) => void;
 }
 
 // ─────────────────────────────────────────────────────────────
 // Componente principal
 // ─────────────────────────────────────────────────────────────
-export function ProposalBuilder({ data, onClose, onSave }: ProposalBuilderProps) {
+export function ProposalBuilder({ data, onClose, onSave, onDelete }: ProposalBuilderProps) {
+  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
   // ── Estado Central ─────────────────────────────────────────
   const [blocks, setBlocks] = useState<ProposalBlock[]>(() => {
     // Restaura blocos salvos se existirem, senão gera inicial
@@ -259,6 +261,33 @@ export function ProposalBuilder({ data, onClose, onSave }: ProposalBuilderProps)
               </svg>
               Salvar
             </button>
+          )}
+
+          {/* Excluir proposta */}
+          {onDelete && data.id && !showDeleteConfirm && (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] text-red-400/60 hover:text-red-400 border border-red-500/10 hover:border-red-500/30 rounded-lg transition-all"
+              title="Excluir proposta"
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6M14 11v6M9 6V4h6v2" />
+              </svg>
+              Excluir
+            </button>
+          )}
+          {onDelete && data.id && showDeleteConfirm && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-red-400">Confirmar exclusão?</span>
+              <button onClick={() => { onDelete(data.id!); onClose(); }}
+                className="px-2 py-1 text-[11px] font-bold bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30 rounded-lg transition-all">
+                Sim
+              </button>
+              <button onClick={() => setShowDeleteConfirm(false)}
+                className="px-2 py-1 text-[11px] text-white/40 hover:text-white border border-white/8 rounded-lg transition-all">
+                Não
+              </button>
+            </div>
           )}
 
           {/* Exportar PDF */}

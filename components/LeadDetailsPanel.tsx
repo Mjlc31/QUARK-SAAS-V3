@@ -48,6 +48,7 @@ export const LeadDetailsPanel: React.FC<LeadDetailsPanelProps> = ({
     const [activeTab, setActiveTab] = useState<TabType>('detalhes');
     const [showTagDropdown, setShowTagDropdown] = useState(false);
     const [quickStatus, setQuickStatus] = useState('');
+    const [deleteConfirm, setDeleteConfirm] = useState(false);
 
     const leadTags: TagType[] = selectedLead.tags || [];
 
@@ -142,7 +143,15 @@ export const LeadDetailsPanel: React.FC<LeadDetailsPanelProps> = ({
                     <div className="flex items-center gap-1">
                         {!isEditing && <button onClick={onEditToggle} className="p-2 text-zinc-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"><Edit2 size={20} /></button>}
                         {isEditing && <button onClick={onSave} className="p-2 text-lime-400 hover:bg-lime-500/10 rounded-lg transition-colors"><Save size={20} /></button>}
-                        <button onClick={onDelete} className="p-2 text-zinc-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"><Trash2 size={20} /></button>
+                        {!deleteConfirm ? (
+                          <button onClick={() => setDeleteConfirm(true)} className="p-2 text-zinc-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Excluir lead"><Trash2 size={20} /></button>
+                        ) : (
+                          <div className="flex items-center gap-1 bg-red-500/10 border border-red-500/20 rounded-lg px-2 py-1">
+                            <span className="text-xs text-red-400 font-bold">Excluir?</span>
+                            <button onClick={(e) => { onDelete(e); }} className="text-xs font-bold text-white bg-red-500 hover:bg-red-400 px-2 py-0.5 rounded transition-colors">Sim</button>
+                            <button onClick={() => setDeleteConfirm(false)} className="text-xs text-zinc-400 hover:text-white px-1 py-0.5 rounded transition-colors">Não</button>
+                          </div>
+                        )}
                         <button onClick={onClose} className="p-2 text-zinc-400 hover:text-white ml-2"><X size={24} /></button>
                     </div>
                 </div>

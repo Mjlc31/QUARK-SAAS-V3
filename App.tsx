@@ -12,7 +12,7 @@ import Engineering from './pages/Engineering';
 import FollowUp from './pages/FollowUp';
 import Financial from './pages/Financial';
 import { AppProvider, useApp } from './contexts/AppContext';
-import { Lock, User, ArrowRight, Menu, Zap, Mail, Loader2, UserPlus, CheckCircle2, KeyRound, ArrowLeft } from 'lucide-react';
+import { Lock, User, LayoutDashboard, Menu, Zap, Mail, Loader2, UserPlus, CheckCircle2, KeyRound, ArrowLeft, ArrowRight, Users, CheckSquare, HardHat, DollarSign } from 'lucide-react';
 
 const LoginScreen = () => {
   const { login, signUp, resetPassword } = useApp();
@@ -361,11 +361,11 @@ const BottomNav: React.FC = () => {
   const path = location.pathname;
 
   const items = [
-    { id: '/', icon: Zap, label: 'Home' },
-    { id: '/crm', icon: User, label: 'CRM' },
-    { id: '/tasks', icon: Menu, label: 'Tarefas' },
-    { id: '/engineering', icon: Lock, label: 'Obras' },
-    { id: '/financeiro', icon: ArrowRight, label: 'Finanças' },
+    { id: '/', icon: LayoutDashboard, label: 'Home' },
+    { id: '/crm', icon: Users, label: 'CRM' },
+    { id: '/tasks', icon: CheckSquare, label: 'Tarefas' },
+    { id: '/engineering', icon: HardHat, label: 'Obras' },
+    { id: '/financeiro', icon: DollarSign, label: 'Finanças' },
   ];
 
   return (

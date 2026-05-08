@@ -237,10 +237,8 @@ Podemos agendar uma breve apresentação da proposta?`;
     if (e) e.stopPropagation();
     const idToDelete = idOverride || selectedLead?.id;
     if (!idToDelete) return;
-    if (window.confirm("Deseja realmente excluir este Lead?")) {
-      await deleteLead(idToDelete);
-      setSelectedLead(null);
-    }
+    await deleteLead(idToDelete);
+    setSelectedLead(null);
   };
 
   const handleCreatePipeline = async () => {
@@ -508,67 +506,65 @@ Podemos agendar uma breve apresentação da proposta?`;
           </div>
         </div>
       ) : (
-        // --- LIST VIEW (TABLE) ---
+        // --- LIST VIEW - Mobile-first cards ---
         <div className="glass-panel rounded-2xl border border-white/10 overflow-hidden animate-enter">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="bg-white/5 border-b border-white/5">
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Nome</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Status</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Cidade</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Valor</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Última Atualização</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {finalLeads.map(lead => (
-                  <tr
-                    key={lead.id}
-                    onClick={() => setSelectedLead(lead)}
-                    className="hover:bg-white/5 transition-colors cursor-pointer group"
-                  >
-                    <td className="px-6 py-4 font-bold text-white flex items-center gap-2">
-                      {lead.name}
+          <div className="divide-y divide-white/5">
+            {finalLeads.length === 0 && (
+              <div className="py-16 text-center text-zinc-600">
+                <p className="text-sm">Nenhum lead encontrado.</p>
+              </div>
+            )}
+            {finalLeads.map(lead => {
+              const stage = lead.status;
+              const stageColor = stage === 'Lead' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                stage === 'Qualificacao' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' :
+                stage === 'Proposta' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
+                'bg-lime-500/10 text-lime-400 border-lime-500/20';
+              const stageLabel = stage === 'Lead' ? 'Novo' :
+                stage === 'Qualificacao' ? 'Qualif.' :
+                stage === 'Proposta' ? 'Proposta' : 'Fechado';
+              return (
+                <div
+                  key={lead.id}
+                  onClick={() => setSelectedLead(lead)}
+                  className="flex items-center gap-3 px-4 py-3.5 hover:bg-white/5 active:bg-white/10 transition-colors cursor-pointer group"
+                >
+                  {/* Avatar */}
+                  <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center text-[13px] font-bold text-zinc-300 border border-white/5 shrink-0">
+                    {lead.name.substring(0, 2).toUpperCase()}
+                  </div>
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="font-bold text-sm text-white truncate">{lead.name}</span>
                       {isStagnant(lead.updatedAt) && (
-                        <div className="flex items-center gap-1 text-[9px] text-rose-400/80 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/10 shrink-0" title="Lead frio (+7 dias)">
-                          <Clock size={10} />
-                          <span>7d inativo</span>
+                        <div className="flex items-center gap-0.5 text-[9px] text-rose-400/80 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/10 shrink-0">
+                          <Clock size={9} /><span>7d</span>
                         </div>
                       )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase ${lead.status === 'Lead' ? 'bg-blue-500/10 text-blue-400' :
-                        lead.status === 'Qualificacao' ? 'bg-yellow-500/10 text-yellow-400' :
-                          lead.status === 'Proposta' ? 'bg-purple-500/10 text-purple-400' : 'bg-lime-500/10 text-lime-400'
-                        }`}>
-                        {columnTitles[lead.status]}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border whitespace-nowrap ${stageColor}`}>
+                        {stageLabel}
                       </span>
-                    </td>
-                    <td className="px-6 py-4 text-slate-300">{lead.city}</td>
-                    <td className="px-6 py-4 text-lime-400 font-bold font-display">R$ {lead.value.toLocaleString()}</td>
-                    <td className="px-6 py-4 text-slate-400 text-xs">{new Date(lead.updatedAt).toLocaleDateString()}</td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleSmartWhatsApp(lead); }}
-                          className="p-2 text-green-400 hover:bg-green-500/20 rounded-lg transition-colors"
-                        >
-                          <Send size={16} />
-                        </button>
-                        <button
-                          onClick={(e) => handleDelete(e, lead.id)}
-                          className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/20 rounded-lg transition-colors"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      {lead.city && <span className="text-[11px] text-zinc-500 truncate">{lead.city}</span>}
+                    </div>
+                  </div>
+                  {/* Value + WhatsApp */}
+                  <div className="flex flex-col items-end gap-1.5 shrink-0">
+                    <span className="text-sm font-bold font-display text-lime-400 whitespace-nowrap">
+                      R$ {(lead.value / 1000).toFixed(0)}k
+                    </span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleSmartWhatsApp(lead); }}
+                      className="p-1.5 text-green-400 bg-green-500/10 hover:bg-green-500/20 rounded-lg transition-colors active:scale-90"
+                    >
+                      <Send size={13} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { DollarSign, Zap, Activity, TrendingUp, Download, BarChart3, Clock, Users, ArrowUpRight, Plus, Calculator, CheckSquare } from 'lucide-react';
+import { DollarSign, Zap, Activity, TrendingUp, Download, BarChart3, Clock, Users, ArrowUpRight, Plus, Calculator, CheckSquare, FileText } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { jsPDF } from 'jspdf';
 import { useNavigate } from 'react-router-dom';
@@ -229,24 +229,36 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Quick Actions Bar */}
-      <div className="flex gap-3 overflow-x-auto pb-2 snap-x-mandatory scrollbar-hide -mx-1 px-1">
-        <button onClick={() => navigate('/crm')} className="flex items-center gap-3 px-5 py-3 bg-zinc-900/50 hover:bg-zinc-800 border border-white/5 hover:border-lime-500/30 rounded-xl transition-all group min-w-[160px]">
-          <div className="p-2 bg-lime-500/10 text-lime-400 rounded-lg group-hover:scale-110 transition-transform">
-            <Plus size={18} />
+      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
+        <button onClick={() => navigate('/crm')} className="flex items-center gap-2.5 px-4 py-2.5 bg-zinc-900/70 hover:bg-zinc-800 border border-white/5 hover:border-lime-500/30 rounded-xl transition-all group shrink-0 snap-start">
+          <div className="p-1.5 bg-lime-500/10 text-lime-400 rounded-lg">
+            <Plus size={16} />
           </div>
-          <span className="text-sm font-bold text-zinc-300 group-hover:text-white">Novo Lead</span>
+          <span className="text-sm font-bold text-zinc-300 group-hover:text-white whitespace-nowrap">Novo Lead</span>
         </button>
-        <button onClick={() => navigate('/calculator')} className="flex items-center gap-3 px-5 py-3 bg-zinc-900/50 hover:bg-zinc-800 border border-white/5 hover:border-blue-500/30 rounded-xl transition-all group min-w-[160px]">
-          <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg group-hover:scale-110 transition-transform">
-            <Calculator size={18} />
+        <button onClick={() => navigate('/calculator')} className="flex items-center gap-2.5 px-4 py-2.5 bg-zinc-900/70 hover:bg-zinc-800 border border-white/5 hover:border-blue-500/30 rounded-xl transition-all group shrink-0 snap-start">
+          <div className="p-1.5 bg-blue-500/10 text-blue-400 rounded-lg">
+            <Calculator size={16} />
           </div>
-          <span className="text-sm font-bold text-zinc-300 group-hover:text-white">Simular</span>
+          <span className="text-sm font-bold text-zinc-300 group-hover:text-white whitespace-nowrap">Simular</span>
         </button>
-        <button onClick={() => navigate('/tasks')} className="flex items-center gap-3 px-5 py-3 bg-zinc-900/50 hover:bg-zinc-800 border border-white/5 hover:border-purple-500/30 rounded-xl transition-all group min-w-[160px]">
-          <div className="p-2 bg-purple-500/10 text-purple-400 rounded-lg group-hover:scale-110 transition-transform">
-            <CheckSquare size={18} />
+        <button onClick={() => navigate('/tasks')} className="flex items-center gap-2.5 px-4 py-2.5 bg-zinc-900/70 hover:bg-zinc-800 border border-white/5 hover:border-purple-500/30 rounded-xl transition-all group shrink-0 snap-start">
+          <div className="p-1.5 bg-purple-500/10 text-purple-400 rounded-lg">
+            <CheckSquare size={16} />
           </div>
-          <span className="text-sm font-bold text-zinc-300 group-hover:text-white">Minhas Tarefas</span>
+          <span className="text-sm font-bold text-zinc-300 group-hover:text-white whitespace-nowrap">Tarefas</span>
+        </button>
+        <button onClick={() => navigate('/financeiro')} className="flex items-center gap-2.5 px-4 py-2.5 bg-zinc-900/70 hover:bg-zinc-800 border border-white/5 hover:border-emerald-500/30 rounded-xl transition-all group shrink-0 snap-start">
+          <div className="p-1.5 bg-emerald-500/10 text-emerald-400 rounded-lg">
+            <DollarSign size={16} />
+          </div>
+          <span className="text-sm font-bold text-zinc-300 group-hover:text-white whitespace-nowrap">Financeiro</span>
+        </button>
+        <button onClick={() => navigate('/proposals')} className="flex items-center gap-2.5 px-4 py-2.5 bg-zinc-900/70 hover:bg-zinc-800 border border-white/5 hover:border-orange-500/30 rounded-xl transition-all group shrink-0 snap-start">
+          <div className="p-1.5 bg-orange-500/10 text-orange-400 rounded-lg">
+            <FileText size={16} />
+          </div>
+          <span className="text-sm font-bold text-zinc-300 group-hover:text-white whitespace-nowrap">Proposta</span>
         </button>
       </div>
 

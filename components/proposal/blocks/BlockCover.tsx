@@ -140,18 +140,31 @@ export function BlockCover({ content, onUpdate, theme }: Props) {
         {/* Hero Headline */}
         <div style={{ flex: 1 }}>
           <div style={{ marginBottom: '10px' }}>
-            <p style={{
-              fontSize: '10px', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase',
-              color: primary, marginBottom: '14px',
-            }}>
-              Proposta de Engenharia Solar
+            <p
+              {...editable('categoryLabel', onUpdate)}
+              style={{
+                fontSize: '10px', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase',
+                color: primary, marginBottom: '14px', outline: 'none', cursor: 'text',
+              }}
+            >
+              {(c as any).categoryLabel || 'Proposta de Engenharia Solar'}
             </p>
             <h1 style={{
               fontSize: '64px', fontWeight: 800, color: '#ffffff',
               lineHeight: 0.95, letterSpacing: '-2.5px', marginBottom: '16px',
             }}>
-              Projeto<br />
-              <span style={{ color: primary }}>Solar.</span>
+              <span
+                {...editable('headlineLine1', onUpdate)}
+                style={{ display: 'block', outline: 'none', cursor: 'text' }}
+              >
+                {(c as any).headlineLine1 || 'Projeto'}
+              </span>
+              <span
+                {...editable('headlineLine2', onUpdate)}
+                style={{ color: primary, display: 'block', outline: 'none', cursor: 'text' }}
+              >
+                {(c as any).headlineLine2 || 'Solar.'}
+              </span>
             </h1>
             <p
               {...editable('tagline', onUpdate)}
