@@ -5,34 +5,11 @@
 // ============================================================
 import React from 'react';
 import { ProposalBuilder } from './proposal';
+import type { ProposalData } from './proposal/types';
 
-export interface ProposalData {
-  id?: string;
-  clientName: string;
-  city: string;
-  consumption: number;
-  systemSizeKw: number;
-  moduleBrand: string;
-  modulePower: number;
-  modulesCount: number;
-  inverterBrand: string;
-  inverterPower: number;
-  inverterCount: number;
-  pricePerModule: number;
-  priceKit: number;
-  priceCA: number;
-  taxPercentage: number;
-  profitPercentage: number;
-  additionalCosts: number;
-  finalPrice: number;
-  // Metadados
-  blocks?: any[];
-  createdAt?: string;
-  updatedAt?: string;
-  status?: 'draft' | 'sent' | 'approved' | 'rejected';
-  tags?: string[];
-}
-
+// Re-exporta o ProposalData canônico do motor de propostas
+// para que Proposals.tsx e outros consumidores obtenham o tipo completo v4.0
+export type { ProposalData } from './proposal/types';
 
 interface Props {
   data: ProposalData;

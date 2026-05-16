@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { ProposalEditor, ProposalData } from '../components/ProposalEditor';
-import { FileText, Plus, ChevronRight, Calculator, CheckCircle, LayoutGrid, List, Search, Trash2, Copy, Edit3, TrendingUp, Calendar, Zap } from 'lucide-react';
+import { FileText, Plus, ChevronRight, Calculator, CheckCircle, LayoutGrid, List, Search, Trash2, Copy, Edit3, TrendingUp, Calendar, Zap, Phone } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
+import { DISTRIBUTORS, DEFAULT_DISTRIBUTOR, getEffectiveFiob, Distributor } from '../components/proposal/distributors';
+import { calcRecommendedPower, calcConsumptionFromBill } from '../components/proposal/solarCalc';
 
 const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 const formatDate = (iso?: string) => iso ? new Date(iso).toLocaleDateString('pt-BR') : '—';
@@ -33,10 +35,15 @@ const Proposals: React.FC = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [step, setStep] = useState(0);
+  // Modo de entrada: 'kwh' ou 'bill' (valor em R$)
+  const [inputMode, setInputMode] = useState<'kwh' | 'bill'>('kwh');
+  const [selectedDistributor, setSelectedDistributor] = useState<Distributor>(DEFAULT_DISTRIBUTOR);
   const [formData, setFormData] = useState<Partial<ProposalData>>({
     clientName: '',
     city: '',
+    phone: '',
     consumption: 0,
+    billValue: 0,
     moduleBrand: 'Jinko Solar',
     modulePower: 550,
     modulesCount: 0,
@@ -50,7 +57,14 @@ const Proposals: React.FC = () => {
     profitPercentage: 20,
     additionalCosts: 0,
     finalPrice: 0,
-    systemSizeKw: 0
+    systemSizeKw: 0,
+    // Campos solares
+    tariffRate: DEFAULT_DISTRIBUTOR.tariffB1,
+    fiobRate: getEffectiveFiob(DEFAULT_DISTRIBUTOR.fiobTotal),
+    concessionaria: DEFAULT_DISTRIBUTOR.id,
+    connectionType: 'mono',
+    publicLighting: 30,
+    generationFactor: 130,
   });
 
 
@@ -59,14 +73,24 @@ const Proposals: React.FC = () => {
   }, [proposals]);
 
   const handleNextStep1 = () => {
-    if (!formData.clientName || !formData.city || !formData.consumption) {
-      alert("Preencha todos os dados básicos.");
+    if (!formData.clientName || !formData.city) {
+      alert('Preencha nome e cidade.');
       return;
     }
-    // kWp = consumo_kWh / (HSP_médio × 30 dias × eficiência)
-    // HSP médio Brasil ≈ 4.5 h/dia. Eficiência do sistema ≈ 80%
-    const expectedPower = (formData.consumption as number) / (4.5 * 30 * 0.80);
-    setFormData(prev => ({ ...prev, systemSizeKw: parseFloat(expectedPower.toFixed(2)) }));
+    // Calcular consumo a partir do valor da conta se necessário
+    let consumoKwh = formData.consumption || 0;
+    if (inputMode === 'bill' && formData.billValue && formData.tariffRate) {
+      consumoKwh = calcConsumptionFromBill(
+        formData.billValue,
+        formData.tariffRate,
+        formData.publicLighting || 0,
+        formData.connectionType || 'mono'
+      );
+    }
+    if (!consumoKwh) { alert('Informe o consumo ou valor da conta.'); return; }
+    // kWp sugerido: consumo / fator de geração
+    const kwpSugerido = calcRecommendedPower(consumoKwh, formData.generationFactor || 130, 1.0);
+    setFormData(prev => ({ ...prev, consumption: consumoKwh, systemSizeKw: kwpSugerido }));
     setStep(2);
   };
 
@@ -109,8 +133,8 @@ const Proposals: React.FC = () => {
     if (payload.id) {
       setProposals(prev => prev.map(p => p.id === payload.id ? { ...payload, updatedAt: new Date().toISOString() } : p));
     } else {
-      const newProposal = { 
-        ...payload, 
+      const newProposal = {
+        ...payload,
         id: crypto.randomUUID(),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -122,7 +146,7 @@ const Proposals: React.FC = () => {
         city: newProposal.city,
         value: newProposal.finalPrice,
         monthlyConsumption: newProposal.consumption,
-        phone: '',
+        phone: newProposal.phone || '',
         status: 'Proposta'
       });
     }
@@ -423,29 +447,106 @@ const Proposals: React.FC = () => {
                   </div>
 
                   {step === 1 && (
-                      <div className="space-y-6 relative z-10 animate-enter">
-                          <h3 className="text-2xl font-bold text-white mb-2">Dados do Cliente</h3>
-                          <p className="text-zinc-500 text-sm mb-6">Insira os dados básicos e o consumo para iniciarmos os cálculos.</p>
-                          
-                          <div>
-                              <label className="text-xs font-bold text-zinc-500 uppercase block mb-2">Nome / Empresa</label>
-                              <input type="text" value={formData.clientName} onChange={e => setFormData({...formData, clientName: e.target.value})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-4 text-white focus:border-lime-500 outline-none" placeholder="Ex: Mercado CompreBem" />
+                      <div className="space-y-4 relative z-10 animate-enter">
+                          <h3 className="text-2xl font-bold text-white mb-1">Dados do Cliente</h3>
+                          <p className="text-zinc-500 text-sm mb-2">Preencha os dados e o consumo de energia.</p>
+
+                          {/* Nome e Telefone */}
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="col-span-2 md:col-span-1">
+                              <label className="text-xs font-bold text-zinc-500 uppercase block mb-1.5">Nome / Empresa</label>
+                              <input type="text" value={formData.clientName} onChange={e => setFormData({...formData, clientName: e.target.value})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-3.5 text-white focus:border-lime-500 outline-none" placeholder="Ex: Mercado CompreBem" />
+                            </div>
+                            <div>
+                              <label className="text-xs font-bold text-zinc-500 uppercase block mb-1.5">Telefone</label>
+                              <input type="tel" value={formData.phone || ''} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-3.5 text-white focus:border-lime-500 outline-none" placeholder="(82) 99999-0000" />
+                            </div>
                           </div>
-                          <div>
-                              <label className="text-xs font-bold text-zinc-500 uppercase block mb-2">Cidade - UF</label>
-                              <input type="text" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-4 text-white focus:border-lime-500 outline-none" placeholder="Ex: São Paulo - SP" />
+
+                          {/* Cidade e Concessionária */}
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-xs font-bold text-zinc-500 uppercase block mb-1.5">Cidade - UF</label>
+                              <input type="text" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-3.5 text-white focus:border-lime-500 outline-none" placeholder="Maceió - AL" />
+                            </div>
+                            <div>
+                              <label className="text-xs font-bold text-zinc-500 uppercase block mb-1.5">Concessionária</label>
+                              <select value={selectedDistributor.id}
+                                onChange={e => {
+                                  const d = DISTRIBUTORS.find(d => d.id === e.target.value) || DEFAULT_DISTRIBUTOR;
+                                  setSelectedDistributor(d);
+                                  setFormData(prev => ({ ...prev, concessionaria: d.id, tariffRate: d.tariffB1, fiobRate: getEffectiveFiob(d.fiobTotal) }));
+                                }}
+                                className="w-full bg-black/40 border border-zinc-800 rounded-xl p-3.5 text-white focus:border-lime-500 outline-none text-sm">
+                                {DISTRIBUTORS.map(d => <option key={d.id} value={d.id}>{d.shortName} ({d.uf})</option>)}
+                              </select>
+                            </div>
                           </div>
+
+                          {/* Tipo de Ligação */}
                           <div>
-                              <label className="text-xs font-bold text-zinc-500 uppercase block mb-2 flex justify-between">
-                                 <span>Consumo Mensal (kWh)</span>
-                                 <span className="text-lime-500/50 hidden md:inline">Potência Baseada em Hsp=123</span>
-                              </label>
-                              <div className="relative">
-                                  <input type="number" value={formData.consumption || ''} onChange={e => setFormData({...formData, consumption: Number(e.target.value)})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-4 pl-12 text-white font-display focus:border-lime-500 outline-none text-xl" placeholder="0" />
-                                  <Calculator className="absolute left-4 top-1/2 -translate-y-1/2 text-lime-500/50" size={20} />
+                            <label className="text-xs font-bold text-zinc-500 uppercase block mb-1.5">Tipo de Ligação</label>
+                            <div className="grid grid-cols-3 gap-2">
+                              {(['mono','bi','tri'] as const).map((t, i) => {
+                                const labels = ['Monofásico\n30 kWh', 'Bifásico\n50 kWh', 'Trifásico\n100 kWh'];
+                                const isActive = formData.connectionType === t;
+                                return (
+                                  <button key={t} onClick={() => setFormData({...formData, connectionType: t})}
+                                    className={`py-2.5 px-2 rounded-xl border text-center transition-all text-xs font-bold whitespace-pre-line leading-tight ${isActive ? 'border-lime-500 bg-lime-500/10 text-lime-400' : 'border-zinc-800 text-zinc-500 hover:border-zinc-600'}`}>
+                                    {labels[i]}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Toggle kWh / R$ */}
+                          <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <label className="text-xs font-bold text-zinc-500 uppercase">Consumo</label>
+                              <div className="flex rounded-lg border border-zinc-800 p-0.5 gap-0.5">
+                                <button onClick={() => setInputMode('kwh')} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${inputMode==='kwh' ? 'bg-lime-500 text-black' : 'text-zinc-500'}`}>kWh</button>
+                                <button onClick={() => setInputMode('bill')} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${inputMode==='bill' ? 'bg-lime-500 text-black' : 'text-zinc-500'}`}>R$ Conta</button>
                               </div>
+                            </div>
+                            {inputMode === 'kwh' ? (
+                              <div className="relative">
+                                <input type="number" value={formData.consumption || ''} onChange={e => setFormData({...formData, consumption: Number(e.target.value)})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-4 pl-12 text-white font-display focus:border-lime-500 outline-none text-xl" placeholder="0" />
+                                <Calculator className="absolute left-4 top-1/2 -translate-y-1/2 text-lime-500/50" size={20} />
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-600 text-sm">kWh/mês</span>
+                              </div>
+                            ) : (
+                              <div className="relative">
+                                <input type="number" value={formData.billValue || ''} onChange={e => setFormData({...formData, billValue: Number(e.target.value)})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-4 pl-12 text-white font-display focus:border-lime-500 outline-none text-xl" placeholder="0,00" />
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lime-500/50 font-bold text-lg">R$</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-600 text-sm">/mês</span>
+                              </div>
+                            )}
                           </div>
-                          <div className="flex gap-4 mt-8">
+
+                          {/* CIP e Parâmetros */}
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <label className="text-xs font-bold text-zinc-500 uppercase block mb-1.5">CIP/COSIP (R$)</label>
+                              <input type="number" value={formData.publicLighting || ''} onChange={e => setFormData({...formData, publicLighting: Number(e.target.value)})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-3 text-white focus:border-lime-500 outline-none" placeholder="30" />
+                            </div>
+                            <div>
+                              <label className="text-xs font-bold text-zinc-500 uppercase block mb-1.5">Tarifa R$/kWh</label>
+                              <input type="number" step="0.001" value={formData.tariffRate || ''} onChange={e => setFormData({...formData, tariffRate: Number(e.target.value)})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-3 text-white focus:border-lime-500 outline-none" />
+                            </div>
+                            <div>
+                              <label className="text-xs font-bold text-zinc-500 uppercase block mb-1.5">Fio B R$/kWh</label>
+                              <input type="number" step="0.001" value={formData.fiobRate || ''} onChange={e => setFormData({...formData, fiobRate: Number(e.target.value)})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-3 text-white focus:border-lime-500 outline-none" />
+                            </div>
+                          </div>
+
+                          {/* Info distribuidora */}
+                          <div className="text-[11px] text-zinc-600 bg-zinc-900/50 rounded-lg px-3 py-2 flex justify-between">
+                            <span>{selectedDistributor.name}</span>
+                            <span>Fio B total: R$ {selectedDistributor.fiobTotal.toFixed(5)} · 45% em 2025</span>
+                          </div>
+
+                          <div className="flex gap-4 pt-2">
                               <button onClick={() => setStep(0)} className="flex-1 py-4 text-zinc-500 hover:text-white transition-colors font-bold">Cancelar</button>
                               <button onClick={handleNextStep1} className="flex-1 py-4 bg-lime-500 text-black font-bold rounded-xl shadow-[0_0_20px_rgba(163,230,53,0.2)] hover:bg-lime-400 flex items-center justify-center gap-2 transition-all">
                                   Avançar <ChevronRight size={18} />

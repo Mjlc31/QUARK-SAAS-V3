@@ -134,3 +134,24 @@ export interface Product {
   image?: string;
   description?: string;
 }
+
+// ── Global Error & Response Types ──
+export interface AppError {
+  message: string;
+  code?: string;
+  status?: number;
+  details?: any;
+}
+
+export interface ApiResult<T> {
+  data?: T;
+  error?: AppError | null;
+}
+// -- Activity (feed de atividades recentes) ------
+export interface Activity {
+  id: string;
+  user: string;
+  action: string;
+  target: string;
+  time: string;
+}

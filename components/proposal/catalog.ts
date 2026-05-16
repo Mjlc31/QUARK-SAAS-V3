@@ -119,6 +119,23 @@ export const BLOCK_CATALOG: BlockCatalogItem[] = [
     },
   },
   {
+    type: 'financing',
+    label: 'Opções de Financiamento',
+    description: 'Condições de pagamento: à vista, financiamento bancário, cartão de crédito',
+    icon: '💳',
+    defaultContent: {
+      title: 'Condições Comerciais',
+      finalPrice: 0,
+      cashDiscountPct: 5,
+      options: [
+        { id: 'cash', label: 'À Vista (5% desconto)', description: 'Pagamento integral com desconto exclusivo', installments: 1, monthlyRate: 0, installmentValue: 0, totalPaid: 0, downPayment: 0, isHighlighted: false },
+        { id: 'bnb-fne', label: 'BNB / FNE Verde', description: 'Linha especial solar — até 84× sem entrada', installments: 84, monthlyRate: 0.6, installmentValue: 0, totalPaid: 0, downPayment: 0, isHighlighted: true },
+        { id: 'sicoob', label: 'Financiamento 60×', description: 'Crédito solar Sicoob / Caixa', installments: 60, monthlyRate: 1.29, installmentValue: 0, totalPaid: 0, downPayment: 0, isHighlighted: false },
+        { id: 'credit-card-18', label: 'Cartão 18×', description: 'Parcelamento sem burocracia', installments: 18, monthlyRate: 2.99, installmentValue: 0, totalPaid: 0, downPayment: 0, isHighlighted: false },
+      ],
+    },
+  },
+  {
     type: 'text',
     label: 'Texto Livre',
     description: 'Cláusulas, observações ou parágrafos personalizados',

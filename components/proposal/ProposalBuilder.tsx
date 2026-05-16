@@ -1,7 +1,6 @@
 // ============================================================
-// PROPOSAL ENGINE — PROPOSAL BUILDER v2.0
-// Orquestrador: DnD + tema global via CSS Variables
-// Fase 3: Export PDF via @react-pdf/renderer
+// PROPOSAL ENGINE — PROPOSAL BUILDER v3.0
+// Dark/Light toggle · Duplo PDF · Fontes expandidas
 // ============================================================
 
 import React, { useState, useCallback } from 'react';
@@ -18,7 +17,7 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 
-import { ProposalBlock, ProposalData, BlockType, ProposalTheme, DEFAULT_THEME, FONT_FAMILY_MAP } from './types';
+import { ProposalBlock, ProposalData, BlockType, ProposalTheme, DEFAULT_THEME, FONT_FAMILY_MAP, ProposalMode } from './types';
 import { ProposalPDF } from './ProposalPDF';
 import { BLOCK_CATALOG, buildInitialBlocks } from './catalog';
 import { nanoid } from './utils';
@@ -54,7 +53,12 @@ export function ProposalBuilder({ data, onClose, onSave, onDelete }: ProposalBui
   const [isDirty, setIsDirty] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
-  const [theme, setTheme] = useState<ProposalTheme>(DEFAULT_THEME);
+  const [isExportingLight, setIsExportingLight] = useState(false);
+  const [theme, setTheme] = useState<ProposalTheme>(() => {
+    // Carrega padrão salvo se existir
+    const savedTheme = localStorage.getItem('quark_proposal_template_theme');
+    return savedTheme ? { ...DEFAULT_THEME, ...JSON.parse(savedTheme) } : DEFAULT_THEME;
+  });
 
   // ── Handlers do Tema ──────────────────────────────────────
   const handleUpdateTheme = useCallback((patch: Partial<ProposalTheme>) => {
@@ -146,46 +150,43 @@ export function ProposalBuilder({ data, onClose, onSave, onDelete }: ProposalBui
   // ── Bloco ativo para overlay ───────────────────────────────
   const activeBlock = blocks.find((b) => b.id === activeId);
 
-  // ── Export PDF (Fase 3) — com retry robusto ───────────────
+  // ── Export PDF — Dark e Light ──────────────────────────────
   const [exportStatus, setExportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [exportLightStatus, setExportLightStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
-  const handleExport = async () => {
-    setIsExporting(true);
-    setExportStatus('loading');
+  const exportPDF = async (mode: ProposalMode = 'dark') => {
+    const isDark = mode === 'dark';
+    if (isDark) { setIsExporting(true); setExportStatus('loading'); }
+    else { setIsExportingLight(true); setExportLightStatus('loading'); }
+    const exportTheme: ProposalTheme = isDark
+      ? { ...theme, mode: 'dark', backgroundColor: '#0A0A0A', textColor: '#ffffff' }
+      : { ...theme, mode: 'light', backgroundColor: '#ffffff', textColor: '#111111' };
     try {
-      const doc = (
-        <ProposalPDF
-          blocks={blocks}
-          theme={theme}
-          clientName={data.clientName}
-        />
-      );
+      const doc = <ProposalPDF blocks={blocks} theme={exportTheme} clientName={data.clientName} />;
       const blob = await pdf(doc).toBlob();
       const url = URL.createObjectURL(blob);
-      const filename = `Proposta_Solar_${data.clientName.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`;
+      const suffix = isDark ? 'Escuro' : 'Claro';
+      const filename = `Proposta_${suffix}_${data.clientName.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`;
       const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      
-      // Upload to Supabase Storage
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a); URL.revokeObjectURL(url);
       storageService.uploadFile('quark_arquivos', `propostas/${filename}`, blob).then(publicUrl => {
-         if (publicUrl) console.log("✅ Proposta salva no Supabase Storage:", publicUrl);
+        if (publicUrl) console.log('✅ Proposta salva no Storage:', publicUrl);
       });
-
-      setExportStatus('success');
-      setTimeout(() => setExportStatus('idle'), 3000);
+      if (isDark) { setExportStatus('success'); setTimeout(() => setExportStatus('idle'), 3000); }
+      else { setExportLightStatus('success'); setTimeout(() => setExportLightStatus('idle'), 3000); }
     } catch (err) {
       console.error('Erro ao gerar PDF:', err);
-      setExportStatus('error');
-      setTimeout(() => setExportStatus('idle'), 4000);
+      if (isDark) { setExportStatus('error'); setTimeout(() => setExportStatus('idle'), 4000); }
+      else { setExportLightStatus('error'); setTimeout(() => setExportLightStatus('idle'), 4000); }
     } finally {
-      setIsExporting(false);
+      if (isDark) setIsExporting(false); else setIsExportingLight(false);
     }
   };
+
+  const handleExport = () => exportPDF('dark');
+  const handleExportLight = () => exportPDF('light');
 
 
   // ── CSS Variables do tema (injetadas no root) ─────────────
@@ -290,59 +291,31 @@ export function ProposalBuilder({ data, onClose, onSave, onDelete }: ProposalBui
             </div>
           )}
 
-          {/* Exportar PDF */}
-          <button
-            onClick={handleExport}
-            disabled={isExporting}
+          {/* PDF Claro */}
+          <button onClick={handleExportLight} disabled={isExportingLight}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-bold rounded-lg transition-all disabled:opacity-60 border hover:brightness-110 active:scale-95"
+            style={{
+              color: exportLightStatus === 'success' ? '#10b981' : exportLightStatus === 'error' ? '#ef4444' : '#ffffff',
+              borderColor: exportLightStatus === 'success' ? '#10b981' : exportLightStatus === 'error' ? '#ef4444' : 'rgba(255,255,255,0.12)',
+              background: 'rgba(255,255,255,0.04)',
+            }}>
+            {isExportingLight ? (
+              <><svg className="animate-spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.22-8.56" /></svg>Gerando...</>
+            ) : exportLightStatus === 'success' ? '☀️ Pronto ✓' : exportLightStatus === 'error' ? '☀️ Erro' : '☀️ PDF Claro'}
+          </button>
+
+          {/* PDF Escuro */}
+          <button onClick={handleExport} disabled={isExporting}
             className="flex items-center gap-1.5 px-4 py-1.5 text-[12px] font-bold rounded-lg transition-all disabled:opacity-60 hover:brightness-110 active:scale-95"
             style={{
               color: exportStatus === 'error' ? '#fff' : '#090c14',
-              background:
-                exportStatus === 'success'
-                  ? 'linear-gradient(135deg, #10b981, #34d399)'
-                  : exportStatus === 'error'
-                  ? 'linear-gradient(135deg, #ef4444, #f87171)'
-                  : isExporting
-                  ? 'rgba(196,160,80,0.4)'
-                  : 'linear-gradient(135deg, #c4a050, #e8c572)',
-              boxShadow:
-                exportStatus === 'success'
-                  ? '0 0 16px rgba(16,185,129,0.3)'
-                  : exportStatus === 'error'
-                  ? '0 0 16px rgba(239,68,68,0.3)'
-                  : '0 0 16px rgba(196,160,80,0.2)',
-            }}
-          >
-            {exportStatus === 'loading' || isExporting ? (
-              <>
-                <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 12a9 9 0 1 1-6.22-8.56" />
-                </svg>
-                Gerando PDF...
-              </>
-            ) : exportStatus === 'success' ? (
-              <>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-                PDF Pronto! ✓
-              </>
-            ) : exportStatus === 'error' ? (
-              <>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
-                </svg>
-                Erro ao Gerar
-              </>
-            ) : (
-              <>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-                Exportar PDF
-              </>
+              background: exportStatus === 'success' ? 'linear-gradient(135deg,#10b981,#34d399)' : exportStatus === 'error' ? 'linear-gradient(135deg,#ef4444,#f87171)' : isExporting ? 'rgba(196,160,80,0.4)' : 'linear-gradient(135deg,#c4a050,#e8c572)',
+              boxShadow: exportStatus === 'success' ? '0 0 16px rgba(16,185,129,0.3)' : exportStatus === 'error' ? '0 0 16px rgba(239,68,68,0.3)' : '0 0 16px rgba(196,160,80,0.2)',
+            }}>
+            {isExporting ? (
+              <><svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.22-8.56" /></svg>Gerando...</>
+            ) : exportStatus === 'success' ? '🌙 Pronto ✓' : exportStatus === 'error' ? '🌙 Erro' : (
+              <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>🌙 PDF Escuro</>
             )}
           </button>
 
@@ -398,10 +371,10 @@ export function ProposalBuilder({ data, onClose, onSave, onDelete }: ProposalBui
       <footer className="shrink-0 flex items-center justify-between px-5 py-1.5 border-t border-white/[0.04]"
         style={{ background: 'rgba(0,0,0,0.4)' }}>
         <p className="text-[10px] text-white/15">
-          ✦ Quark Proposal Engine v2.0 — Dark Luxury WYSIWYG
+          ✦ Quark Proposal Engine v3.0 — Dark Luxury WYSIWYG
         </p>
         <p className="text-[10px] text-white/15">
-          {blocks.length} bloco{blocks.length !== 1 ? 's' : ''} · {theme.fontFamily}
+          {blocks.length} bloco{blocks.length !== 1 ? 's' : ''} · {theme.fontFamily} · {theme.mode === 'light' ? '☀️ Claro' : '🌙 Escuro'}
         </p>
       </footer>
     </div>
