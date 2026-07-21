@@ -19,19 +19,19 @@ function DraggableCatalogItem({ item, onAdd }: { item: BlockCatalogItem; onAdd: 
   return (
     <div ref={setNodeRef} style={{ opacity: isDragging ? 0.3 : 1 }} className="group relative">
       <div {...listeners} {...attributes}
-        className="flex items-start gap-3 p-3 rounded-xl border border-white/6 bg-white/[0.03] hover:bg-white/[0.07] hover:border-white/15 cursor-grab active:cursor-grabbing transition-all duration-200 select-none">
-        <div className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-lg"
-          style={{ background: 'rgba(196,160,80,0.08)', border: '1px solid rgba(196,160,80,0.15)' }}>
+        className="flex items-start gap-4 p-4 rounded-2xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.05] hover:border-amber-500/30 cursor-grab active:cursor-grabbing transition-all duration-300 select-none group-hover:shadow-[0_4px_20px_-5px_rgba(0,0,0,0.5)]">
+        <div className="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-lg shadow-inner"
+          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
           {item.icon}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-semibold text-white/90 leading-tight mb-0.5">{item.label}</p>
-          <p className="text-[11px] text-white/30 leading-snug line-clamp-2">{item.description}</p>
+          <p className="text-sm font-bold text-white/90 leading-tight mb-1">{item.label}</p>
+          <p className="text-[11px] text-white/40 leading-snug line-clamp-2">{item.description}</p>
         </div>
       </div>
       <button onClick={() => onAdd(item.type)} title={`Adicionar ${item.label}`}
-        className="absolute top-2.5 right-2.5 w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold text-amber-400 opacity-0 group-hover:opacity-100 transition-all hover:scale-110 z-10"
-        style={{ background: 'rgba(196,160,80,0.15)' }}>
+        className="absolute top-3 right-3 w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold text-amber-500 opacity-0 group-hover:opacity-100 transition-all hover:scale-110 hover:bg-amber-500/20 z-10"
+        style={{ background: 'rgba(245,158,11,0.1)' }}>
         +
       </button>
     </div>
@@ -97,21 +97,22 @@ function ThemePanel({ theme, onUpdateTheme }: ThemePanelProps) {
     <div className="flex-1 overflow-y-auto custom-scrollbar">
 
       {/* ── Modo Dark/Light ── */}
-      <div className="px-4 py-4 border-b border-white/6">
-        <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/25 mb-3">Modo da Proposta</p>
-        <div className="flex gap-2">
+      <div className="px-5 py-5 border-b border-white/5">
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30 mb-4">Modo da Proposta</p>
+        <div className="grid grid-cols-2 gap-3">
           {([
-            { value: 'dark' as ProposalMode, label: '🌙 Escuro', desc: 'Fundo preto premium' },
-            { value: 'light' as ProposalMode, label: '☀️ Claro', desc: 'Fundo branco clean' },
+            { value: 'dark' as ProposalMode, label: '🌙 Escuro', desc: 'Preto premium', bg: '#0A0A0A', tc: '#ffffff' },
+            { value: 'light' as ProposalMode, label: '☀️ Claro', desc: 'Branco clean', bg: '#ffffff', tc: '#111111' },
           ]).map(opt => {
             const isActive = (theme.mode || 'dark') === opt.value;
             return (
-              <button key={opt.value} onClick={() => onUpdateTheme({ mode: opt.value })}
-                className={`flex-1 p-2.5 rounded-xl border text-center transition-all ${
-                  isActive ? 'border-amber-400/40 bg-amber-400/8' : 'border-white/6 bg-white/[0.02] hover:border-white/15'
+              <button key={opt.value} onClick={() => onUpdateTheme({ mode: opt.value, backgroundColor: opt.bg, textColor: opt.tc })}
+                className={`relative overflow-hidden p-4 rounded-2xl border text-left transition-all duration-300 ${
+                  isActive ? 'border-amber-500/40 bg-amber-500/10 shadow-[0_0_20px_-5px_rgba(245,158,11,0.2)]' : 'border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]'
                 }`}>
-                <p className={`text-[12px] font-bold ${isActive ? 'text-amber-400' : 'text-white/50'}`}>{opt.label}</p>
-                <p className="text-[10px] text-white/25 mt-0.5">{opt.desc}</p>
+                {isActive && <div className="absolute top-0 right-0 w-16 h-16 bg-amber-500/10 blur-xl rounded-full -translate-y-1/2 translate-x-1/2" />}
+                <p className={`text-sm font-bold mb-1 ${isActive ? 'text-amber-400' : 'text-white/70'}`}>{opt.label}</p>
+                <p className="text-[10px] text-white/40 font-medium">{opt.desc}</p>
               </button>
             );
           })}
@@ -173,11 +174,14 @@ function ThemePanel({ theme, onUpdateTheme }: ThemePanelProps) {
       {/* ── Cores ── */}
       <div className="px-4 py-4 border-b border-white/6">
         <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/25 mb-1">Paleta de Cores</p>
-        <ColorSwatch label="Cor Primária (Destaque)" value={theme.primaryColor}
+        <ColorSwatch label="Cor Primária (Destaque)" value={theme.primaryColor || '#C4A050'}
           onChange={(c) => onUpdateTheme({ primaryColor: c })} />
         <div className="h-px bg-white/5" />
-        <ColorSwatch label="Cor Secundária" value={theme.secondaryColor}
-          onChange={(c) => onUpdateTheme({ secondaryColor: c })} />
+        <ColorSwatch label="Cor do Fundo" value={theme.backgroundColor || (theme.mode === 'light' ? '#ffffff' : '#0A0A0A')}
+          onChange={(c) => onUpdateTheme({ backgroundColor: c })} />
+        <div className="h-px bg-white/5" />
+        <ColorSwatch label="Cor do Texto Principal" value={theme.textColor || (theme.mode === 'light' ? '#111111' : '#ffffff')}
+          onChange={(c) => onUpdateTheme({ textColor: c })} />
         <div className="h-px bg-white/5" />
 
         {/* Presets de cor */}

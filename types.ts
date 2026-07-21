@@ -1,4 +1,4 @@
-export type LeadStatus = 'Lead' | 'Qualificacao' | 'Proposta' | 'Fechado';
+export type LeadStatus = 'Lead' | 'Qualificacao' | 'Proposta' | 'Fechado' | 'Perdido';
 export type ProjectStatus = 'Vistoria' | 'Projeto' | 'Homologacao' | 'Instalacao' | 'Finalizado';
 export type UserRole = 'Admin' | 'Sales' | 'Engineering';
 export type PersonType = 'PF' | 'PJ';
@@ -68,6 +68,11 @@ export interface Lead {
   // ── CRM v2: Tags e Multi-Pipeline ──
   tags?: Tag[];
   pipelineEntries?: LeadPipelineEntry[];
+  // ── CRM Elite: Controle Implacável ──
+  nextActionDate?: string;
+  nextActionType?: 'Ligar' | 'Reunião' | 'WhatsApp' | 'Visita' | 'Outro';
+  lossReason?: string;
+  source?: string;
 }
 
 export interface Project {

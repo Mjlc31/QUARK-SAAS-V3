@@ -150,6 +150,23 @@ export function ProposalBuilder({ data, onClose, onSave, onDelete }: ProposalBui
   // ── Bloco ativo para overlay ───────────────────────────────
   const activeBlock = blocks.find((b) => b.id === activeId);
 
+  // ── Status de salvamento ──────────────────────────────
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success'>('idle');
+
+  const handleSave = async () => {
+    if (!onSave) return;
+    setSaveStatus('saving');
+    try {
+      await onSave({ ...data, blocks, updatedAt: new Date().toISOString() });
+      setIsDirty(false);
+      setSaveStatus('success');
+      setTimeout(() => setSaveStatus('idle'), 2500);
+    } catch (e) {
+      console.error('Save failed', e);
+      setSaveStatus('idle');
+    }
+  };
+
   // ── Export PDF — Dark e Light ──────────────────────────────
   const [exportStatus, setExportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [exportLightStatus, setExportLightStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -250,17 +267,27 @@ export function ProposalBuilder({ data, onClose, onSave, onDelete }: ProposalBui
           {/* Salvar */}
           {onSave && (
             <button
-              onClick={() => { 
-                onSave({ ...data, blocks, updatedAt: new Date().toISOString() }); 
-                setIsDirty(false); 
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] text-white/50 hover:text-white border border-white/8 hover:border-white/15 rounded-lg transition-all"
+              onClick={handleSave}
+              disabled={saveStatus === 'saving'}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] border rounded-lg transition-all ${
+                saveStatus === 'success'
+                  ? 'bg-lime-500/10 text-lime-400 border-lime-500/30'
+                  : 'text-white/50 hover:text-white border-white/8 hover:border-white/15'
+              }`}
             >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                <polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" />
-              </svg>
-              Salvar
+              {saveStatus === 'success' ? (
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M20 6L9 17l-5-5" />
+                </svg>
+              ) : saveStatus === 'saving' ? (
+                <div className="w-[11px] h-[11px] rounded-full border-2 border-white/20 border-t-white animate-spin" />
+              ) : (
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                  <polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" />
+                </svg>
+              )}
+              {saveStatus === 'success' ? 'Salvo!' : saveStatus === 'saving' ? 'Salvando...' : 'Salvar'}
             </button>
           )}
 

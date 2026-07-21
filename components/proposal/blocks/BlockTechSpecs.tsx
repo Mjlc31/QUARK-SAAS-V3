@@ -3,7 +3,7 @@
 // ============================================================
 import React from 'react';
 import { TechSpecsContent, ProposalTheme } from '../types';
-import { formatNumber, editable } from '../utils';
+import { formatNumber, editable, getWebColors } from '../utils';
 
 interface Props {
   content: TechSpecsContent;
@@ -52,30 +52,31 @@ const GaugeIcon = () => (
 );
 
 // Linha da tabela minimalista
-function SpecRow({ icon, label, value, isAccent, accentColor }: {
+function SpecRow({ icon, label, value, isAccent, accentColor, C }: {
   icon: React.ReactNode; label: string; value: string;
   isAccent?: boolean; accentColor?: string;
+  C: ReturnType<typeof getWebColors>;
 }) {
   return (
-    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+    <tr style={{ borderBottom: `1px solid ${C.BORDER}` }}>
       <td style={{ padding: '14px 0', width: '44px', verticalAlign: 'middle' }}>
         <div style={{
           width: '32px', height: '32px', borderRadius: '8px',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: isAccent ? `${accentColor}15` : 'rgba(255,255,255,0.03)',
-          color: isAccent ? accentColor : 'rgba(255,255,255,0.4)',
-          border: isAccent ? `1px solid ${accentColor}25` : '1px solid rgba(255,255,255,0.1)',
+          background: isAccent ? `${accentColor}15` : C.SURFACE,
+          color: isAccent ? accentColor : C.MUTED,
+          border: isAccent ? `1px solid ${accentColor}25` : `1px solid ${C.BORDER}`,
         }}>
           {icon}
         </div>
       </td>
       <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
-        <p style={{ fontSize: '13px', fontWeight: 500, color: 'rgba(255,255,255,0.7)' }}>{label}</p>
+        <p style={{ fontSize: '13px', fontWeight: 500, color: C.TEXT_MUTED }}>{label}</p>
       </td>
       <td style={{ padding: '14px 0', verticalAlign: 'middle', textAlign: 'right' }}>
         <p style={{
           fontSize: '15px', fontWeight: 700,
-          color: isAccent ? accentColor : '#ffffff',
+          color: isAccent ? accentColor : C.TEXT,
           letterSpacing: '-0.2px',
         }}>
           {value}
@@ -89,9 +90,10 @@ export function BlockTechSpecs({ content, onUpdate, theme }: Props) {
   const c = content;
   const primary = theme.primaryColor;
   const totalPower = (c.modulesCount * c.modulePower) / 1000;
+  const C = getWebColors(theme);
 
   return (
-    <div style={{ padding: '52px 48px', background: '#0A0A0A' }}>
+    <div style={{ padding: '52px 48px', background: C.BACKGROUND }}>
       {/* ── Cabeçalho ── */}
       <div style={{ marginBottom: '40px' }}>
         <p style={{
@@ -100,10 +102,10 @@ export function BlockTechSpecs({ content, onUpdate, theme }: Props) {
         }}>
           Engenharia do Sistema
         </p>
-        <h2 style={{ fontSize: '32px', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.7px', lineHeight: 1.1, marginBottom: '12px' }}>
+        <h2 style={{ fontSize: '32px', fontWeight: 800, color: C.TEXT, letterSpacing: '-0.7px', lineHeight: 1.1, marginBottom: '12px' }}>
           Ficha Técnica
         </h2>
-        <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', lineHeight: 1.65, maxWidth: '520px' }}>
+        <p style={{ fontSize: '13px', color: C.TEXT_MUTED, lineHeight: 1.65, maxWidth: '520px' }}>
           Sistema dimensionado para o perfil de consumo. Equipamentos Tier 1 com garantia de fábrica.
         </p>
       </div>
@@ -117,28 +119,28 @@ export function BlockTechSpecs({ content, onUpdate, theme }: Props) {
         ].map(({ label, value, color, field }) => (
           <div key={label} style={{
             padding: '20px',
-            background: `rgba(255,255,255,0.03)`,
-            border: `1px solid rgba(255,255,255,0.05)`,
+            background: C.SURFACE,
+            border: `1px solid ${C.BORDER}`,
             borderRadius: '14px',
           }}>
             <p style={{ fontSize: '22px', fontWeight: 800, color, letterSpacing: '-0.5px', lineHeight: 1, marginBottom: '6px' }}>
               <span {...editable(field as any, onUpdate)}>{value}</span>
             </p>
-            <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</p>
+            <p style={{ fontSize: '10px', color: C.MUTED, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</p>
           </div>
         ))}
       </div>
 
       {/* ── Tabela minimalista de alto contraste ── */}
-      <div style={{ border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px', overflow: 'hidden' }}>
+      <div style={{ border: `1px solid ${C.BORDER}`, borderRadius: '14px', overflow: 'hidden' }}>
         {/* Cabeçalho da tabela */}
         <div style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          padding: '12px 20px', background: 'rgba(255,255,255,0.02)',
-          borderBottom: '1px solid rgba(255,255,255,0.1)',
+          padding: '12px 20px', background: C.SURFACE,
+          borderBottom: `1px solid ${C.BORDER}`,
         }}>
-          <p style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Componente</p>
-          <p style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Especificação</p>
+          <p style={{ fontSize: '10px', fontWeight: 700, color: C.MUTED, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Componente</p>
+          <p style={{ fontSize: '10px', fontWeight: 700, color: C.MUTED, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Especificação</p>
         </div>
         <table style={{ width: '100%', borderCollapse: 'collapse', padding: '0 20px' }}>
           <tbody>
@@ -146,12 +148,12 @@ export function BlockTechSpecs({ content, onUpdate, theme }: Props) {
               <td colSpan={3} style={{ padding: 0, display: 'block' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <tbody>
-                    <SpecRow icon={<SunIcon />} label={`Módulos — ${c.moduleBrand}`} value={`${c.modulesCount} × ${c.modulePower}W`} isAccent accentColor={primary} />
-                    <SpecRow icon={<BatteryIcon />} label={`Inversores — ${c.inverterBrand}`} value={`${c.inverterCount} × ${c.inverterPower} kW`} />
-                    <SpecRow icon={<GaugeIcon />} label="Potência Total Instalada" value={`${totalPower.toFixed(2)} kWp`} isAccent accentColor="#3b82f6" />
-                    <SpecRow icon={<ZapIcon />} label="Produção Estimada Mensal" value={`${formatNumber(c.consumption * 1.05, 0)} kWh`} />
-                    <SpecRow icon={<HomeIcon />} label="Área de Telhado Necessária" value={`${c.roofArea} m²`} />
-                    <SpecRow icon={<ShieldIcon />} label="Garantia de Performance" value="25 anos" isAccent accentColor="#10b981" />
+                    <SpecRow C={C} icon={<SunIcon />} label={`Módulos — ${c.moduleBrand}`} value={`${c.modulesCount} × ${c.modulePower}W`} isAccent accentColor={primary} />
+                    <SpecRow C={C} icon={<BatteryIcon />} label={`Inversores — ${c.inverterBrand}`} value={`${c.inverterCount} × ${c.inverterPower} kW`} />
+                    <SpecRow C={C} icon={<GaugeIcon />} label="Potência Total Instalada" value={`${totalPower.toFixed(2)} kWp`} isAccent accentColor="#3b82f6" />
+                    <SpecRow C={C} icon={<ZapIcon />} label="Produção Estimada Mensal" value={`${formatNumber(c.consumption * 1.05, 0)} kWh`} />
+                    <SpecRow C={C} icon={<HomeIcon />} label="Área de Telhado Necessária" value={`${c.roofArea} m²`} />
+                    <SpecRow C={C} icon={<ShieldIcon />} label="Garantia de Performance" value="25 anos" isAccent accentColor="#10b981" />
                   </tbody>
                 </table>
               </td>
@@ -163,7 +165,7 @@ export function BlockTechSpecs({ content, onUpdate, theme }: Props) {
       {/* ── Banner Turn-Key ── */}
       <div style={{
         marginTop: '20px',
-        background: 'linear-gradient(135deg, #0f172a, #1e293b)',
+        background: C.SURFACE, border: `1px solid ${C.BORDER}`,
         borderRadius: '14px', padding: '22px 28px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px',
       }}>
@@ -171,7 +173,7 @@ export function BlockTechSpecs({ content, onUpdate, theme }: Props) {
           <p style={{ fontSize: '11px', fontWeight: 700, color: primary, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '4px' }}>
             Escopo Turn-Key Completo
           </p>
-          <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
+          <p style={{ fontSize: '12px', color: C.TEXT_MUTED, lineHeight: 1.5 }}>
             Projeto executivo · Homologação ANEEL · Instalação · Comissionamento · Suporte 24/7
           </p>
         </div>

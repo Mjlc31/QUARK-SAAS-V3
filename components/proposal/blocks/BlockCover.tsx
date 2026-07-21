@@ -5,7 +5,7 @@
 // ============================================================
 import React, { useRef } from 'react';
 import { CoverContent, ProposalTheme } from '../types';
-import { formatCurrency } from '../utils';
+import { formatCurrency, getWebColors } from '../utils';
 
 interface Props {
   content: CoverContent;
@@ -30,6 +30,7 @@ export function BlockCover({ content, onUpdate, theme }: Props) {
   const primary = theme.primaryColor;
   const secondary = theme.secondaryColor;
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const C = getWebColors(theme);
 
   return (
     <div
@@ -38,10 +39,9 @@ export function BlockCover({ content, onUpdate, theme }: Props) {
         position: 'relative',
         overflow: 'hidden',
         display: 'flex',
-        flexDirection: 'column',
         justifyContent: 'space-between',
         fontFamily: 'inherit',
-        backgroundColor: '#0A0A0A',
+        backgroundColor: C.BACKGROUND,
       }}
     >
       {/* ── Foto de fundo (painéis solares Unsplash) ── */}
@@ -52,7 +52,7 @@ export function BlockCover({ content, onUpdate, theme }: Props) {
           position: 'absolute', inset: 0,
           width: '100%', height: '100%', objectFit: 'cover',
           display: 'block',
-          opacity: 0.15,
+          opacity: theme.mode === 'light' ? 0.05 : 0.15,
           mixBlendMode: 'luminosity',
         }}
       />
@@ -60,7 +60,9 @@ export function BlockCover({ content, onUpdate, theme }: Props) {
       {/* ── Overlay gradiente sutil para escurecer as bordas ── */}
       <div style={{
         position: 'absolute', inset: 0,
-        background: `radial-gradient(circle at center, transparent 0%, rgba(10,10,10,0.8) 100%)`,
+        background: theme.mode === 'light' 
+          ? `radial-gradient(circle at center, transparent 0%, rgba(255,255,255,0.9) 100%)`
+          : `radial-gradient(circle at center, transparent 0%, rgba(10,10,10,0.8) 100%)`,
         zIndex: 1,
       }} />
 
@@ -117,10 +119,10 @@ export function BlockCover({ content, onUpdate, theme }: Props) {
                 fontSize: '20px',
               }}>☀️</div>
               <div>
-                <p style={{ fontSize: '13px', fontWeight: 700, color: '#fff', letterSpacing: '0.01em' }}>
+                <p style={{ fontSize: '13px', fontWeight: 700, color: C.TEXT, letterSpacing: '0.01em' }}>
                   Quark Tecnologia em Energia
                 </p>
-                <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', marginTop: '2px', letterSpacing: '0.05em' }}>
+                <p style={{ fontSize: '10px', color: C.TEXT_MUTED, marginTop: '2px', letterSpacing: '0.05em' }}>
                   Engenharia Solar de Alta Performance
                 </p>
               </div>
@@ -150,7 +152,7 @@ export function BlockCover({ content, onUpdate, theme }: Props) {
               {(c as any).categoryLabel || 'Proposta de Engenharia Solar'}
             </p>
             <h1 style={{
-              fontSize: '64px', fontWeight: 800, color: '#ffffff',
+              fontSize: '64px', fontWeight: 800, color: C.TEXT,
               lineHeight: 0.95, letterSpacing: '-2.5px', marginBottom: '16px',
             }}>
               <span
@@ -169,7 +171,7 @@ export function BlockCover({ content, onUpdate, theme }: Props) {
             <p
               {...editable('tagline', onUpdate)}
               style={{
-                fontSize: '13px', color: 'rgba(255,255,255,0.35)',
+                fontSize: '13px', color: C.TEXT_MUTED,
                 fontWeight: 400, letterSpacing: '0.12em', textTransform: 'uppercase',
               }}
             >
@@ -183,9 +185,9 @@ export function BlockCover({ content, onUpdate, theme }: Props) {
 
           {/* Card: Cliente */}
           <div style={{
-            background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(16px)',
+            background: C.SURFACE, backdropFilter: 'blur(16px)',
             WebkitBackdropFilter: 'blur(16px)',
-            border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px',
+            border: `1px solid ${C.BORDER}`, borderRadius: '16px',
             padding: '20px 22px',
           }}>
             <p style={{
@@ -196,13 +198,13 @@ export function BlockCover({ content, onUpdate, theme }: Props) {
             </p>
             <h2
               {...editable('clientName', onUpdate)}
-              style={{ fontSize: '22px', fontWeight: 700, color: '#fff', letterSpacing: '-0.3px', lineHeight: 1.2, marginBottom: '6px' }}
+              style={{ fontSize: '22px', fontWeight: 700, color: C.TEXT, letterSpacing: '-0.3px', lineHeight: 1.2, marginBottom: '6px' }}
             >
               {c.clientName}
             </h2>
-            <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <p style={{ fontSize: '12px', color: C.TEXT_MUTED, display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span {...editable('city', onUpdate)} style={{ outline: 'none', cursor: 'text' }}>{c.city}</span>
-              <span style={{ color: 'rgba(255,255,255,0.2)' }}>·</span>
+              <span style={{ color: C.MUTED }}>·</span>
               <span {...editable('date', onUpdate)} style={{ outline: 'none', cursor: 'text' }}>{c.date}</span>
             </p>
           </div>
@@ -210,26 +212,26 @@ export function BlockCover({ content, onUpdate, theme }: Props) {
           {/* Card: KPIs */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div style={{
-              background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(16px)',
+              background: C.SURFACE, backdropFilter: 'blur(16px)',
               WebkitBackdropFilter: 'blur(16px)',
-              border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px',
+              border: `1px solid ${C.BORDER}`, borderRadius: '12px',
               padding: '12px 18px', flex: 1,
             }}>
-              <p style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '4px' }}>Tamanho do Sistema</p>
+              <p style={{ fontSize: '9px', color: C.MUTED, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '4px' }}>Tamanho do Sistema</p>
               <p style={{ fontSize: '20px', fontWeight: 800, color: primary, letterSpacing: '-0.5px', lineHeight: 1 }}>{c.systemSizeKw?.toFixed(2) ?? '0'} kWp</p>
             </div>
             
             <div style={{
-              background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(16px)',
+              background: C.SURFACE, backdropFilter: 'blur(16px)',
               WebkitBackdropFilter: 'blur(16px)',
-              border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px',
+              border: `1px solid ${C.BORDER}`, borderRadius: '12px',
               padding: '12px 18px', flex: 1,
             }}>
-              <p style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '4px' }}>Conta Atual vs. Nova</p>
+              <p style={{ fontSize: '9px', color: C.MUTED, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '4px' }}>Conta Atual vs. Nova</p>
               <p style={{ fontSize: '20px', fontWeight: 800, color: primary, letterSpacing: '-0.5px', lineHeight: 1, display: 'flex', alignItems: 'baseline', gap: '6px' }}>
                 {formatCurrency(c.currentBill ?? 860)}
-                <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '12px', fontWeight: 500, letterSpacing: '0' }}>para</span>
-                <span style={{ color: '#fff' }}>{formatCurrency(c.newBill ?? 207)}</span>
+                <span style={{ color: C.MUTED, fontSize: '12px', fontWeight: 500, letterSpacing: '0' }}>para</span>
+                <span style={{ color: C.TEXT }}>{formatCurrency(c.newBill ?? 207)}</span>
               </p>
             </div>
           </div>
@@ -240,15 +242,15 @@ export function BlockCover({ content, onUpdate, theme }: Props) {
       <div style={{
         position: 'relative', zIndex: 10,
         padding: '16px 52px',
-        borderTop: '1px solid rgba(255,255,255,0.07)',
-        background: 'rgba(0,0,0,0.2)', backdropFilter: 'blur(8px)',
+        borderTop: `1px solid ${C.BORDER}`,
+        background: theme.mode === 'light' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.2)', backdropFilter: 'blur(8px)',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         marginTop: '40px',
       }}>
-        <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.25)', fontWeight: 500 }}>
+        <p style={{ fontSize: '11px', color: C.TEXT_MUTED, fontWeight: 500 }}>
           Quark Energia · quarkenergia.com.br
         </p>
-        <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.18)' }}>
+        <p style={{ fontSize: '11px', color: C.MUTED }}>
           Válido por 30 dias · {c.date}
         </p>
       </div>

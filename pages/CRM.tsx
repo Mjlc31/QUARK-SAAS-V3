@@ -4,6 +4,8 @@ import { Lead, LeadStatus, Pipeline } from '../types';
 import { useApp } from '../contexts/AppContext';
 import { ai } from '../lib/ai';
 import { LeadDetailsPanel } from '../components/LeadDetailsPanel';
+import { AIOCRInvoiceUploader } from '../components/AIOCRInvoiceUploader';
+import { ExtractedInvoice } from '../services/aiOcrService';
 
 const COLUMN_CONFIG: { id: LeadStatus; defaultLabel: string; color: string }[] = [
   { id: 'Lead', defaultLabel: 'Novos Leads', color: 'border-blue-500' },
@@ -151,6 +153,18 @@ const CRM: React.FC = () => {
     return days > 7;
   };
 
+  const getNextActionStatus = (dateStr?: string) => {
+    if (!dateStr) return 'missing';
+    const actionDate = new Date(dateStr);
+    actionDate.setHours(23, 59, 59, 999);
+    const now = new Date();
+    
+    if (actionDate < now) return 'overdue';
+    const diffDays = Math.ceil((actionDate.getTime() - now.getTime()) / (1000 * 3600 * 24));
+    if (diffDays <= 1) return 'today';
+    return 'ok';
+  };
+
   const handleBulkWhatsApp = (status: LeadStatus) => {
     const leadsInColumn = leads.filter(l => l.status === status);
     if (leadsInColumn.length === 0) {
@@ -224,6 +238,17 @@ Podemos agendar uma breve apresentação da proposta?`;
     });
     setIsFormOpen(false);
     setFormData({ name: '', phone: '', value: '', city: '', consumption: '' });
+  };
+
+  const handleOCRSuccess = (data: ExtractedInvoice) => {
+    addLead({
+      name: data.name,
+      phone: '', // Necessário para completar depois
+      city: '',
+      value: 0,
+      monthlyConsumption: data.monthlyConsumptionKwh
+    });
+    alert(`Lead de ${data.name} criado via IA com sucesso!`);
   };
 
   const handleSaveEdit = async () => {
@@ -352,13 +377,17 @@ Podemos agendar uma breve apresentação da proposta?`;
           </div>
         </div>
 
-        <button
-          onClick={() => setIsFormOpen(true)}
-          className="btn-primary px-6 py-3 rounded-xl flex items-center gap-2 shadow-lg shadow-lime-500/10 active:scale-95 w-full md:w-auto justify-center"
-        >
-          <Plus size={20} strokeWidth={2.5} />
-          <span>Novo Lead</span>
-        </button>
+        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+          <AIOCRInvoiceUploader onSuccess={handleOCRSuccess} />
+          
+          <button
+            onClick={() => setIsFormOpen(true)}
+            className="btn-primary px-6 py-3 rounded-xl flex items-center gap-2 shadow-lg shadow-lime-500/10 active:scale-95 w-full sm:w-auto justify-center"
+          >
+            <Plus size={20} strokeWidth={2.5} />
+            <span>Novo Lead</span>
+          </button>
+        </div>
       </div>
 
       {/* CONTENT AREA */}
@@ -427,13 +456,22 @@ Podemos agendar uma breve apresentação da proposta?`;
                         <p className="text-[10px] font-bold uppercase tracking-wider">Fase Vazia</p>
                       </div>
                     )}
-                    {columnLeads.map(lead => (
+                    {columnLeads.map(lead => {
+                      const nextActionStatus = getNextActionStatus(lead.nextActionDate);
+                      const isLost = lead.status === 'Perdido';
+                      const cardBorder = 
+                        isLost ? 'border-red-500/50 opacity-60' :
+                        nextActionStatus === 'missing' || nextActionStatus === 'overdue' 
+                        ? 'border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.15)]' 
+                        : 'border-white/5 hover:border-lime-500/30 hover:shadow-[0_8px_30px_rgba(163,230,53,0.1)]';
+
+                      return (
                       <div
                         key={lead.id}
                         draggable
                         onDragStart={(e) => handleDragStart(e, lead.id)}
                         onClick={() => setSelectedLead(lead)}
-                        className="bg-[#0c121a] border border-white/5 hover:border-lime-500/30 p-5 rounded-2xl cursor-pointer transition-all duration-200 shadow-lg hover:shadow-[0_8px_30px_rgba(163,230,53,0.1)] group relative active:scale-95 touch-manipulation hover:-translate-y-1"
+                        className={`bg-[#0c121a] border p-5 rounded-2xl cursor-pointer transition-all duration-200 shadow-lg group relative active:scale-95 touch-manipulation hover:-translate-y-1 ${cardBorder}`}
                       >
                         <div
                           className="lg:hidden absolute top-0 left-0 bottom-0 w-12 flex items-center justify-center text-zinc-600 active:text-lime-400 z-20"
@@ -480,7 +518,43 @@ Podemos agendar uma breve apresentação da proposta?`;
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between pt-3 pl-6 lg:pl-0">
+                        {/* Next Action Indicator */}
+                        <div className="pl-6 lg:pl-0 mb-3">
+                          {nextActionStatus === 'missing' && (
+                            <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] px-2 py-1.5 rounded flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
+                              <b>Ação Pendente!</b> Agende o próximo passo.
+                            </div>
+                          )}
+                          {nextActionStatus === 'overdue' && (
+                            <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] px-2 py-1.5 rounded flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
+                                <b>Atrasado:</b> {lead.nextActionType || 'Ação'}
+                              </div>
+                              <span>{new Date(lead.nextActionDate!).toLocaleDateString()}</span>
+                            </div>
+                          )}
+                          {nextActionStatus === 'today' && (
+                            <div className="bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] px-2 py-1.5 rounded flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
+                                <b>Hoje:</b> {lead.nextActionType || 'Ação'}
+                              </div>
+                            </div>
+                          )}
+                          {nextActionStatus === 'ok' && (
+                            <div className="bg-zinc-800/50 border border-white/5 text-zinc-400 text-[10px] px-2 py-1.5 rounded flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 bg-lime-500 rounded-full"></span>
+                                {lead.nextActionType || 'Próximo passo'}
+                              </div>
+                              <span>{new Date(lead.nextActionDate!).toLocaleDateString()}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between pt-3 pl-6 lg:pl-0 border-t border-white/5">
                           <div className="flex items-center gap-2">
                             <div className="w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-300 border border-white/10 shadow-sm">
                               {lead.assignee?.substring(0, 2).toUpperCase()}
@@ -498,7 +572,8 @@ Podemos agendar uma breve apresentação da proposta?`;
                           </button>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               );
@@ -519,15 +594,26 @@ Podemos agendar uma breve apresentação da proposta?`;
               const stageColor = stage === 'Lead' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
                 stage === 'Qualificacao' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' :
                 stage === 'Proposta' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
+                stage === 'Perdido' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
                 'bg-lime-500/10 text-lime-400 border-lime-500/20';
               const stageLabel = stage === 'Lead' ? 'Novo' :
-                stage === 'Qualificacao' ? 'Qualif.' :
-                stage === 'Proposta' ? 'Proposta' : 'Fechado';
+                stage === 'Qualificacao' ? 'Qualificação' :
+                stage === 'Proposta' ? 'Proposta' : 
+                stage === 'Perdido' ? 'Perdido' : 'Fechado';
+                
+              const nextActionStatus = getNextActionStatus(lead.nextActionDate);
+              const isLost = lead.status === 'Perdido';
+              const listBg = 
+                isLost ? 'bg-red-500/5' :
+                nextActionStatus === 'missing' || nextActionStatus === 'overdue' 
+                ? 'bg-red-500/10 border-l-2 border-l-red-500' 
+                : 'hover:bg-white/5 border-l-2 border-l-transparent';
+
               return (
                 <div
                   key={lead.id}
                   onClick={() => setSelectedLead(lead)}
-                  className="flex items-center gap-3 px-4 py-3.5 hover:bg-white/5 active:bg-white/10 transition-colors cursor-pointer group"
+                  className={`flex items-center gap-3 px-4 py-3.5 active:bg-white/10 transition-colors cursor-pointer group ${listBg}`}
                 >
                   {/* Avatar */}
                   <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center text-[13px] font-bold text-zinc-300 border border-white/5 shrink-0">

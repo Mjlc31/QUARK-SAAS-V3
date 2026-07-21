@@ -141,6 +141,10 @@ const Proposals: React.FC = () => {
         status: 'draft' as const,
       };
       setProposals(prev => [...prev, newProposal]);
+      
+      // Atualiza o formData com a nova proposta para que o próximo salvamento atualize esta
+      setFormData(newProposal);
+
       addLead({
         name: newProposal.clientName,
         city: newProposal.city,
@@ -150,8 +154,6 @@ const Proposals: React.FC = () => {
         status: 'Proposta'
       });
     }
-    setStep(0);
-    setFormData({});
   };
 
   const handleEditProposal = (proposal: ProposalData) => {
@@ -191,72 +193,74 @@ const Proposals: React.FC = () => {
   ).reverse();
 
   return (
-    <div className="space-y-6 h-full flex flex-col animate-enter">
+    <div className="space-y-8 h-full flex flex-col animate-enter p-2 md:p-6">
       {/* ── Header ── */}
-      <div className="flex justify-between items-center shrink-0">
+      <div className="flex justify-between items-end shrink-0">
         <div>
-          <h1 className="text-3xl font-display font-bold text-white tracking-tight">Propostas Comerciais</h1>
-          <p className="text-slate-400 mt-1">Crie, edite e envie propostas profissionais.</p>
+          <h1 className="text-4xl font-display font-light text-white tracking-tight">Propostas <span className="font-bold text-amber-500">Comerciais</span></h1>
+          <p className="text-zinc-400 mt-2 text-sm max-w-md leading-relaxed">Gerencie suas propostas de alto valor agregado com design editorial.</p>
         </div>
         {step === 0 && (
           <button
             onClick={() => setStep(1)}
-            className="flex items-center gap-2 px-6 py-3 bg-lime-500 text-black font-bold rounded-xl hover:bg-lime-400 transition-all shadow-lg shadow-lime-500/20 active:scale-95"
+            className="flex items-center gap-2 px-6 py-3.5 bg-amber-500 text-black font-bold rounded-2xl hover:bg-amber-400 transition-all shadow-[0_0_40px_-10px_rgba(245,158,11,0.5)] active:scale-95 group"
           >
-            <Plus size={20} />
+            <Plus size={18} className="group-hover:rotate-90 transition-transform duration-300" />
             Nova Proposta
           </button>
         )}
       </div>
 
       {step === 0 && (
-        <div className="flex-1 min-h-0 flex flex-col gap-4">
+        <div className="flex-1 min-h-0 flex flex-col gap-6">
 
-          {/* ── Stats Bar ── */}
-          <div className="grid grid-cols-3 gap-3 shrink-0">
+          {/* ── Stats Bento Bar ── */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 shrink-0">
             {[
-              { icon: <FileText size={16}/>, label: 'Total de Propostas', value: proposals.length, color: 'text-white' },
-              { icon: <TrendingUp size={16}/>, label: 'Valor Total', value: formatCurrency(totalValue), color: 'text-amber-400' },
-              { icon: <Calendar size={16}/>, label: 'Este Mês', value: monthCount, color: 'text-lime-400' },
+              { icon: <FileText size={18}/>, label: 'Total de Propostas', value: proposals.length, color: 'text-white' },
+              { icon: <TrendingUp size={18}/>, label: 'Valor Total Fechado', value: formatCurrency(totalValue), color: 'text-amber-500' },
+              { icon: <Calendar size={18}/>, label: 'Propostas este Mês', value: monthCount, color: 'text-white' },
             ].map((stat, i) => (
-              <div key={i} className="glass-panel rounded-xl p-4 border border-white/5 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white/30" style={{background:'rgba(255,255,255,0.04)'}}>
+              <div key={i} className="relative overflow-hidden rounded-3xl p-6 border border-white/5 bg-zinc-900/40 backdrop-blur-2xl flex items-center gap-4 transition-all hover:bg-white/[0.03]">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 blur-[50px] rounded-full -translate-y-1/2 translate-x-1/2"></div>
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white/50 border border-white/10" style={{background:'rgba(255,255,255,0.03)'}}>
                   {stat.icon}
                 </div>
                 <div>
-                  <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold">{stat.label}</p>
-                  <p className={`text-lg font-display font-bold ${stat.color}`}>{stat.value}</p>
+                  <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold mb-1">{stat.label}</p>
+                  <p className={`text-2xl font-display font-light ${stat.color}`}>{stat.value}</p>
                 </div>
               </div>
             ))}
           </div>
 
           {/* ── Toolbar ── */}
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="relative flex-1 max-w-sm">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+          <div className="flex items-center gap-4 shrink-0 bg-zinc-900/40 p-2 rounded-2xl border border-white/5 backdrop-blur-xl">
+            <div className="relative flex-1">
+              <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
               <input
                 type="text"
-                placeholder="Buscar por nome ou cidade..."
+                placeholder="Buscar propostas por cliente ou cidade..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
-                className="w-full bg-black/40 border border-zinc-800 rounded-xl py-2.5 pl-9 pr-4 text-white focus:border-amber-500/50 outline-none text-sm transition-all"
+                className="w-full bg-transparent border-none rounded-xl py-3 pl-11 pr-4 text-white focus:outline-none focus:ring-1 focus:ring-amber-500/30 text-sm transition-all placeholder:text-zinc-600"
               />
             </div>
-            <div className="flex rounded-xl border border-white/8 p-1 gap-1" style={{background:'rgba(255,255,255,0.03)'}}>
+            <div className="h-8 w-px bg-white/10 mx-2"></div>
+            <div className="flex gap-1 pr-2">
               <button
                 onClick={() => setViewMode('grid')}
-                className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white/10 text-white' : 'text-white/30 hover:text-white/60'}`}
+                className={`p-2.5 rounded-xl transition-all duration-300 ${viewMode === 'grid' ? 'bg-white/10 text-white shadow-sm' : 'text-zinc-500 hover:text-white hover:bg-white/5'}`}
                 title="Visualização em grid"
               >
-                <LayoutGrid size={16}/>
+                <LayoutGrid size={18}/>
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white/10 text-white' : 'text-white/30 hover:text-white/60'}`}
+                className={`p-2.5 rounded-xl transition-all duration-300 ${viewMode === 'list' ? 'bg-white/10 text-white shadow-sm' : 'text-zinc-500 hover:text-white hover:bg-white/5'}`}
                 title="Visualização em lista"
               >
-                <List size={16}/>
+                <List size={18}/>
               </button>
             </div>
           </div>
@@ -455,11 +459,11 @@ const Proposals: React.FC = () => {
                           <div className="grid grid-cols-2 gap-3">
                             <div className="col-span-2 md:col-span-1">
                               <label className="text-xs font-bold text-zinc-500 uppercase block mb-1.5">Nome / Empresa</label>
-                              <input type="text" value={formData.clientName} onChange={e => setFormData({...formData, clientName: e.target.value})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-3.5 text-white focus:border-lime-500 outline-none" placeholder="Ex: Mercado CompreBem" />
+                              <input type="text" value={formData.clientName} onChange={e => setFormData({...formData, clientName: e.target.value})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-3.5 text-white focus:border-lime-500 outline-none placeholder:text-zinc-500 placeholder:text-opacity-70" placeholder="Ex: Mercado CompreBem" />
                             </div>
                             <div>
                               <label className="text-xs font-bold text-zinc-500 uppercase block mb-1.5">Telefone</label>
-                              <input type="tel" value={formData.phone || ''} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-3.5 text-white focus:border-lime-500 outline-none" placeholder="(82) 99999-0000" />
+                              <input type="tel" value={formData.phone || ''} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-3.5 text-white focus:border-lime-500 outline-none placeholder:text-zinc-500 placeholder:text-opacity-70" placeholder="(82) 99999-0000" />
                             </div>
                           </div>
 
@@ -467,7 +471,7 @@ const Proposals: React.FC = () => {
                           <div className="grid grid-cols-2 gap-3">
                             <div>
                               <label className="text-xs font-bold text-zinc-500 uppercase block mb-1.5">Cidade - UF</label>
-                              <input type="text" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-3.5 text-white focus:border-lime-500 outline-none" placeholder="Maceió - AL" />
+                              <input type="text" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-3.5 text-white focus:border-lime-500 outline-none placeholder:text-zinc-500 placeholder:text-opacity-70" placeholder="Maceió - AL" />
                             </div>
                             <div>
                               <label className="text-xs font-bold text-zinc-500 uppercase block mb-1.5">Concessionária</label>
@@ -528,15 +532,15 @@ const Proposals: React.FC = () => {
                           <div className="grid grid-cols-3 gap-2">
                             <div>
                               <label className="text-xs font-bold text-zinc-500 uppercase block mb-1.5">CIP/COSIP (R$)</label>
-                              <input type="number" value={formData.publicLighting || ''} onChange={e => setFormData({...formData, publicLighting: Number(e.target.value)})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-3 text-white focus:border-lime-500 outline-none" placeholder="30" />
+                              <input type="number" value={formData.publicLighting || ''} onChange={e => setFormData({...formData, publicLighting: Number(e.target.value)})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-3 text-white focus:border-lime-500 outline-none placeholder:text-zinc-500 placeholder:text-opacity-70" placeholder="30" />
                             </div>
                             <div>
                               <label className="text-xs font-bold text-zinc-500 uppercase block mb-1.5">Tarifa R$/kWh</label>
-                              <input type="number" step="0.001" value={formData.tariffRate || ''} onChange={e => setFormData({...formData, tariffRate: Number(e.target.value)})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-3 text-white focus:border-lime-500 outline-none" />
+                              <input type="number" step="0.001" value={formData.tariffRate || ''} onChange={e => setFormData({...formData, tariffRate: Number(e.target.value)})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-3 text-white focus:border-lime-500 outline-none placeholder:text-zinc-500 placeholder:text-opacity-70" />
                             </div>
                             <div>
                               <label className="text-xs font-bold text-zinc-500 uppercase block mb-1.5">Fio B R$/kWh</label>
-                              <input type="number" step="0.001" value={formData.fiobRate || ''} onChange={e => setFormData({...formData, fiobRate: Number(e.target.value)})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-3 text-white focus:border-lime-500 outline-none" />
+                              <input type="number" step="0.001" value={formData.fiobRate || ''} onChange={e => setFormData({...formData, fiobRate: Number(e.target.value)})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-3 text-white focus:border-lime-500 outline-none placeholder:text-zinc-500 placeholder:text-opacity-70" />
                             </div>
                           </div>
 
@@ -566,28 +570,28 @@ const Proposals: React.FC = () => {
                           <div className="grid grid-cols-2 gap-4">
                              <div className="col-span-2">
                                 <label className="text-xs font-bold text-zinc-500 uppercase block mb-2">Marca do Módulo</label>
-                                <input type="text" value={formData.moduleBrand} onChange={e => setFormData({...formData, moduleBrand: e.target.value})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-4 text-white focus:border-lime-500 outline-none" placeholder="Ex: Jinko Solar" />
+                                <input type="text" value={formData.moduleBrand} onChange={e => setFormData({...formData, moduleBrand: e.target.value})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-4 text-white focus:border-lime-500 outline-none placeholder:text-zinc-500 placeholder:text-opacity-70" placeholder="Ex: Jinko Solar" />
                              </div>
                              <div>
                                 <label className="text-xs font-bold text-zinc-500 uppercase block mb-2">Potência (W)</label>
-                                <input type="number" value={formData.modulePower} onChange={e => setFormData({...formData, modulePower: Number(e.target.value)})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-4 text-white focus:border-lime-500 outline-none" />
+                                <input type="number" value={formData.modulePower} onChange={e => setFormData({...formData, modulePower: Number(e.target.value)})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-4 text-white focus:border-lime-500 outline-none placeholder:text-zinc-500 placeholder:text-opacity-70" />
                              </div>
                              <div>
                                 <label className="text-xs font-bold text-zinc-500 uppercase block mb-2">Quantidade</label>
-                                <input type="number" value={formData.modulesCount || ''} onChange={e => setFormData({...formData, modulesCount: Number(e.target.value)})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-4 text-white focus:border-lime-500 outline-none" />
+                                <input type="number" value={formData.modulesCount || ''} onChange={e => setFormData({...formData, modulesCount: Number(e.target.value)})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-4 text-white focus:border-lime-500 outline-none placeholder:text-zinc-500 placeholder:text-opacity-70" />
                              </div>
 
                              <div className="col-span-2 mt-4">
                                 <label className="text-xs font-bold text-zinc-500 uppercase block mb-2">Marca Inversor</label>
-                                <input type="text" value={formData.inverterBrand} onChange={e => setFormData({...formData, inverterBrand: e.target.value})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-4 text-white focus:border-lime-500 outline-none" placeholder="Ex: Growatt / Deye" />
+                                <input type="text" value={formData.inverterBrand} onChange={e => setFormData({...formData, inverterBrand: e.target.value})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-4 text-white focus:border-lime-500 outline-none placeholder:text-zinc-500 placeholder:text-opacity-70" placeholder="Ex: Growatt / Deye" />
                              </div>
                              <div>
                                 <label className="text-xs font-bold text-zinc-500 uppercase block mb-2">Inversor (kW)</label>
-                                <input type="number" value={formData.inverterPower || ''} onChange={e => setFormData({...formData, inverterPower: Number(e.target.value)})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-4 text-white focus:border-lime-500 outline-none" />
+                                <input type="number" value={formData.inverterPower || ''} onChange={e => setFormData({...formData, inverterPower: Number(e.target.value)})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-4 text-white focus:border-lime-500 outline-none placeholder:text-zinc-500 placeholder:text-opacity-70" />
                              </div>
                              <div>
                                 <label className="text-xs font-bold text-zinc-500 uppercase block mb-2">Qtd Inversores</label>
-                                <input type="number" value={formData.inverterCount || 1} onChange={e => setFormData({...formData, inverterCount: Number(e.target.value)})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-4 text-white focus:border-lime-500 outline-none" />
+                                <input type="number" value={formData.inverterCount || 1} onChange={e => setFormData({...formData, inverterCount: Number(e.target.value)})} className="w-full bg-black/40 border border-zinc-800 rounded-xl p-4 text-white focus:border-lime-500 outline-none placeholder:text-zinc-500 placeholder:text-opacity-70" />
                              </div>
                           </div>
 
@@ -615,7 +619,7 @@ const Proposals: React.FC = () => {
                                     type="number" 
                                     value={formData.priceKit || ''} 
                                     onChange={e => setFormData({...formData, priceKit: Number(e.target.value)})} 
-                                    className="w-full bg-black/40 border border-zinc-800 rounded-xl p-4 text-white focus:border-lime-500 outline-none" 
+                                    className="w-full bg-black/40 border border-zinc-800 rounded-xl p-4 text-white focus:border-lime-500 outline-none placeholder:text-zinc-500 placeholder:text-opacity-70" 
                                     placeholder="Ex: 15000"
                                   />
                               </div>
@@ -625,7 +629,7 @@ const Proposals: React.FC = () => {
                                     type="number" 
                                     value={formData.pricePerModule || ''} 
                                     onChange={e => setFormData({...formData, pricePerModule: Number(e.target.value)})} 
-                                    className="w-full bg-black/40 border border-zinc-800 rounded-xl p-4 text-white focus:border-lime-500 outline-none" 
+                                    className="w-full bg-black/40 border border-zinc-800 rounded-xl p-4 text-white focus:border-lime-500 outline-none placeholder:text-zinc-500 placeholder:text-opacity-70" 
                                     placeholder="Ex: 200"
                                   />
                               </div>
@@ -635,7 +639,7 @@ const Proposals: React.FC = () => {
                                     type="number" 
                                     value={formData.priceCA || ''} 
                                     onChange={e => setFormData({...formData, priceCA: Number(e.target.value)})} 
-                                    className="w-full bg-black/40 border border-zinc-800 rounded-xl p-4 text-white focus:border-lime-500 outline-none" 
+                                    className="w-full bg-black/40 border border-zinc-800 rounded-xl p-4 text-white focus:border-lime-500 outline-none placeholder:text-zinc-500 placeholder:text-opacity-70" 
                                     placeholder="Ex: 400"
                                   />
                               </div>
@@ -645,7 +649,7 @@ const Proposals: React.FC = () => {
                                     type="number" 
                                     value={formData.additionalCosts || ''} 
                                     onChange={e => setFormData({...formData, additionalCosts: Number(e.target.value)})} 
-                                    className="w-full bg-blue-900/20 border border-blue-500/30 rounded-xl p-4 text-blue-400 focus:border-blue-500 outline-none" 
+                                    className="w-full bg-blue-900/20 border border-blue-500/30 rounded-xl p-4 text-blue-400 focus:border-blue-500 outline-none placeholder:text-zinc-500 placeholder:text-opacity-70" 
                                   />
                               </div>
                               <div className="col-span-1 md:col-span-2 mt-4 border-t border-white/5 pt-6">

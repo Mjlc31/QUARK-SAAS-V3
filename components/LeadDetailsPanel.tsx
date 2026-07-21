@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { X, Edit2, Save, Trash2, Sparkles, Copy, Check, Loader2, Clock, Send, Tag, Building2, User, ChevronDown } from 'lucide-react';
 import { Lead, LeadStatus, Tag as TagType } from '../types';
 import { useApp } from '../contexts/AppContext';
+import { LeadCPQPanel } from './LeadCPQPanel';
 
-type TabType = 'detalhes' | 'empresa';
+type TabType = 'detalhes' | 'empresa' | 'proposta';
 
 interface LeadDetailsPanelProps {
     selectedLead: Lead;
@@ -158,12 +159,12 @@ export const LeadDetailsPanel: React.FC<LeadDetailsPanelProps> = ({
 
                 {/* Tabs */}
                 <div className="flex border-b border-white/5 px-6 bg-black/10">
-                    {(['detalhes', 'empresa'] as TabType[]).map(tab => (
+                    {(['detalhes', 'empresa', 'proposta'] as TabType[]).map(tab => (
                         <button key={tab} onClick={() => setActiveTab(tab)}
                             className={`flex items-center gap-1.5 px-4 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors ${
                                 activeTab === tab ? 'border-lime-500 text-lime-400' : 'border-transparent text-zinc-500 hover:text-zinc-300'
                             }`}>
-                            {tab === 'detalhes' ? <><User size={12} /> Detalhes</> : <><Building2 size={12} /> Empresa</>}
+                            {tab === 'detalhes' ? <><User size={12} /> Detalhes</> : tab === 'empresa' ? <><Building2 size={12} /> Empresa</> : <><Sparkles size={12} /> Proposta CPQ</>}
                         </button>
                     ))}
                 </div>
@@ -237,6 +238,22 @@ export const LeadDetailsPanel: React.FC<LeadDetailsPanelProps> = ({
                                     )}
                                 </div>
                                 <div className="p-5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors sm:col-span-2">
+                                    <label className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-1 block">Origem do Lead</label>
+                                    {isEditing ? (
+                                        <select value={editingData.source || ''} onChange={(e) => onDataChange({ ...editingData, source: e.target.value })}
+                                            className="bg-black/50 border border-zinc-700/50 rounded-lg p-1.5 text-white w-full outline-none text-xs">
+                                            <option value="">Desconhecido</option>
+                                            <option value="Google Ads">Google Ads</option>
+                                            <option value="Instagram">Instagram</option>
+                                            <option value="Indicação">Indicação</option>
+                                            <option value="Porta a Porta">Porta a Porta</option>
+                                            <option value="Outro">Outro</option>
+                                        </select>
+                                    ) : (
+                                        <p className="text-zinc-200 text-[13px] font-medium break-all">{selectedLead.source || <span className="text-zinc-600 italic">Desconhecida</span>}</p>
+                                    )}
+                                </div>
+                                <div className="p-5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors sm:col-span-2">
                                     <label className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-1 block">Endereço Completo</label>
                                     {isEditing ? (
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -263,6 +280,57 @@ export const LeadDetailsPanel: React.FC<LeadDetailsPanelProps> = ({
                                         <p className="text-lime-400 font-display text-lg font-bold">R$ {selectedLead.value.toLocaleString()}</p>
                                     )}
                                 </div>
+                                {/* Próximo Passo */}
+                                <div className="p-5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors sm:col-span-2">
+                                    <label className="text-[10px] text-amber-500 uppercase font-bold tracking-wider mb-2 flex items-center gap-1.5">
+                                      <Clock size={12} /> Próximo Passo
+                                    </label>
+                                    {isEditing ? (
+                                      <div className="flex gap-2">
+                                        <input type="date" value={editingData.nextActionDate || ''} onChange={(e) => onDataChange({ ...editingData, nextActionDate: e.target.value })}
+                                          className="bg-black/50 border border-zinc-700/50 rounded-lg p-1.5 text-white outline-none text-xs flex-1" />
+                                        <select value={editingData.nextActionType || ''} onChange={(e) => onDataChange({ ...editingData, nextActionType: e.target.value as any })}
+                                          className="bg-black/50 border border-zinc-700/50 rounded-lg p-1.5 text-white outline-none text-xs flex-1">
+                                          <option value="">Selecione Ação</option>
+                                          <option value="Ligar">Ligar</option>
+                                          <option value="Reunião">Reunião</option>
+                                          <option value="WhatsApp">WhatsApp</option>
+                                          <option value="Visita">Visita</option>
+                                          <option value="Outro">Outro</option>
+                                        </select>
+                                      </div>
+                                    ) : (
+                                      <p className="text-zinc-300 text-[13px]">
+                                        {selectedLead.nextActionDate 
+                                          ? `${selectedLead.nextActionType || 'Ação'} em ${new Date(selectedLead.nextActionDate).toLocaleDateString()}` 
+                                          : <span className="text-red-400 font-bold bg-red-500/10 px-2 py-0.5 rounded">Nenhuma ação pendente! Lead pode esfriar.</span>
+                                        }
+                                      </p>
+                                    )}
+                                </div>
+                                {/* Motivo de Perda */}
+                                {((isEditing && editingData.status === 'Perdido') || (!isEditing && selectedLead.status === 'Perdido')) && (
+                                  <div className="p-5 rounded-2xl bg-red-500/5 border border-red-500/10 hover:bg-red-500/10 transition-colors sm:col-span-2">
+                                      <label className="text-[10px] text-red-400 uppercase font-bold tracking-wider mb-2 flex items-center gap-1.5">
+                                        Motivo da Perda
+                                      </label>
+                                      {isEditing ? (
+                                        <select value={editingData.lossReason || ''} onChange={(e) => onDataChange({ ...editingData, lossReason: e.target.value })}
+                                          className="bg-black/50 border border-red-500/30 rounded-lg p-1.5 text-white outline-none text-xs w-full">
+                                          <option value="">Selecione o Motivo</option>
+                                          <option value="Preço Alto">Preço Alto</option>
+                                          <option value="Concorrente">Concorrente</option>
+                                          <option value="Sem Aprovação de Crédito">Sem Aprovação de Crédito</option>
+                                          <option value="Desistiu">Desistiu</option>
+                                          <option value="Outro">Outro</option>
+                                        </select>
+                                      ) : (
+                                        <p className="text-red-400 text-[13px] font-bold">
+                                          {selectedLead.lossReason || <span className="text-red-400/50 italic">Não informado</span>}
+                                        </p>
+                                      )}
+                                  </div>
+                                )}
                             </div>
 
                             {/* Notas */}
@@ -404,6 +472,14 @@ export const LeadDetailsPanel: React.FC<LeadDetailsPanelProps> = ({
                         className="w-full py-4 rounded-xl bg-lime-500 hover:bg-lime-400 text-black font-bold transition-all shadow-lg shadow-lime-500/20 active:scale-95 flex justify-center gap-2 touch-target">
                         <Send size={18} /> Iniciar Conversa WhatsApp
                     </button>
+                    {/* ABA CPQ PROPOSTA */}
+                    {activeTab === 'proposta' && (
+                        <LeadCPQPanel 
+                            lead={selectedLead} 
+                            onUpdateLead={(data) => onDataChange({...editingData, ...data})} 
+                        />
+                    )}
+
                 </div>
             </div>
         </>

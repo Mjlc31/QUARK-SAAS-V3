@@ -4,7 +4,7 @@
 // ============================================================
 import React, { useCallback, useRef } from 'react';
 import { SocialProofContent, ProposalTheme } from '../types';
-import { nanoid, editable } from '../utils';
+import { nanoid, editable, getWebColors } from '../utils';
 
 interface Props {
   content: SocialProofContent;
@@ -108,6 +108,7 @@ function ImageSlot({ image, onImageChange, onCaptionChange, onRemove, isFeatured
 export function BlockSocialProof({ content, onUpdate, theme }: Props) {
   const c = content;
   const primary = theme.primaryColor;
+  const C = getWebColors(theme);
 
   const handleImageChange = useCallback((id: string, url: string) => {
     onUpdate({ images: c.images.map((img) => (img.id === id ? { ...img, url } : img)) });
@@ -128,7 +129,7 @@ export function BlockSocialProof({ content, onUpdate, theme }: Props) {
   const [featured, ...rest] = c.images;
 
   return (
-    <div style={{ background: '#0A0A0A', overflow: 'hidden' }}>
+    <div style={{ background: C.BACKGROUND, overflow: 'hidden' }}>
       {/* Header editorial */}
       <div style={{ padding: '48px 48px 36px' }}>
         <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: primary, marginBottom: '12px' }}>
@@ -136,13 +137,13 @@ export function BlockSocialProof({ content, onUpdate, theme }: Props) {
         </p>
         <h2
           {...editable('headline', onUpdate)}
-          style={{ fontSize: '32px', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.7px', lineHeight: 1.1, marginBottom: '12px', outline: 'none', cursor: 'text' }}
+          style={{ fontSize: '32px', fontWeight: 800, color: C.TEXT, letterSpacing: '-0.7px', lineHeight: 1.1, marginBottom: '12px', outline: 'none', cursor: 'text' }}
         >
           {c.headline}
         </h2>
         <p
           {...editable('subheadline', onUpdate)}
-          style={{ fontSize: '14px', color: 'rgba(255,255,255,0.5)', lineHeight: 1.65, maxWidth: '540px', outline: 'none', cursor: 'text' }}
+          style={{ fontSize: '14px', color: C.TEXT_MUTED, lineHeight: 1.65, maxWidth: '540px', outline: 'none', cursor: 'text' }}
         >
           {c.subheadline}
         </p>
@@ -165,29 +166,29 @@ export function BlockSocialProof({ content, onUpdate, theme }: Props) {
       )}
 
       {/* Grid de logos */}
-      <div style={{ padding: '28px 48px 32px', borderTop: c.images.length > 0 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
-        <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '16px', textAlign: 'center' }}>
+      <div style={{ padding: '28px 48px 32px', borderTop: c.images.length > 0 ? `1px solid ${C.BORDER}` : 'none' }}>
+        <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: C.MUTED, marginBottom: '16px', textAlign: 'center' }}>
           Empresas que confiam na Quark
         </p>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
           {CLIENT_LOGOS.map((name) => (
-            <div key={name} style={{ padding: '6px 14px', borderRadius: '6px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
-              <p style={{ fontSize: '13px', fontWeight: 700, color: 'rgba(255,255,255,0.5)' }}>{name}</p>
+            <div key={name} style={{ padding: '6px 14px', borderRadius: '6px', background: C.SURFACE, border: `1px solid ${C.BORDER}` }}>
+              <p style={{ fontSize: '13px', fontWeight: 700, color: C.TEXT_MUTED }}>{name}</p>
             </div>
           ))}
         </div>
       </div>
 
       {/* Métricas footer */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', borderTop: `1px solid ${C.BORDER}` }}>
         {[
           { value: '+500', label: 'Projetos Entregues' },
           { value: '100%', label: 'Dentro do Prazo' },
           { value: '25 anos', label: 'Garantia Inclusa' },
         ].map(({ value, label }, i) => (
-          <div key={label} style={{ padding: '24px', textAlign: 'center', borderRight: i < 2 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+          <div key={label} style={{ padding: '24px', textAlign: 'center', borderRight: i < 2 ? `1px solid ${C.BORDER}` : 'none' }}>
             <p style={{ fontSize: '28px', fontWeight: 800, color: primary, letterSpacing: '-0.5px', lineHeight: 1, marginBottom: '4px' }}>{value}</p>
-            <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</p>
+            <p style={{ fontSize: '10px', color: C.MUTED, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</p>
           </div>
         ))}
       </div>

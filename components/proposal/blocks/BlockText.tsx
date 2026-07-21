@@ -4,6 +4,7 @@
 // ============================================================
 import React, { useRef, useState, useCallback } from 'react';
 import { TextContent, ProposalTheme } from '../types';
+import { getWebColors } from '../utils';
 
 interface Props {
   content: TextContent;
@@ -52,6 +53,7 @@ function ToolbarButton({ command, value, children, title }: ToolbarButtonProps) 
 export function BlockText({ content, onUpdate, theme }: Props) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [isFocused, setIsFocused] = useState(false);
+  const C = getWebColors(theme);
 
   const handleBlur = useCallback(() => {
     setIsFocused(false);
@@ -61,15 +63,15 @@ export function BlockText({ content, onUpdate, theme }: Props) {
   }, [onUpdate]);
 
   return (
-    <div style={{ padding: '32px 48px 40px', background: '#0A0A0A' }}>
+    <div style={{ padding: '32px 48px 40px', background: C.BACKGROUND }}>
       {/* Toolbar de formatação */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
         gap: '2px',
         padding: '6px 10px',
-        background: 'rgba(255,255,255,0.05)',
-        border: '1px solid rgba(255,255,255,0.1)',
+        background: C.SURFACE,
+        border: `1px solid ${C.BORDER}`,
         borderRadius: '10px',
         marginBottom: '16px',
         flexWrap: 'wrap',
@@ -162,7 +164,7 @@ export function BlockText({ content, onUpdate, theme }: Props) {
         style={{
           minHeight: '120px',
           fontSize: '14px',
-          color: '#ffffff',
+          color: C.TEXT,
           lineHeight: 1.8,
           outline: 'none',
           padding: '4px 0',
@@ -172,14 +174,14 @@ export function BlockText({ content, onUpdate, theme }: Props) {
 
       {/* Estilo do editor injetado globalmente */}
       <style>{`
-        [contenteditable] h1 { font-size: 28px; font-weight: 800; color: #ffffff; margin: 16px 0 8px; }
-        [contenteditable] h2 { font-size: 22px; font-weight: 700; color: #ffffff; margin: 14px 0 6px; }
-        [contenteditable] h3 { font-size: 18px; font-weight: 700; color: rgba(255,255,255,0.8); margin: 12px 0 6px; }
-        [contenteditable] ul { list-style: disc; padding-left: 24px; color: #ffffff; }
-        [contenteditable] ol { list-style: decimal; padding-left: 24px; color: #ffffff; }
+        [contenteditable] h1 { font-size: 28px; font-weight: 800; color: ${C.TEXT}; margin: 16px 0 8px; }
+        [contenteditable] h2 { font-size: 22px; font-weight: 700; color: ${C.TEXT}; margin: 14px 0 6px; }
+        [contenteditable] h3 { font-size: 18px; font-weight: 700; color: ${C.TEXT_MUTED}; margin: 12px 0 6px; }
+        [contenteditable] ul { list-style: disc; padding-left: 24px; color: ${C.TEXT}; }
+        [contenteditable] ol { list-style: decimal; padding-left: 24px; color: ${C.TEXT}; }
         [contenteditable] li { margin-bottom: 4px; }
-        [contenteditable] strong { font-weight: 700; color: #ffffff; }
-        [contenteditable] em { font-style: italic; color: rgba(255,255,255,0.6); }
+        [contenteditable] strong { font-weight: 700; color: ${C.TEXT}; }
+        [contenteditable] em { font-style: italic; color: ${C.MUTED}; }
         [contenteditable]:focus-visible { outline: none; }
       `}</style>
 
@@ -187,13 +189,13 @@ export function BlockText({ content, onUpdate, theme }: Props) {
       <div style={{
         marginTop: '16px',
         paddingTop: '12px',
-        borderTop: '1px solid rgba(255,255,255,0.1)',
+        borderTop: `1px solid ${C.BORDER}`,
         display: 'flex',
         alignItems: 'center',
         gap: '6px',
       }}>
         <span style={{ fontSize: '12px' }}>💡</span>
-        <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>
+        <p style={{ fontSize: '11px', color: C.MUTED, fontStyle: 'italic' }}>
           Este campo suporta formatação rica. Use para adicionar cláusulas, observações ou condições específicas.
         </p>
       </div>

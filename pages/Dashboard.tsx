@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend, RadialBarChart, RadialBar } from 'recharts';
 import { DollarSign, Zap, Activity, TrendingUp, Download, BarChart3, Clock, Users, ArrowUpRight, Plus, Calculator, CheckSquare, FileText } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { jsPDF } from 'jspdf';
@@ -102,8 +102,58 @@ const Dashboard: React.FC = () => {
     const avgTicket = closedCount > 0 ? totalRevenue / closedCount : 0;
     const conversionRate = totalLeadsCount > 0 ? ((closedCount / totalLeadsCount) * 100).toFixed(1) : '0.0';
 
-    return { totalPipeline, totalRevenue, activeLeads, avgTicket, closedCount, conversionRate, totalLeadsCount };
+    // Cálculo do Faturamento Projetado (Forecast Baseado em Probabilidade)
+    // Usando pesos: Lead(10%), Qualificação(30%), Proposta(60%)
+    const projectedRevenue = filteredLeads.reduce((acc, curr) => {
+      if (isLeadFechado(curr)) return acc;
+      let prob = 0.1;
+      if (curr.status === 'Qualificacao') prob = 0.3;
+      if (curr.status === 'Proposta') prob = 0.6;
+      return acc + (curr.value * prob);
+    }, 0);
+
+    return { totalPipeline, totalRevenue, activeLeads, avgTicket, closedCount, conversionRate, totalLeadsCount, projectedRevenue };
   }, [filteredLeads]);
+
+  // --- Funnel Data ---
+  const funnelData = useMemo(() => {
+    const counts = { Lead: 0, Qualificacao: 0, Proposta: 0, Fechado: 0 };
+    filteredLeads.forEach(l => {
+      if (l.status === 'Perdido') return; // ignora perdidos no funil simples
+      if (l.status === 'Lead') counts.Lead++;
+      if (l.status === 'Qualificacao') counts.Qualificacao++;
+      if (l.status === 'Proposta') counts.Proposta++;
+      if (l.status === 'Fechado') counts.Fechado++;
+    });
+    return [
+      { name: 'Novo', value: counts.Lead, fill: '#3b82f6' },
+      { name: 'Qualificação', value: counts.Qualificacao, fill: '#eab308' },
+      { name: 'Proposta', value: counts.Proposta, fill: '#a855f7' },
+      { name: 'Fechado', value: counts.Fechado, fill: '#84cc16' },
+    ].filter(item => item.value > 0);
+  }, [filteredLeads]);
+
+  // --- Win/Loss Data ---
+  const lossReasonData = useMemo(() => {
+    const reasons: Record<string, number> = {};
+    filteredLeads.filter(l => l.status === 'Perdido').forEach(l => {
+      const reason = l.lossReason || 'Outro';
+      reasons[reason] = (reasons[reason] || 0) + 1;
+    });
+    return Object.entries(reasons).map(([name, value]) => ({ name, value }));
+  }, [filteredLeads]);
+
+  // --- Source Data ---
+  const sourceData = useMemo(() => {
+    const sources: Record<string, number> = {};
+    filteredLeads.filter(l => l.status === 'Fechado').forEach(l => {
+      const src = l.source || 'Indicação';
+      sources[src] = (sources[src] || 0) + 1;
+    });
+    return Object.entries(sources).map(([name, value]) => ({ name, value }));
+  }, [filteredLeads]);
+
+  const COLORS = ['#84cc16', '#3b82f6', '#a855f7', '#f97316', '#ef4444', '#14b8a6'];
 
   // --- Chart Data Generation based on Leads ---
   const chartData = useMemo(() => {
@@ -275,6 +325,15 @@ const Dashboard: React.FC = () => {
           sparkData={revenueSparkData}
         />
         <StatCard 
+          title="Faturamento Projetado" 
+          value={`R$ ${(kpis.projectedRevenue/1000).toFixed(1)}k`} 
+          icon={Zap} 
+          trend="+15.0%" 
+          subtext="Baseado em Probabilidade" 
+          color="orange" 
+          sparkData={pipelineSparkData}
+        />
+        <StatCard 
           title="Pipeline Ativo" 
           value={`R$ ${(kpis.totalPipeline/1000).toFixed(1)}k`} 
           icon={Activity} 
@@ -382,51 +441,115 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Row 3: Goals & Strategy */}
-        <div className="md:col-span-2 glass-panel p-6 rounded-2xl border border-white/5">
-           <div className="flex justify-between items-center mb-6">
-              <h3 className="font-bold text-white">Metas do Trimestre (Q4)</h3>
-              <ArrowUpRight size={18} className="text-zinc-500" />
-           </div>
-           <div className="space-y-5">
-             <div>
-                <div className="flex justify-between text-xs font-bold mb-2">
-                   <span className="text-zinc-400">Receita Recorrente</span>
-                   <span className="text-lime-400">82%</span>
-                </div>
-                <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                   <div className="h-full bg-lime-500 rounded-full" style={{ width: '82%' }}></div>
-                </div>
-             </div>
-             <div>
-                <div className="flex justify-between text-xs font-bold mb-2">
-                   <span className="text-zinc-400">Novos Contratos Enterprise</span>
-                   <span className="text-blue-400">45%</span>
-                </div>
-                <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                   <div className="h-full bg-blue-500 rounded-full" style={{ width: '45%' }}></div>
-                </div>
-             </div>
-           </div>
+        {/* Row 3: Funnel & Sources */}
+        <div className="glass-panel p-6 rounded-2xl border border-white/5 flex flex-col">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="font-bold text-white tracking-tight">Funil de Vendas</h3>
+            <span className="text-xs text-zinc-500">Conversão de Etapas</span>
+          </div>
+          <div className="flex-1 min-h-[220px]">
+            {funnelData.length === 0 ? <p className="text-xs text-zinc-600 text-center mt-10">Sem dados</p> : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={funnelData} layout="vertical" margin={{ top: 0, right: 30, left: 10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#27272a" />
+                  <XAxis type="number" hide />
+                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} stroke="#a1a1aa" fontSize={11} width={80} />
+                  <Tooltip contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '8px' }} />
+                  <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={24}>
+                    {funnelData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
         </div>
 
-        <div className="md:col-span-2 glass-panel p-6 rounded-2xl border border-white/5">
+        <div className="glass-panel p-6 rounded-2xl border border-white/5 flex flex-col">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="font-bold text-white tracking-tight">Canais de Aquisição</h3>
+            <span className="text-xs text-zinc-500">Origem (Fechados)</span>
+          </div>
+          <div className="flex-1 min-h-[220px]">
+            {sourceData.length === 0 ? <p className="text-xs text-zinc-600 text-center mt-10">Sem dados</p> : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={sourceData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value">
+                    {sourceData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '8px' }} />
+                  <Legend verticalAlign="bottom" height={36} wrapperStyle={{ fontSize: '11px', color: '#a1a1aa' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+
+        <div className="glass-panel p-6 rounded-2xl border border-white/5 flex flex-col">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="font-bold text-white tracking-tight">Motivos de Perda</h3>
+            <span className="text-xs text-zinc-500">Análise (Lost)</span>
+          </div>
+          <div className="flex-1 min-h-[220px]">
+            {lossReasonData.length === 0 ? <p className="text-xs text-zinc-600 text-center mt-10">Nenhuma perda registrada</p> : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={lossReasonData} cx="50%" cy="50%" outerRadius={70} dataKey="value">
+                    {lossReasonData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={['#ef4444', '#f97316', '#eab308', '#64748b'][index % 4]} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '8px' }} />
+                  <Legend verticalAlign="bottom" height={36} wrapperStyle={{ fontSize: '11px', color: '#a1a1aa' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+
+        {/* Progresso de Meta */}
+        <div className="md:col-span-1 lg:col-span-2 glass-panel p-6 rounded-2xl border border-white/5">
            <div className="flex justify-between items-center mb-6">
-              <h3 className="font-bold text-white">Top Performance</h3>
-              <Users size={18} className="text-zinc-500" />
+              <h3 className="font-bold text-white tracking-tight">Progresso da Meta Mensal</h3>
+              <ArrowUpRight size={18} className="text-zinc-500" />
            </div>
-           <div className="flex items-center gap-4">
-               <div className="w-12 h-12 rounded-full bg-zinc-800 border-2 border-lime-500/20 flex items-center justify-center text-sm font-bold text-white">
-                 {topPerformer.name.substring(0, 2).toUpperCase()}
+           <div className="flex flex-col md:flex-row items-center gap-8">
+             <div className="w-40 h-40 shrink-0 relative">
+               <ResponsiveContainer width="100%" height="100%">
+                 <RadialBarChart cx="50%" cy="50%" innerRadius="80%" outerRadius="100%" barSize={10} data={[{ name: 'Meta', value: Math.min((kpis.totalRevenue / 1000000) * 100, 100), fill: '#a3e635' }]} startAngle={90} endAngle={-270}>
+                   <RadialBar background={{ fill: '#27272a' }} cornerRadius={10} dataKey="value" />
+                 </RadialBarChart>
+               </ResponsiveContainer>
+               <div className="absolute inset-0 flex flex-col items-center justify-center">
+                 <span className="text-2xl font-bold text-white font-display">{((kpis.totalRevenue / 1000000) * 100).toFixed(0)}%</span>
                </div>
-               <div className="flex-1">
-                 <p className="text-white font-bold">{topPerformer.name}</p>
-                 <p className="text-xs text-zinc-500">{topPerformer.role}</p>
-               </div>
-               <div className="text-right">
-                 <p className="text-lime-400 font-bold font-display text-lg">R$ {(topPerformer.value/1000).toFixed(0)}k</p>
-                 <p className="text-[10px] text-zinc-600 font-bold uppercase">Volume Fechado</p>
-               </div>
+             </div>
+             <div className="flex-1 w-full space-y-4">
+                <div>
+                  <div className="flex justify-between text-xs font-bold mb-1.5">
+                     <span className="text-zinc-400">Receita Realizada (Fechado)</span>
+                     <span className="text-lime-400">R$ {(kpis.totalRevenue/1000).toFixed(1)}k</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                     <div className="h-full bg-lime-500 rounded-full" style={{ width: `${Math.min((kpis.totalRevenue / 1000000) * 100, 100)}%` }}></div>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs font-bold mb-1.5">
+                     <span className="text-zinc-400">Meta Desejada (Simulada)</span>
+                     <span className="text-white">R$ 1.0M</span>
+                  </div>
+                </div>
+                <div className="pt-2">
+                  <p className="text-[11px] text-zinc-500 leading-relaxed">
+                    Faltam <strong className="text-zinc-300">R$ {Math.max((1000000 - kpis.totalRevenue) / 1000, 0).toFixed(1)}k</strong> para atingir a meta.
+                    O pipeline ativo atual é de <strong className="text-blue-400">R$ {(kpis.totalPipeline/1000).toFixed(1)}k</strong>.
+                  </p>
+                </div>
+             </div>
            </div>
         </div>
 
