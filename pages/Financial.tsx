@@ -11,6 +11,7 @@ import {
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
 import { jsPDF } from 'jspdf';
+import { FinancialProlabore } from '../components/FinancialProlabore';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 type TransactionType = 'receita' | 'custo' | 'despesa';
@@ -90,7 +91,7 @@ const Financial: React.FC = () => {
     const [allYearTx, setAllYearTx] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
     const [savingError, setSavingError] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'dre' | 'lancamentos'>('dashboard');
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'dre' | 'lancamentos' | 'prolabore'>('dashboard');
     const [viewMode, setViewMode] = useState<'monthly' | 'ytd'>('monthly');
 
     // Filters
@@ -541,6 +542,7 @@ const Financial: React.FC = () => {
                             { id: 'dashboard', icon: Activity, label: 'Dashboard' },
                             { id: 'dre', icon: FileText, label: 'DRE' },
                             { id: 'lancamentos', icon: Filter, label: 'Lançamentos' },
+                            { id: 'prolabore', icon: Target, label: 'Pró-labore' },
                         ] as const).map(tab => (
                             <button key={tab.id} onClick={() => setActiveTab(tab.id as typeof activeTab)}
                                 className={`px-5 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${activeTab === tab.id ? 'bg-lime-500 text-black font-bold' : 'text-slate-400 hover:text-white'}`}>
@@ -761,7 +763,7 @@ const Financial: React.FC = () => {
                     {/* ─── Lançamentos Tab ─────────────────────────────────────── */}
                     {activeTab === 'lancamentos' && (
                         <div className="bg-[#0d1117] border border-white/5 rounded-2xl overflow-hidden">
-                            <div className="p-5 border-b border-white/5 flex justify-between items-center">
+                            <div className="p-4 sm:p-6 border-b border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                 <p className="text-sm font-semibold text-white">{filtered.length} lançamentos · {periodLabel}</p>
                                 <div className="flex gap-2 text-xs">
                                     <span className="text-lime-400 font-bold">{fmt(dre.receitaBruta)} entrada</span>
@@ -801,6 +803,12 @@ const Financial: React.FC = () => {
                             </div>
                         </div>
                     )}
+
+                    {/* ─── Prolabore Tab ──────────────────────────────────────────────── */}
+                    {activeTab === 'prolabore' && (
+                        <FinancialProlabore />
+                    )}
+
                 </>
             )}
 

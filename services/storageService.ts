@@ -507,11 +507,17 @@ export const storageService = {
 
   // --- PIPELINES (CRM v2) ---
   getPipelines: async () => {
+    const defaultStages = [
+      { id: 'Lead', name: 'Novos Leads', color: 'border-blue-500', order: 0 },
+      { id: 'Qualificacao', name: 'Em Qualificação', color: 'border-yellow-500', order: 1 },
+      { id: 'Proposta', name: 'Proposta Enviada', color: 'border-purple-500', order: 2 },
+      { id: 'Fechado', name: 'Fechado / Ganho', color: 'border-lime-500', order: 3 }
+    ];
     const FALLBACK_PIPELINES = [
-      { id: '00000000-0000-0000-0000-000000000001', name: 'Geral', type: 'Geral', color: '#a3e635' },
-      { id: '00000000-0000-0000-0000-000000000002', name: 'Evento — Tênis', type: 'Evento', color: '#38bdf8' },
-      { id: '00000000-0000-0000-0000-000000000003', name: 'Evento — Poker', type: 'Evento', color: '#f472b6' },
-      { id: '00000000-0000-0000-0000-000000000004', name: 'Evento — Ritmo', type: 'Evento', color: '#fb923c' },
+      { id: '00000000-0000-0000-0000-000000000001', name: 'Geral', type: 'Geral', color: '#a3e635', stages: defaultStages },
+      { id: '00000000-0000-0000-0000-000000000002', name: 'Evento — Tênis', type: 'Evento', color: '#38bdf8', stages: defaultStages },
+      { id: '00000000-0000-0000-0000-000000000003', name: 'Evento — Poker', type: 'Evento', color: '#f472b6', stages: defaultStages },
+      { id: '00000000-0000-0000-0000-000000000004', name: 'Evento — Ritmo', type: 'Evento', color: '#fb923c', stages: defaultStages },
     ];
     try {
       const { data, error } = await supabase.from('pipelines').select('*').order('created_at');

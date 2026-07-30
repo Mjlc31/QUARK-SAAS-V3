@@ -67,18 +67,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
       <aside className={`fixed left-0 top-0 h-full w-72 bg-[#09090b] border-r border-white/5 flex flex-col z-50 transition-transform duration-300 lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-8 pb-8 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-lime-400 flex items-center justify-center text-black shadow-[0_0_15px_rgba(163,230,53,0.3)]">
-              <Zap size={18} strokeWidth={3} fill="black" />
-            </div>
-            <div>
-              <h1 className="text-xl font-display font-bold tracking-tight text-white leading-none">Quark<span className="text-lime-400">.</span></h1>
-              <div className="flex items-center gap-1.5 mt-1">
-                <div className={`w-2 h-2 rounded-full transition-all ${isSupabaseConnected ? 'bg-green-500 shadow-[0_0_8px_#22c55e] animate-pulse-glow' : 'bg-red-500 shadow-[0_0_8px_#ef4444]'}`}></div>
-                <span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">
-                  {isSupabaseConnected ? 'Online' : 'Offline'}
-                </span>
-              </div>
+          <div className="flex flex-col gap-2">
+            <img src="/logo.png" alt="Quark Energia" className="h-14 w-auto object-contain object-left" />
+            <div className="flex items-center gap-1.5 ml-1">
+              <div className={`w-2 h-2 rounded-full transition-all ${isSupabaseConnected ? 'bg-green-500 shadow-[0_0_8px_#22c55e] animate-pulse-glow' : 'bg-red-500 shadow-[0_0_8px_#ef4444]'}`}></div>
+              <span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">
+                {isSupabaseConnected ? 'Online' : 'Offline'}
+              </span>
             </div>
           </div>
           <button onClick={onClose} className="lg:hidden text-zinc-500 hover:text-white">

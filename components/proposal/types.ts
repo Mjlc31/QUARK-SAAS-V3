@@ -108,6 +108,8 @@ export interface FinancialContent {
   paybackYears: number;
   systemLifeYears: number;
   installmentCount: number;
+  systemPowerKwp?: number;          // Added for accurate recalc
+  monthlyConsumptionKwh?: number;   // Added for accurate recalc
   // Novos indicadores financeiros (v4.0)
   tir?: number;                     // TIR % a.a.
   vpl?: number;                     // VPL (R$)

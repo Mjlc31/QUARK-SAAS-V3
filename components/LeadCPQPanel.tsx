@@ -24,7 +24,7 @@ export const LeadCPQPanel: React.FC<LeadCPQPanelProps> = ({ lead, onUpdateLead }
     const [isGenerating, setIsGenerating] = useState(false);
     
     // Cálculo Dinâmico
-    const recommendedKwp = calcRecommendedPower(consumption, 130, 1.0);
+    const recommendedKwp = calcRecommendedPower(consumption, 128.64, 1.0);
     const finalPrice = recommendedKwp * 1000 * pricePerWp * (1 + margin / 100);
     
     const result = calcSolar({
@@ -33,7 +33,7 @@ export const LeadCPQPanel: React.FC<LeadCPQPanelProps> = ({ lead, onUpdateLead }
         fiobEffective: tariff * 0.45,
         publicLighting: 0,
         connectionType,
-        generationFactor: 130,
+        generationFactor: 128.64,
         systemPowerKwp: recommendedKwp,
         finalPrice,
         tariffAdjustmentRate: 7,

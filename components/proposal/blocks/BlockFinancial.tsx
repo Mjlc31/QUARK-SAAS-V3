@@ -16,8 +16,45 @@ interface Props {
   theme: ProposalTheme;
 }
 
+import { calcSolar } from '../solarCalc';
+
 function buildProjection(content: FinancialContent) {
-  const { finalPrice, monthlyBill, tariffRate, tariffAdjustmentRate, systemLifeYears } = content;
+  const { 
+    finalPrice, monthlyBill, tariffRate, tariffAdjustmentRate, systemLifeYears,
+    systemPowerKwp, monthlyConsumptionKwh 
+  } = content;
+
+  // Se tiver os dados reais da proposta (sistema e consumo), usamos o motor calcSolar
+  if (systemPowerKwp && monthlyConsumptionKwh) {
+    const res = calcSolar({
+      monthlyConsumptionKwh,
+      tariffRate: tariffRate || 0.85,
+      fiobEffective: (tariffRate || 0.85) * 0.45,
+      publicLighting: 50,
+      connectionType: 'tri',
+      generationFactor: 128.64,
+      systemPowerKwp,
+      finalPrice,
+      tariffAdjustmentRate,
+      systemLifeYears: systemLifeYears || 25,
+      tma: 12,
+    });
+    
+    // O motor calcSolar já retorna cashFlow formatado pra gente!
+    return {
+      data: res.cashFlow.map(cf => ({
+        year: `${cf.year}`,
+        economiaAno: Math.round(cf.annualSavings),
+        economiaAcumulada: Math.round(cf.cumulativeSavings),
+        fluxoCaixa: Math.round(cf.cumulativeNet),
+      })),
+      roi: res.roi,
+      paybackYear: res.paybackYears > 0 ? Math.ceil(res.paybackYears) : systemLifeYears,
+      totalSavings: res.totalSavings25Years
+    };
+  }
+
+  // Fallback (caso abra uma proposta muito antiga sem systemPowerKwp)
   const annualAdjust = tariffAdjustmentRate / 100;
   let cumulativeSavings = 0;
   let cumulativeCost = -finalPrice;
@@ -34,7 +71,16 @@ function buildProjection(content: FinancialContent) {
       fluxoCaixa: Math.round(cumulativeCost),
     });
   }
-  return data;
+  const paybackYearFallback = data.findIndex((d) => d.fluxoCaixa >= 0) + 1;
+  const totalSavingsFallback = data[data.length - 1]?.economiaAcumulada ?? 0;
+  const roiFallback = finalPrice > 0 ? ((totalSavingsFallback / finalPrice - 1) * 100) : 0;
+  
+  return {
+    data,
+    roi: roiFallback,
+    paybackYear: paybackYearFallback > 0 ? paybackYearFallback : systemLifeYears,
+    totalSavings: totalSavingsFallback
+  };
 }
 
 function CustomTooltip({ active, payload, label }: any) {
@@ -60,13 +106,11 @@ export function BlockFinancial({ content, onUpdate, theme }: Props) {
   const primary = theme.primaryColor;
   const C = getWebColors(theme);
 
-  const projection = useMemo(() => buildProjection(c), [
+  const { data: projection, roi, paybackYear, totalSavings } = useMemo(() => buildProjection(c), [
     c.finalPrice, c.monthlyBill, c.tariffRate, c.tariffAdjustmentRate, c.systemLifeYears,
+    c.systemPowerKwp, c.monthlyConsumptionKwh
   ]);
 
-  const paybackYear = projection.findIndex((d) => d.fluxoCaixa >= 0) + 1;
-  const totalSavings = projection[projection.length - 1]?.economiaAcumulada ?? 0;
-  const roi = c.finalPrice > 0 ? ((totalSavings / c.finalPrice - 1) * 100) : 0;
   const paybackChartData = projection.slice(0, Math.min(paybackYear + 5, projection.length));
 
   return (

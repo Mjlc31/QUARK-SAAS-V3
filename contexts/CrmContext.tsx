@@ -12,6 +12,7 @@ interface CrmContextType {
   pipelines: Pipeline[];
   tags: Tag[];
   addPipeline: (name: string, type: Pipeline['type'], color: string) => Promise<void>;
+  updatePipelineStages: (pipelineId: string, stages: Pipeline['stages']) => Promise<void>;
   updateLeadTags: (leadId: string, tags: Tag[]) => Promise<void>;
   updateLeadPipelineStage: (leadId: string, pipelineId: string, stage: LeadStatus) => Promise<void>;
   addLead: (lead: Partial<Lead>) => Promise<void>;
@@ -73,12 +74,27 @@ export const CrmProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const addPipeline = async (name: string, type: Pipeline['type'], color: string) => {
     try {
-      const { data, error } = await supabase.from('pipelines').insert([{ name, type, color }]).select().single();
+      const defaultStages = [
+        { id: 'Lead', name: 'Novos Leads', color: 'border-blue-500', order: 0 },
+        { id: 'Qualificacao', name: 'Em Qualificação', color: 'border-yellow-500', order: 1 },
+        { id: 'Proposta', name: 'Proposta Enviada', color: 'border-purple-500', order: 2 },
+        { id: 'Fechado', name: 'Fechado / Ganho', color: 'border-lime-500', order: 3 }
+      ];
+      const { data, error } = await supabase.from('pipelines').insert([{ name, type, color, stages: defaultStages }]).select().single();
       if (error) throw error;
-      const newPipeline: Pipeline = { id: data.id, name: data.name, type: data.type, color: data.color };
+      const newPipeline: Pipeline = { id: data.id, name: data.name, type: data.type, color: data.color, stages: data.stages || defaultStages };
       setPipelines(prev => [...prev, newPipeline]);
     } catch (err) {
       console.error('Erro ao criar pipeline:', err);
+    }
+  };
+
+  const updatePipelineStages = async (pipelineId: string, stages: Pipeline['stages']) => {
+    try {
+      setPipelines(prev => prev.map(p => p.id === pipelineId ? { ...p, stages } : p));
+      await supabase.from('pipelines').update({ stages }).eq('id', pipelineId);
+    } catch (err) {
+      console.error('Erro ao atualizar estágios da pipeline:', err);
     }
   };
 
@@ -215,7 +231,7 @@ export const CrmProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   return (
-    <CrmContext.Provider value={{ leads, pipelines, tags, addPipeline, updateLeadTags, updateLeadPipelineStage, addLead, updateLead, deleteLead, updateLeadStatus, addLeadLog, loadCrmData }}>
+    <CrmContext.Provider value={{ leads, pipelines, tags, addPipeline, updatePipelineStages, updateLeadTags, updateLeadPipelineStage, addLead, updateLead, deleteLead, updateLeadStatus, addLeadLog, loadCrmData }}>
       {children}
     </CrmContext.Provider>
   );

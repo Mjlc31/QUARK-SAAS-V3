@@ -75,12 +75,12 @@ export const BLOCK_CATALOG: BlockCatalogItem[] = [
       images: [
         {
           id: nanoid(),
-          url: 'https://images.unsplash.com/photo-1509391366360-1e97b524c5bb?auto=format&fit=crop&q=80&w=800',
+          url: '/images/projetos-entregues.jpg',
           caption: '+500 Projetos Entregues',
         },
         {
           id: nanoid(),
-          url: 'https://images.unsplash.com/photo-1613665813446-82a78c468a1d?auto=format&fit=crop&q=80&w=800',
+          url: '/images/instalacao-premium.jpg',
           caption: 'Instalação Classe A',
         },
       ],
@@ -147,10 +147,32 @@ export const BLOCK_CATALOG: BlockCatalogItem[] = [
   },
 ];
 
+import { calcSolar } from './solarCalc';
+
 // Gera o estado inicial de blocos a partir dos dados do CRM
 export function buildInitialBlocks(data: ProposalData): ProposalBlock[] {
-  const monthlyBill = data.consumption * 0.85; // estimativa base
+  const monthlyBill = data.consumption ? data.consumption * 0.85 : 860;
+  const systemSizeKw = data.systemSizeKw || 6.82;
+  const finalPrice = data.finalPrice || 25000;
+  const newBill = data.consumption ? 100 * 0.85 : 207;
 
+  // Calculo de geração mensal (Potência * 5.36 * 30 * 0.8) = Potência * 128.64
+  const generationMonthly = Math.round(systemSizeKw * 5.36 * 30 * 0.8);
+  const consumptionBase = Math.round(data.consumption || 800);
+  
+  const solarResult = calcSolar({
+    monthlyConsumptionKwh: consumptionBase,
+    tariffRate: 0.85,
+    fiobEffective: 0.85 * 0.45,
+    publicLighting: 50,
+    connectionType: 'tri',
+    generationFactor: 128.64,
+    systemPowerKwp: systemSizeKw,
+    finalPrice: finalPrice,
+    tariffAdjustmentRate: 7,
+    systemLifeYears: 25,
+    tma: 12,
+  });
   return [
     {
       id: nanoid(),
@@ -159,10 +181,10 @@ export function buildInitialBlocks(data: ProposalData): ProposalBlock[] {
         clientName: data.clientName || 'Nome do Cliente',
         city: data.city || 'Sua Cidade',
         date: new Date().toLocaleDateString('pt-BR'),
-        systemSizeKw: data.systemSizeKw || 6.82,
-        finalPrice: data.finalPrice || 25000,
-        currentBill: data.consumption ? data.consumption * 0.85 : 860,
-        newBill: data.consumption ? 100 * 0.85 : 207,
+        systemSizeKw,
+        finalPrice,
+        currentBill: monthlyBill,
+        newBill,
         tagline: 'SEU PASSAPORTE PARA A INDEPENDÊNCIA ENERGÉTICA',
       },
     },
@@ -187,18 +209,18 @@ export function buildInitialBlocks(data: ProposalData): ProposalBlock[] {
       content: {
         title: 'Geração vs Consumo',
         data: [
-          { month: 'Jan', generation: 900, consumption: 800, balance: 100 },
-          { month: 'Fev', generation: 850, consumption: 780, balance: 70 },
-          { month: 'Mar', generation: 880, consumption: 820, balance: 60 },
-          { month: 'Abr', generation: 820, consumption: 790, balance: 30 },
-          { month: 'Mai', generation: 750, consumption: 700, balance: 50 },
-          { month: 'Jun', generation: 700, consumption: 650, balance: 50 },
-          { month: 'Jul', generation: 720, consumption: 680, balance: 40 },
-          { month: 'Ago', generation: 800, consumption: 710, balance: 90 },
-          { month: 'Set', generation: 850, consumption: 750, balance: 100 },
-          { month: 'Out', generation: 890, consumption: 800, balance: 90 },
-          { month: 'Nov', generation: 920, consumption: 850, balance: 70 },
-          { month: 'Dez', generation: 950, consumption: 880, balance: 70 },
+          { month: 'Jan', generation: generationMonthly, consumption: consumptionBase, balance: generationMonthly - consumptionBase },
+          { month: 'Fev', generation: generationMonthly, consumption: consumptionBase, balance: generationMonthly - consumptionBase },
+          { month: 'Mar', generation: generationMonthly, consumption: consumptionBase, balance: generationMonthly - consumptionBase },
+          { month: 'Abr', generation: generationMonthly, consumption: consumptionBase, balance: generationMonthly - consumptionBase },
+          { month: 'Mai', generation: generationMonthly, consumption: consumptionBase, balance: generationMonthly - consumptionBase },
+          { month: 'Jun', generation: generationMonthly, consumption: consumptionBase, balance: generationMonthly - consumptionBase },
+          { month: 'Jul', generation: generationMonthly, consumption: consumptionBase, balance: generationMonthly - consumptionBase },
+          { month: 'Ago', generation: generationMonthly, consumption: consumptionBase, balance: generationMonthly - consumptionBase },
+          { month: 'Set', generation: generationMonthly, consumption: consumptionBase, balance: generationMonthly - consumptionBase },
+          { month: 'Out', generation: generationMonthly, consumption: consumptionBase, balance: generationMonthly - consumptionBase },
+          { month: 'Nov', generation: generationMonthly, consumption: consumptionBase, balance: generationMonthly - consumptionBase },
+          { month: 'Dez', generation: generationMonthly, consumption: consumptionBase, balance: generationMonthly - consumptionBase },
         ]
       }
     },
@@ -212,12 +234,12 @@ export function buildInitialBlocks(data: ProposalData): ProposalBlock[] {
         images: [
           {
             id: nanoid(),
-            url: 'https://images.unsplash.com/photo-1509391366360-1e97b524c5bb?auto=format&fit=crop&q=80&w=800',
+            url: '/images/projetos-entregues.jpg',
             caption: '+500 Projetos Entregues',
           },
           {
             id: nanoid(),
-            url: 'https://images.unsplash.com/photo-1613665813446-82a78c468a1d?auto=format&fit=crop&q=80&w=800',
+            url: '/images/instalacao-premium.jpg',
             caption: 'Instalação Premium',
           },
         ],
@@ -242,11 +264,13 @@ export function buildInitialBlocks(data: ProposalData): ProposalBlock[] {
       id: nanoid(),
       type: 'financial',
       content: {
-        finalPrice: data.finalPrice,
+        finalPrice,
         monthlyBill,
+        systemPowerKwp: systemSizeKw,
+        monthlyConsumptionKwh: consumptionBase,
         tariffRate: 0.85,
         tariffAdjustmentRate: 7,
-        paybackYears: Math.round(data.finalPrice / (monthlyBill * 12)),
+        paybackYears: solarResult.paybackYears,
         systemLifeYears: 25,
         installmentCount: 60,
       },

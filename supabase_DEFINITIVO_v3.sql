@@ -176,17 +176,16 @@ ALTER TABLE public.lead_tags           ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.financial_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profiles            ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "quark_leads_open"               ON public.leads               FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "quark_tasks_open"               ON public.tasks               FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "quark_projects_open"            ON public.projects            FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "quark_products_open"            ON public.products            FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "quark_pipelines_open"           ON public.pipelines           FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "quark_tags_open"                ON public.tags                FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "quark_lead_pipelines_open"      ON public.lead_pipelines      FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "quark_lead_tags_open"           ON public.lead_tags           FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "quark_financial_open"           ON public.financial_transactions FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "quark_profiles_open"            ON public.profiles            FOR ALL USING (true) WITH CHECK (true);
-
+CREATE POLICY "quark_leads_auth"               ON public.leads               AS PERMISSIVE FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "quark_tasks_auth"               ON public.tasks               AS PERMISSIVE FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "quark_projects_auth"            ON public.projects            AS PERMISSIVE FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "quark_products_auth"            ON public.products            AS PERMISSIVE FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "quark_pipelines_auth"           ON public.pipelines           AS PERMISSIVE FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "quark_tags_auth"                ON public.tags                AS PERMISSIVE FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "quark_lead_pipelines_auth"      ON public.lead_pipelines      AS PERMISSIVE FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "quark_lead_tags_auth"           ON public.lead_tags           AS PERMISSIVE FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "quark_financial_auth"           ON public.financial_transactions AS PERMISSIVE FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "quark_profiles_auth"            ON public.profiles            AS PERMISSIVE FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- ─────────────────────────────────────────────────────────────
 -- ETAPA 4: SEEDS (dados padrão)
@@ -231,6 +230,34 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+
+-- ─────────────────────────────────────────────────────────────
+-- ETAPA 6: OTIMIZAÇÕES DE PERFORMANCE E INTEGRIDADE (FOREIGN KEYS & ÍNDICES)
+-- ─────────────────────────────────────────────────────────────
+
+-- Adiciona a Foreign Key amarrando os pipelines e tags ao lead real
+ALTER TABLE public.lead_pipelines DROP CONSTRAINT IF EXISTS fk_lead_pipelines_lead_id;
+ALTER TABLE public.lead_pipelines ADD CONSTRAINT fk_lead_pipelines_lead_id FOREIGN KEY (lead_id) REFERENCES public.leads(id) ON DELETE CASCADE;
+
+ALTER TABLE public.lead_tags DROP CONSTRAINT IF EXISTS fk_lead_tags_lead_id;
+ALTER TABLE public.lead_tags ADD CONSTRAINT fk_lead_tags_lead_id FOREIGN KEY (lead_id) REFERENCES public.leads(id) ON DELETE CASCADE;
+
+ALTER TABLE public.financial_transactions DROP CONSTRAINT IF EXISTS fk_financial_user;
+ALTER TABLE public.financial_transactions ADD CONSTRAINT fk_financial_user FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE SET NULL;
+
+-- Índices GIN para colunas JSONB
+CREATE INDEX IF NOT EXISTS leads_data_gin_idx ON public.leads USING GIN (data);
+CREATE INDEX IF NOT EXISTS tasks_data_gin_idx ON public.tasks USING GIN (data);
+CREATE INDEX IF NOT EXISTS projects_data_gin_idx ON public.projects USING GIN (data);
+CREATE INDEX IF NOT EXISTS products_data_gin_idx ON public.products USING GIN (data);
+
+-- Índices B-Tree para Foreign Keys e Datas
+CREATE INDEX IF NOT EXISTS financial_date_idx ON public.financial_transactions (date);
+CREATE INDEX IF NOT EXISTS financial_type_idx ON public.financial_transactions (type);
+CREATE INDEX IF NOT EXISTS lead_pipelines_lead_id_idx ON public.lead_pipelines (lead_id);
+CREATE INDEX IF NOT EXISTS lead_tags_lead_id_idx ON public.lead_tags (lead_id);
+
 
 
 -- ─────────────────────────────────────────────────────────────

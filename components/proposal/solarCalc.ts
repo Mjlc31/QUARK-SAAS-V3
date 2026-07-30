@@ -10,7 +10,7 @@ export interface SolarCalcInput {
   fiobEffective: number;            // R$/kWh (Fio B efetivo = total * 45%)
   publicLighting: number;           // R$/mês (CIP/COSIP)
   connectionType: 'mono' | 'bi' | 'tri'; // Tipo de ligação
-  generationFactor: number;         // kWh/kWp/mês (padrão AL = 130)
+  generationFactor: number;         // kWh/kWp/mês (padrão AL = 128.64)
 
   // Sistema instalado
   systemPowerKwp: number;           // kWp total instalado (módulos * Wp / 1000)
@@ -230,7 +230,7 @@ export function calcSolar(input: SolarCalcInput): SolarCalcResult {
  */
 export function calcRecommendedPower(
   monthlyConsumptionKwh: number,
-  generationFactor: number = 130,
+  generationFactor: number = 128.64,
   targetCompensation: number = 1.0 // 100% de compensação
 ): number {
   if (generationFactor <= 0) return 0;

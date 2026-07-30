@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Edit2, Save, Trash2, Sparkles, Copy, Check, Loader2, Clock, Send, Tag, Building2, User, ChevronDown } from 'lucide-react';
-import { Lead, LeadStatus, Tag as TagType } from '../types';
+import { Lead, LeadStatus, Tag as TagType, PipelineStage } from '../types';
 import { useApp } from '../contexts/AppContext';
 import { LeadCPQPanel } from './LeadCPQPanel';
 
@@ -10,7 +10,7 @@ interface LeadDetailsPanelProps {
     selectedLead: Lead;
     isEditing: boolean;
     editingData: Partial<Lead>;
-    columnTitles: Record<string, string>;
+    stages: PipelineStage[];
     aiProposal: string;
     isGeneratingAI: boolean;
     isCopied: boolean;
@@ -23,14 +23,13 @@ interface LeadDetailsPanelProps {
     onCopyAI: () => void;
     onClearAI: () => void;
     onWhatsApp: (lead: Lead) => void;
-    columnsConfig: { id: LeadStatus; defaultLabel: string }[];
 }
 
 export const LeadDetailsPanel: React.FC<LeadDetailsPanelProps> = ({
     selectedLead,
     isEditing,
     editingData,
-    columnTitles,
+    stages,
     aiProposal,
     isGeneratingAI,
     isCopied,
@@ -43,7 +42,6 @@ export const LeadDetailsPanel: React.FC<LeadDetailsPanelProps> = ({
     onCopyAI,
     onClearAI,
     onWhatsApp,
-    columnsConfig,
 }) => {
     const { tags: allTags, updateLeadTags } = useApp();
     const [activeTab, setActiveTab] = useState<TabType>('detalhes');
@@ -74,7 +72,7 @@ export const LeadDetailsPanel: React.FC<LeadDetailsPanelProps> = ({
             <div className="fixed inset-y-0 right-0 w-full md:w-[600px] bg-[#0c121a]/95 backdrop-blur-2xl border-l border-white/10 shadow-2xl z-[60] animate-enter flex flex-col">
 
                 {/* Header */}
-                <div className="p-6 md:p-8 border-b border-white/5 flex justify-between items-start bg-black/20">
+                <div className="p-4 sm:p-6 md:p-8 border-b border-white/5 flex justify-between items-start bg-black/20">
                     <div className="flex-1 pr-4">
                         {isEditing ? (
                             <input
@@ -94,10 +92,10 @@ export const LeadDetailsPanel: React.FC<LeadDetailsPanelProps> = ({
                                     onChange={(e) => onDataChange({ ...editingData, status: e.target.value as LeadStatus })}
                                     className="bg-zinc-800 border border-zinc-700 rounded p-1 text-xs text-lime-400 font-bold uppercase tracking-wide outline-none"
                                 >
-                                    {columnsConfig.map(col => <option key={col.id} value={col.id}>{col.defaultLabel}</option>)}
+                                    {stages.map(col => <option key={col.id} value={col.id}>{col.name}</option>)}
                                 </select>
                             ) : (
-                                <span className="px-3 py-1 rounded-lg text-[11px] bg-lime-500/10 text-lime-400 border border-lime-500/20 font-bold uppercase tracking-wider">{columnTitles[selectedLead.status]}</span>
+                                <span className="px-3 py-1 rounded-lg text-[11px] bg-lime-500/10 text-lime-400 border border-lime-500/20 font-bold uppercase tracking-wider">{stages.find(s => s.id === selectedLead.status)?.name || selectedLead.status}</span>
                             )}
                             {!isEditing && (
                                 <span className="px-3 py-1 rounded-lg text-[11px] bg-white/5 text-zinc-300 border border-white/10 font-medium">{selectedLead.city}</span>
@@ -170,7 +168,7 @@ export const LeadDetailsPanel: React.FC<LeadDetailsPanelProps> = ({
                 </div>
 
                 {/* Body */}
-                <div className="flex-1 overflow-y-auto p-6 md:p-8 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 custom-scrollbar">
 
                     {/* ABA DETALHES */}
                     {activeTab === 'detalhes' && (
@@ -464,14 +462,7 @@ export const LeadDetailsPanel: React.FC<LeadDetailsPanelProps> = ({
                             </button>
                         </div>
                     )}
-                </div>
-
-                {/* Footer */}
-                <div className="p-4 sm:p-6 border-t border-white/10 bg-zinc-900/80 flex-shrink-0" style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 16px), 16px)' }}>
-                    <button onClick={() => onWhatsApp(selectedLead)}
-                        className="w-full py-4 rounded-xl bg-lime-500 hover:bg-lime-400 text-black font-bold transition-all shadow-lg shadow-lime-500/20 active:scale-95 flex justify-center gap-2 touch-target">
-                        <Send size={18} /> Iniciar Conversa WhatsApp
-                    </button>
+                    
                     {/* ABA CPQ PROPOSTA */}
                     {activeTab === 'proposta' && (
                         <LeadCPQPanel 
@@ -479,7 +470,14 @@ export const LeadDetailsPanel: React.FC<LeadDetailsPanelProps> = ({
                             onUpdateLead={(data) => onDataChange({...editingData, ...data})} 
                         />
                     )}
+                </div>
 
+                {/* Footer */}
+                <div className="p-4 sm:p-6 border-t border-white/10 bg-zinc-900/90 backdrop-blur-md flex-shrink-0" style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 16px), 16px)' }}>
+                    <button onClick={() => onWhatsApp(selectedLead)}
+                        className="w-full py-3.5 sm:py-4 rounded-xl bg-lime-500 hover:bg-lime-400 text-black font-bold transition-all shadow-lg shadow-lime-500/20 active:scale-95 flex justify-center items-center gap-2 touch-target">
+                        <Send size={18} /> Iniciar Conversa WhatsApp
+                    </button>
                 </div>
             </div>
         </>

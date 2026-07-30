@@ -1,14 +1,22 @@
-export type LeadStatus = 'Lead' | 'Qualificacao' | 'Proposta' | 'Fechado' | 'Perdido';
+export type LeadStatus = 'Lead' | 'Qualificacao' | 'Proposta' | 'Fechado' | 'Perdido' | string;
 export type ProjectStatus = 'Vistoria' | 'Projeto' | 'Homologacao' | 'Instalacao' | 'Finalizado';
 export type UserRole = 'Admin' | 'Sales' | 'Engineering';
 export type PersonType = 'PF' | 'PJ';
 export type PipelineType = 'Geral' | 'Evento' | 'Produto';
+
+export interface PipelineStage {
+  id: string;
+  name: string;
+  color: string;
+  order: number;
+}
 
 export interface Pipeline {
   id: string;
   name: string;
   type: PipelineType;
   color: string;
+  stages?: PipelineStage[];
 }
 
 export interface Tag {
@@ -75,6 +83,18 @@ export interface Lead {
   source?: string;
 }
 
+export interface ProjectFinance {
+  revenue: number;
+  kitCost: number;
+  installationCost: number;
+  materialCost: number;
+  signatureCost: number;
+  commissionCost: number;
+  modulePowerW?: number;
+  moduleCount?: number;
+  taxRate?: number;
+}
+
 export interface Project {
   id: string;
   clientId: string; // Link to Lead ID if available
@@ -87,6 +107,7 @@ export interface Project {
   updatedAt: string;
   attachments?: string[]; // Arrays de Base64 ou URLs
   hasWebhook?: boolean;
+  finance?: ProjectFinance;
 }
 
 export interface CityData {

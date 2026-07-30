@@ -7,15 +7,15 @@ import { LeadDetailsPanel } from '../components/LeadDetailsPanel';
 import { AIOCRInvoiceUploader } from '../components/AIOCRInvoiceUploader';
 import { ExtractedInvoice } from '../services/aiOcrService';
 
-const COLUMN_CONFIG: { id: LeadStatus; defaultLabel: string; color: string }[] = [
-  { id: 'Lead', defaultLabel: 'Novos Leads', color: 'border-blue-500' },
-  { id: 'Qualificacao', defaultLabel: 'Em Qualificação', color: 'border-yellow-500' },
-  { id: 'Proposta', defaultLabel: 'Proposta Enviada', color: 'border-purple-500' },
-  { id: 'Fechado', defaultLabel: 'Fechado / Ganho', color: 'border-lime-500' },
+const DEFAULT_STAGES = [
+  { id: 'Lead', name: 'Novos Leads', color: 'border-blue-500', order: 0 },
+  { id: 'Qualificacao', name: 'Em Qualificação', color: 'border-yellow-500', order: 1 },
+  { id: 'Proposta', name: 'Proposta Enviada', color: 'border-purple-500', order: 2 },
+  { id: 'Fechado', name: 'Fechado / Ganho', color: 'border-lime-500', order: 3 },
 ];
 
 const CRM: React.FC = () => {
-  const { leads, updateLeadStatus, addLead, addLeadLog, updateLead, deleteLead, pipelines, updateLeadPipelineStage } = useApp();
+  const { leads, updateLeadStatus, addLead, addLeadLog, updateLead, deleteLead, pipelines, updateLeadPipelineStage, updatePipelineStages } = useApp();
   const [activePipelineId, setActivePipelineId] = useState<string>('00000000-0000-0000-0000-000000000001');
   const [showPipelineDropdown, setShowPipelineDropdown] = useState(false);
   const activePipeline = pipelines.find(p => p.id === activePipelineId) || pipelines[0];
@@ -34,11 +34,9 @@ const CRM: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isEditing, setIsEditing] = useState(false);
 
-  const [columnTitles, setColumnTitles] = useState<Record<string, string>>(() => {
-    const saved = localStorage.getItem('crm_column_titles');
-    if (saved) return JSON.parse(saved);
-    return COLUMN_CONFIG.reduce((acc, col) => ({ ...acc, [col.id]: col.defaultLabel }), {});
-  });
+  const currentStages = activePipeline?.stages && activePipeline.stages.length > 0 
+    ? [...activePipeline.stages].sort((a, b) => a.order - b.order) 
+    : DEFAULT_STAGES;
 
   const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
   const [tempTitle, setTempTitle] = useState('');
@@ -128,10 +126,34 @@ const CRM: React.FC = () => {
   };
 
   const saveColumnTitle = (id: string) => {
-    const newTitles = { ...columnTitles, [id]: tempTitle };
-    setColumnTitles(newTitles);
-    localStorage.setItem('crm_column_titles', JSON.stringify(newTitles));
+    const updatedStages = currentStages.map(s => s.id === id ? { ...s, name: tempTitle } : s);
+    if (activePipeline) {
+      updatePipelineStages(activePipeline.id, updatedStages);
+    }
     setEditingColumnId(null);
+  };
+
+  const deleteColumn = (id: string) => {
+    const columnLeads = leads.filter(l => getLeadStageInPipeline(l) === id);
+    if (columnLeads.length > 0) {
+      alert("Você não pode excluir uma coluna que contém leads. Mova os leads primeiro.");
+      return;
+    }
+    if (confirm("Tem certeza que deseja excluir esta coluna?")) {
+      const updatedStages = currentStages.filter(s => s.id !== id);
+      if (activePipeline) updatePipelineStages(activePipeline.id, updatedStages);
+    }
+  };
+
+  const addColumn = () => {
+    const newStage = {
+      id: `stage-${Date.now()}`,
+      name: 'Nova Coluna',
+      color: 'border-zinc-500',
+      order: currentStages.length
+    };
+    const updatedStages = [...currentStages, newStage];
+    if (activePipeline) updatePipelineStages(activePipeline.id, updatedStages);
   };
 
   const getColumnTotal = (status: LeadStatus) => {
@@ -148,9 +170,11 @@ const CRM: React.FC = () => {
 
   const isStagnant = (dateStr: string) => {
     if (!dateStr) return false;
-    const diff = new Date().getTime() - new Date(dateStr).getTime();
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return false;
+    const diff = new Date().getTime() - date.getTime();
     const days = diff / (1000 * 3600 * 24);
-    return days > 7;
+    return days >= 7;
   };
 
   const getNextActionStatus = (dateStr?: string) => {
@@ -177,7 +201,8 @@ const CRM: React.FC = () => {
       addLeadLog(lead.id, 'Contato em Massa', 'Mensagem de follow-up enviada via automação');
     });
     
-    alert(`Mensagem em massa enviada para ${leadsInColumn.length} leads na fase ${columnTitles[status]} com sucesso!`);
+    const stageName = currentStages.find(s => s.id === status)?.name || status;
+    alert(`Mensagem em massa enviada para ${leadsInColumn.length} leads na fase ${stageName} com sucesso!`);
   };
 
   const handleSmartWhatsApp = (lead: Lead) => {
@@ -292,7 +317,12 @@ Podemos agendar uma breve apresentação da proposta?`;
     l.city.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const finalLeads = rescueMode ? filteredLeads.filter(l => isStagnant(l.updatedAt)) : filteredLeads;
+  const finalLeads = (rescueMode ? filteredLeads.filter(l => isStagnant(l.updatedAt)) : filteredLeads)
+    .sort((a, b) => {
+      const dateA = new Date(a.createdAt || a.updatedAt || 0).getTime();
+      const dateB = new Date(b.createdAt || b.updatedAt || 0).getTime();
+      return dateB - dateA;
+    });
 
   return (
     <div className="h-[calc(100vh-10rem)] md:h-[calc(100vh-6rem)] lg:h-[calc(100vh-2rem)] flex flex-col relative animate-enter">
@@ -395,7 +425,7 @@ Podemos agendar uma breve apresentação da proposta?`;
         // --- BOARD VIEW (KANBAN) ---
         <div className="flex-1 overflow-x-auto overflow-y-hidden pb-4 -mx-4 md:mx-0 px-4 md:px-0 custom-scrollbar snap-x-mandatory" onTouchMove={touchDrag ? handleTouchMove : undefined} onTouchEnd={touchDrag ? handleTouchEnd : undefined}>
           <div className="flex flex-row gap-4 md:gap-6 min-w-max md:min-w-[1240px] h-full items-start px-1 md:px-0">
-            {COLUMN_CONFIG.map(column => {
+            {currentStages.map(column => {
               const columnLeads = finalLeads.filter(l => getLeadStageInPipeline(l) === column.id);
               const columnTotalValue = columnLeads.reduce((acc, l) => acc + l.value, 0);
 
@@ -418,16 +448,20 @@ Podemos agendar uma breve apresentação da proposta?`;
                             value={tempTitle}
                             onChange={(e) => setTempTitle(e.target.value)}
                             onBlur={() => saveColumnTitle(column.id)}
+                            onKeyDown={(e) => e.key === 'Enter' && saveColumnTitle(column.id)}
                             className="bg-black/40 border border-lime-500/50 rounded px-2 py-1 text-sm font-bold text-white w-full outline-none"
                           />
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2 group/title cursor-pointer w-full" onClick={() => startEditingColumn(column.id, columnTitles[column.id])}>
-                          <h3 className="font-bold text-zinc-200 tracking-wide font-display text-sm">{columnTitles[column.id]}</h3>
-                          <Pencil size={12} className="text-zinc-600 opacity-0 group-hover/title:opacity-100 transition-opacity" />
+                        <div className="flex items-center gap-2 group/title cursor-pointer w-full" onClick={() => startEditingColumn(column.id, column.name)}>
+                          <h3 className="font-bold text-zinc-200 tracking-wide font-display text-sm truncate max-w-[200px]">{column.name}</h3>
+                          <Pencil size={12} className="text-zinc-600 opacity-0 group-hover/title:opacity-100 transition-opacity shrink-0" />
+                          <button onClick={(e) => { e.stopPropagation(); deleteColumn(column.id); }} className="text-rose-500/50 hover:text-rose-400 opacity-0 group-hover/title:opacity-100 transition-opacity shrink-0 ml-auto" title="Excluir Coluna">
+                            <Trash2 size={12} />
+                          </button>
                         </div>
                       )}
-                      <span className="bg-zinc-800 border border-white/5 px-2.5 py-0.5 rounded-full text-xs font-bold text-zinc-400">{columnLeads.length}</span>
+                      <span className="bg-zinc-800 border border-white/5 px-2.5 py-0.5 rounded-full text-xs font-bold text-zinc-400 shrink-0 ml-2">{columnLeads.length}</span>
                     </div>
                     <div className="flex items-center justify-between w-full relative z-10 mt-2">
                       <div className="flex items-center justify-between gap-1.5 px-3 py-1.5 bg-black/40 rounded-xl border border-white/5 relative z-10 self-start">
@@ -578,6 +612,16 @@ Podemos agendar uma breve apresentação da proposta?`;
                 </div>
               );
             })}
+            {/* Add Column Button */}
+            <div className="flex flex-col w-[88vw] md:w-[320px] shrink-0 h-full justify-start mt-2 px-4 md:px-0">
+              <button 
+                onClick={addColumn}
+                className="w-full flex items-center justify-center gap-2 py-4 border-2 border-dashed border-white/10 hover:border-lime-500/50 rounded-2xl text-zinc-500 hover:text-lime-400 font-bold transition-all bg-black/20 hover:bg-lime-500/5"
+              >
+                <Plus size={18} />
+                Nova Fase
+              </button>
+            </div>
           </div>
         </div>
       ) : (
@@ -591,18 +635,12 @@ Podemos agendar uma breve apresentação da proposta?`;
             )}
             {finalLeads.map(lead => {
               const stage = lead.status;
-              const stageColor = stage === 'Lead' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                stage === 'Qualificacao' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' :
-                stage === 'Proposta' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
-                stage === 'Perdido' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                'bg-lime-500/10 text-lime-400 border-lime-500/20';
-              const stageLabel = stage === 'Lead' ? 'Novo' :
-                stage === 'Qualificacao' ? 'Qualificação' :
-                stage === 'Proposta' ? 'Proposta' : 
-                stage === 'Perdido' ? 'Perdido' : 'Fechado';
+              const stageData = currentStages.find(s => s.id === stage);
+              const isLost = stage === 'Perdido';
+              const stageColor = isLost ? 'bg-red-500/10 text-red-400 border-red-500/20' : `bg-white/5 text-zinc-300 border-white/10`; // fallback
+              const stageLabel = stageData ? stageData.name : (isLost ? 'Perdido' : stage);
                 
               const nextActionStatus = getNextActionStatus(lead.nextActionDate);
-              const isLost = lead.status === 'Perdido';
               const listBg = 
                 isLost ? 'bg-red-500/5' :
                 nextActionStatus === 'missing' || nextActionStatus === 'overdue' 
@@ -661,7 +699,7 @@ Podemos agendar uma breve apresentação da proposta?`;
           selectedLead={selectedLead}
           isEditing={isEditing}
           editingData={editFormData}
-          columnTitles={columnTitles}
+          stages={currentStages}
           aiProposal={aiProposal}
           isGeneratingAI={isGeneratingAI}
           isCopied={isCopied}
@@ -674,7 +712,6 @@ Podemos agendar uma breve apresentação da proposta?`;
           onCopyAI={copyToClipboard}
           onClearAI={() => setAiProposal('')}
           onWhatsApp={handleSmartWhatsApp}
-          columnsConfig={COLUMN_CONFIG}
         />
       )}
 
