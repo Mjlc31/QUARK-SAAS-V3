@@ -139,7 +139,7 @@ export const CrmProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (stage === 'Fechado' && oldStage !== 'Fechado' && user) {
       try {
         const { data: proposalData } = await supabase.from('proposals').select('data').eq('lead_id', leadId).order('created_at', { ascending: false }).limit(1).single();
-        await generateDREFromLead(updatedLead, proposalData);
+        await generateDREFromLead(updatedLead, proposalData ?? undefined);
         await addProject({
           clientId: updatedLead.id,
           clientName: updatedLead.name,

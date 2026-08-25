@@ -34,17 +34,18 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
       const payloads = [];
 
       const valorTotal = proposalData?.data?.finalPrice || lead.value || 0;
+      const d = proposalData?.data;
       
-      const custoKit = proposalData?.data?.priceKit 
-          ? (proposalData.data.priceKit + (proposalData.data.modulesCount * proposalData.data.pricePerModule))
+      const custoKit = d?.priceKit 
+          ? (d.priceKit + ((d.modulesCount ?? 0) * (d.pricePerModule ?? 0)))
           : valorTotal * FINANCIAL_CONSTANTS.COST_KIT_PERCENTAGE; 
       
-      const custoOperacao = proposalData?.data?.priceCA 
-          ? ((proposalData.data.systemSizeKw * proposalData.data.priceCA) + (proposalData.data.additionalCosts || 0))
+      const custoOperacao = d?.priceCA 
+          ? (((d.systemSizeKw ?? 0) * d.priceCA) + (d.additionalCosts || 0))
           : valorTotal * FINANCIAL_CONSTANTS.COST_LABOR_PERCENTAGE; 
 
-      const impostos = proposalData?.data?.taxPercentage 
-          ? (valorTotal * (proposalData.data.taxPercentage / 100))
+      const impostos = d?.taxPercentage 
+          ? (valorTotal * (d.taxPercentage / 100))
           : valorTotal * FINANCIAL_CONSTANTS.COST_TAX_PERCENTAGE; 
 
       const custoEngenharia = valorTotal * FINANCIAL_CONSTANTS.COST_ENGINEERING_PERCENTAGE;
@@ -70,7 +71,7 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
         payloads.push({
             description: `Impostos Incidentes (DAS/ICMS) - ${lead.name}`,
             type: 'despesa', category: FINANCIAL_CONSTANTS.CATEGORY_TAX, amount: impostos,
-            date: hoje, note: proposalData ? `Alíquota da proposta: ${proposalData.data.taxPercentage}%` : `Estimativa Padrão (${FINANCIAL_CONSTANTS.COST_TAX_PERCENTAGE * 100}%)`, user_id: user.id
+            date: hoje, note: d?.taxPercentage ? `Alíquota da proposta: ${d.taxPercentage}%` : `Estimativa Padrão (${FINANCIAL_CONSTANTS.COST_TAX_PERCENTAGE * 100}%)`, user_id: user.id
         });
         payloads.push({
             description: `Projeto e Homologação na Concessionária - ${lead.name}`,
