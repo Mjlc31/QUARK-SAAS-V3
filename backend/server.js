@@ -13,7 +13,7 @@ const port = process.env.PORT || 3001;
 
 // Instância da OpenAI
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || 'sk-chave-pendente',
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 // =========== ROTAS DE HEALTH CHECK ===========

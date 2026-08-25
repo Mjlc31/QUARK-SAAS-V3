@@ -12,14 +12,21 @@
   "type": "commonjs",
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "@google/genai": "^0.1.2",
     "@supabase/supabase-js": "^2.98.0",
     "axios": "^1.13.6",
     "cors": "^2.8.6",
+    "dompurify": "^3.0.0",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
+    "express-rate-limit": "^7.1.5",
     "googleapis": "^171.4.0",
+    "jsdom": "^24.0.0",
+    "node-cache": "^5.1.2",
     "node-cron": "^4.2.1",
+    "p-retry": "^6.2.0",
     "qrcode-terminal": "^0.12.0",
-    "socket.io": "^4.8.3"
+    "socket.io": "^4.8.3",
+    "puppeteer": "^22.0.0"
   }
 }

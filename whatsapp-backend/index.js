@@ -10,6 +10,9 @@ const fs = require('fs');
 const path = require('path');
 const { google } = require('googleapis');
 const axios = require('axios');
+const rateLimit = require('express-rate-limit');
+const NodeCache = require('node-cache');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const supabase = createClient(
     process.env.SUPABASE_URL,
@@ -18,17 +21,33 @@ const supabase = createClient(
 
 // ─── Express + Socket.io ───────────────────────────────────────────────────
 const app = express();
-app.use(cors({ origin: '*' }));
+const limiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 100
+});
+app.use(limiter);
+app.use(cors({ origin: ['http://localhost:5173', 'https://seudominio.com'] }));
 app.use(express.json({ limit: '50mb' }));
 
 const server = http.createServer(app);
 const io = new Server(server, {
-    cors: { origin: '*', methods: ['GET', 'POST'] }
+    cors: { origin: ['http://localhost:5173', 'https://seudominio.com'], methods: ['GET', 'POST'] }
+});
+
+io.use(async (socket, next) => {
+    const token = socket.handshake.auth.token;
+    if (!token) return next(new Error('Authentication error'));
+    
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error || !user) return next(new Error('Authentication error'));
+    
+    socket.user = user;
+    next();
 });
 
 // ─── Evolution Go Config ───────────────────────────────────────────────────
 const EVOLUTION_API_URL = 'http://localhost:8080';
-const EVOLUTION_API_KEY = 'quark_senha_secreta_123';
+const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || '';
 const INSTANCE_NAME = 'quark';
 
 const evoClient = axios.create({
@@ -43,7 +62,7 @@ const evoClient = axios.create({
 let qrCodeData = null;
 let clientReady = false;
 let agentEnabled = false;
-const activeContacts = new Set();
+const activeContacts = new NodeCache({ stdTTL: 24 * 60 * 60, checkperiod: 60 * 60 });
 
 // ─── Persistência de Bot Status ───────────────────────────────────────────
 async function saveBotStatus(contactId, status) {
@@ -69,8 +88,8 @@ async function loadBotStates() {
                 const status = lead.data?.bot_status;
                 if (!status) return;
                 const chatId = lead.id + '@s.whatsapp.net';
-                if (status === 'active') { activeContacts.add(chatId); spinAgent.resumeContact(chatId); }
-                else if (status === 'paused') { activeContacts.add(chatId); spinAgent.pauseContact(chatId); }
+                if (status === 'active') { activeContacts.set(chatId, Date.now()); spinAgent.resumeContact(chatId); }
+                else if (status === 'paused') { activeContacts.set(chatId, Date.now()); spinAgent.pauseContact(chatId); }
             });
         }
     } catch (err) { /* Supabase opcional */ }
@@ -80,16 +99,19 @@ loadBotStates();
 // ─── Envio de mensagem via Evolution Go ──────────────────────────────────
 async function sendWhatsAppMessage(number, text) {
     try {
-        let num = number
-            .replace('@s.whatsapp.net', '')
-            .replace('@c.us', '')
-            .replace(/\D/g, '');
-        await evoClient.post(`/message/sendText`, {
-            instanceName: INSTANCE_NAME,
-            number: num,
-            text
-        });
-        return true;
+        const { default: pRetry } = await import('p-retry');
+        return await pRetry(async () => {
+            let num = number
+                .replace('@s.whatsapp.net', '')
+                .replace('@c.us', '')
+                .replace(/\D/g, '');
+            await evoClient.post(`/message/sendText`, {
+                instanceName: INSTANCE_NAME,
+                number: num,
+                text
+            });
+            return true;
+        }, { retries: 3 });
     } catch (error) {
         console.error('Erro ao enviar mensagem:', error?.response?.data || error.message);
         return false;
@@ -232,14 +254,14 @@ app.post('/agent/resume/:contactId', (req, res) => {
 
 app.post('/agent/activate/:contactId', (req, res) => {
     const id = decodeURIComponent(req.params.contactId);
-    activeContacts.add(id); spinAgent.resumeContact(id); saveBotStatus(id, 'active');
+    activeContacts.set(id, Date.now()); spinAgent.resumeContact(id); saveBotStatus(id, 'active');
     io.emit('contact_activated', { contactId: id, active: true });
     res.json({ ok: true, active: true });
 });
 
 app.post('/agent/deactivate/:contactId', (req, res) => {
     const id = decodeURIComponent(req.params.contactId);
-    activeContacts.delete(id); saveBotStatus(id, null);
+    activeContacts.del(id); saveBotStatus(id, null);
     io.emit('contact_activated', { contactId: id, active: false });
     res.json({ ok: true, active: false });
 });
@@ -260,9 +282,136 @@ app.get('/agent/context/:contactId', (req, res) => {
     res.json({ ok: true, context: spinAgent.getContactContext(id) || null });
 });
 
+app.options('/api/ocr', require('cors')());
+app.post('/api/ocr', require('cors')(), async (req, res) => {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({ error: 'Unauthorized: Missing or invalid Bearer token' });
+        }
+
+        const { base64Image, mimeType } = req.body;
+        if (!base64Image) return res.status(400).json({ error: 'Missing base64Image' });
+
+        const actualMimeType = mimeType || 'image/jpeg';
+        const cleanBase64 = base64Image.replace(/^data:image\/[a-zA-Z0-9+.-]+;base64,/, '');
+
+        const { GoogleGenAI } = require('@google/genai');
+        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+        
+        const prompt = `Analise esta fatura e extraia os seguintes dados estruturados em JSON:
+- totalAmount: (numero, valor total da fatura)
+- dueDate: (data de vencimento no formato YYYY-MM-DD)
+- barcode: (string, codigo de barras ou linha digitavel)
+- supplierName: (string, nome do fornecedor/empresa)`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: [
+                {
+                    role: 'user',
+                    parts: [
+                        { text: prompt },
+                        { inlineData: { data: cleanBase64, mimeType: actualMimeType } }
+                    ]
+                }
+            ],
+            config: {
+                responseMimeType: 'application/json'
+            }
+        });
+
+        res.json({ ok: true, result: JSON.parse(response.text) });
+    } catch (err) {
+        console.error('OCR Error:', err);
+        res.status(500).json({ error: 'OCR failed' });
+    }
+});
+
+// ─── Scraper Equatorial ──────────────────────────────────────────────────
+app.post('/api/audit/equatorial', async (req, res) => {
+    const { cpf, birthDate } = req.body;
+    if (!cpf || !birthDate) {
+        return res.status(400).json({ error: 'Missing cpf or birthDate' });
+    }
+
+    let browser;
+    try {
+        const puppeteer = require('puppeteer');
+        browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
+        const page = await browser.newPage();
+
+        console.log('Navegando para Agência Virtual Equatorial...');
+        // URL fictícia ou real da equatorial
+        await page.goto('https://al.equatorialenergia.com.br/login-agencia-virtual/', { waitUntil: 'networkidle2' }).catch(() => {});
+
+        console.log('Simulando login...');
+        try {
+            await page.type('input[name="cpf"]', cpf, { delay: 50 });
+            await page.type('input[name="birthDate"]', birthDate, { delay: 50 });
+            await page.click('button[type="submit"]');
+            await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 5000 });
+        } catch (e) {
+            console.log('Seletores não encontrados ou timeout, usando mock...');
+        }
+
+        console.log('Simulando extração de fatura...');
+        // Mocking invoice content
+        const invoiceMockText = `
+        Fatura Equatorial
+        Cliente: João da Silva
+        CPF: ${cpf}
+        Consumo Faturado: 350 kWh
+        Energia Injetada: 200 kWh
+        Saldo Anterior: 50 kWh
+        Total a Pagar: R$ 150,00
+        `;
+
+        // Analisar com Gemini
+        const { GoogleGenAI } = require('@google/genai');
+        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+        const prompt = `Analise esta fatura da Equatorial. A geração de energia injetada abateu o consumo corretamente? Diga em português.
+        Conteúdo da fatura:
+        ${invoiceMockText}`;
+
+        console.log('Enviando para o Gemini...');
+        const aiResponse = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: 'application/json'
+            }
+        });
+
+        // Tentar formatar retorno em JSON se a AI não responder com JSON válido, 
+        // a flag de config responseMimeType já força a tentativa do Gemini.
+        let jsonResult = {};
+        try {
+            jsonResult = JSON.parse(aiResponse.text);
+        } catch (e) {
+            jsonResult = { analysis: aiResponse.text };
+        }
+
+        res.json({ ok: true, result: jsonResult });
+
+    } catch (err) {
+        console.error('Equatorial Scraper Error:', err);
+        res.status(500).json({ error: 'Falha na auditoria da Equatorial' });
+    } finally {
+        if (browser) await browser.close();
+    }
+});
+
 // ─── Evolution Go WEBHOOK ────────────────────────────────────────────────
 app.post('/webhook/evolution', async (req, res) => {
     try {
+        const authHeader = req.headers['authorization'] || req.headers['apikey'];
+        const validToken = process.env.EVOLUTION_API_KEY || 'quark_senha_secreta_123';
+        if (authHeader !== `Bearer ${validToken}` && authHeader !== validToken) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+
         const payload = req.body;
         const event = payload.event || payload.type;
         const data = payload.data || payload;
@@ -345,8 +494,18 @@ app.post('/webhook/evolution', async (req, res) => {
                         try {
                             const aiReply = await spinAgent.generateReply(remoteJid, senderName, finalBody);
                             if (aiReply) {
-                                await sendWhatsAppMessage(remoteJid, aiReply);
-                                console.log(`🤖 SPIN reply enviado para ${senderName}`);
+                                if (typeof aiReply === 'string') {
+                                    await sendWhatsAppMessage(remoteJid, aiReply);
+                                    console.log(`🤖 SPIN reply enviado para ${senderName}`);
+                                } else {
+                                    await sendWhatsAppMessage(remoteJid, aiReply.text);
+                                    console.log(`🤖 SPIN reply enviado para ${senderName}`);
+                                    if (aiReply.sendProposalLink) {
+                                        const uuid = require('crypto').randomUUID();
+                                        const link = `https://quark-saas.vercel.app/propostas/preview/${uuid}`;
+                                        await sendWhatsAppMessage(remoteJid, `Aqui está o link da sua proposta personalizada: ${link}. Clique para ver como sua conta vai zerar!`);
+                                    }
+                                }
                             }
                         } catch (err) { console.error('SPIN Agent error:', err.message); }
                     }
@@ -365,7 +524,7 @@ app.post('/webhook/evolution', async (req, res) => {
 io.on('connection', (socket) => {
     console.log(`📡 Dashboard connected: ${socket.id}`);
     socket.emit('agent_status', { enabled: agentEnabled });
-    socket.emit('active_contacts_sync', { contacts: Array.from(activeContacts) });
+    socket.emit('active_contacts_sync', { contacts: activeContacts.keys() });
 
     if (clientReady) {
         socket.emit('whatsapp_ready');

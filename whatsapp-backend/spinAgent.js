@@ -152,6 +152,17 @@ const conversations = new Map();
 // Conversas pausadas manualmente (o vendedor assumiu)
 const pausedContacts = new Set();
 
+// Limpeza de conversas antigas para evitar memory leak (TTL 24h)
+setInterval(() => {
+    const now = Date.now();
+    for (const [id, conv] of conversations.entries()) {
+        if (conv.lastMessageAt && now - conv.lastMessageAt.getTime() > 24 * 60 * 60 * 1000) {
+            conversations.delete(id);
+            pausedContacts.delete(id);
+        }
+    }
+}, 60 * 60 * 1000);
+
 // Controle de concorrência (evita respostas duplicadas pro mesmo contato)
 const processingContacts = new Set();
 
@@ -209,13 +220,13 @@ Seja educado e breve. Diga que no momento não consegue atender o perfil dele.
 Não gaste mais tempo. Encerre com respeito.`,
     };
 
-    return `Você é o consultor de atendimento da Quark Energia. Chame-se apenas "equipe Quark".
+    return `Você é um SDR/Pré-vendedor especialista e agressivo em conversão de energia solar da Quark Energia. Chame-se apenas "equipe Quark".
 
 REGRAS ABSOLUTAS:
 1. NUNCA revele que é IA, bot ou assistente virtual. Você é humano.
-2. SEJA BREVE. Máximo 3 frases por mensagem. Ponto final.
+2. SEJA BREVE. Máximo 3 frases por mensagem. Ponto final. Você qualifica, tira dúvidas técnicas, e tenta agendar uma visita ou enviar a proposta comercial.
 3. UMA pergunta por vez. Nunca duas.
-4. Tom: consultor direto, humano, confiante. Sem robótica.
+4. Tom: consultor direto, agressivo em vendas, humano, confiante. Sem robótica.
 5. Emojis: zero ou máximo 1 por mensagem.
 6. Se o cliente pedir para falar com atendente humano → retorne transferToHuman=true.
 7. Se detectar que o cliente quer "o mais barato" ou claramente não tem condições → retorne phase="disqualified".
@@ -234,13 +245,15 @@ RESPONDA SOMENTE em JSON, sem texto fora do JSON:
   "message": "sua resposta aqui",
   "transferToHuman": false,
   "billValue": null,
-  "city": null
+  "city": null,
+  "sendProposalLink": false
 }
 
 - "phase": fase ideal para continuar (pode avançar)
 - "billValue": se o cliente mencionou valor de conta, extraia aqui (número só). Senão, null.
 - "city": se mencionou cidade/bairro, extraia aqui. Senão, null.
-- "transferToHuman": true somente se o cliente pediu explicitamente para falar com humano.`;
+- "transferToHuman": true somente se o cliente pediu explicitamente para falar com humano.
+- "sendProposalLink": true se o cliente solicitou uma proposta comercial ou você achar que deve enviá-la para fechar a venda agora.`;
 }
 
 // ─── Pausa manual por contato ─────────────────────────────────────────────────
@@ -294,7 +307,8 @@ async function generateSummary(conv) {
         const historyText = conv.history.map(m => `${m.role === 'model' ? 'Bot' : 'Cliente'}: ${m.parts[0].text}`).join('\n');
         const prompt = `Faça um resumo de 1 parágrafo bem curto desta conversa (3 a 4 linhas) para que o vendedor humano saiba o contexto antes de assumir o atendimento. Foco no valor da conta, cidade e principal dúvida/objeção do cliente.\n\nConversa:\n${historyText}`;
 
-        const result = await model.generateContent(prompt);
+        const { default: pRetry } = await import('p-retry');
+        const result = await pRetry(() => model.generateContent(prompt), { retries: 3 });
         conv.summary = result.response.text().trim();
         console.log(`\n📋 RESUMO PARA O VENDEDOR (${conv.contactName}):\n${conv.summary}\n`);
     } catch (err) {
@@ -345,7 +359,8 @@ async function generateReply(contactId, contactName, userMessage) {
             history: conv.history.slice(0, -1),
         });
 
-        const result = await chat.sendMessage(userMessage);
+        const { default: pRetry } = await import('p-retry');
+        const result = await pRetry(() => chat.sendMessage(userMessage), { retries: 3 });
         const rawText = result.response.text().trim();
 
         // Parse JSON
@@ -358,7 +373,7 @@ async function generateReply(contactId, contactName, userMessage) {
             else throw new Error('Invalid JSON from Gemini: ' + rawText.substring(0, 120));
         }
 
-        const { phase, message, transferToHuman, billValue, city } = parsed;
+        const { phase, message, transferToHuman, billValue, city, sendProposalLink } = parsed;
 
         // Atualiza estado
         if (phase && phase !== conv.phase) {
@@ -397,7 +412,7 @@ async function generateReply(contactId, contactName, userMessage) {
 
         console.log(`🤖 [${conv.phase}] ${contactName}: "${message.substring(0, 80)}"`);
 
-        return (transferToHuman || conv.disqualified) ? null : message;
+        return (transferToHuman || conv.disqualified) ? null : { text: message, sendProposalLink: !!sendProposalLink };
 
     } catch (err) {
         console.error('❌ Gemini error:', err.message);
@@ -428,7 +443,8 @@ ${historyText}
 
 Sua sugestão de resposta pronta:`;
 
-        const result = await model.generateContent(prompt);
+        const { default: pRetry } = await import('p-retry');
+        const result = await pRetry(() => model.generateContent(prompt), { retries: 3 });
         return result.response.text().trim();
     } catch (err) {
         console.error('Erro ao gerar sugestão para humano:', err.message);
