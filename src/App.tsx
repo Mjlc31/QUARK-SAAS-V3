@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import { Suspense } from 'react';
-import SkeletonLoader from './components/SkeletonLoader';
+import { SkeletonPage as SkeletonLoader } from './components/SkeletonLoader';
 
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
 const CRM = React.lazy(() => import('./pages/CRM'));

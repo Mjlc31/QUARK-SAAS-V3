@@ -1,3 +1,5 @@
+import { FinancialTransaction } from "../types";
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
 import { PieChart as PieChartIcon, TrendingUp, Download, Target, Users, Wallet, Loader2 } from 'lucide-react';

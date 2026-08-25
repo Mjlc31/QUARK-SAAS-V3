@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 // Assuming FinancialTransaction type exists, we can use any or add type later
 import { FinancialTransaction } from '../types';
 

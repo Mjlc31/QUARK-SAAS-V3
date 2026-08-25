@@ -31,11 +31,11 @@ function getSansFont(isBold: boolean = false) {
 }
 
 // ── CORES LUXURY ───────────────────────────────
+const TEXT_H = '#0f172a';
 const DARK = TEXT_H; // Preto mais profundo
 const SURFACE = '#f8fafc';
 const BORDER = '#e2e8f0';
 const MUTED = '#64748b';
-const TEXT_H = '#0f172a';
 
 const s = StyleSheet.create({
   page: {

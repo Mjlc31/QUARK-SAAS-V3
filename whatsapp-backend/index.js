@@ -296,7 +296,9 @@ app.post('/api/ocr', require('cors')(), async (req, res) => {
         const actualMimeType = mimeType || 'image/jpeg';
         const cleanBase64 = base64Image.replace(/^data:image\/[a-zA-Z0-9+.-]+;base64,/, '');
 
-        const { GoogleGenAI } = require('@google/genai');
+        const { GoogleGenerativeAI } = require('@google/generative-ai');
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const modelObj = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
         
         const prompt = `Analise esta fatura e extraia os seguintes dados estruturados em JSON:
@@ -368,7 +370,9 @@ app.post('/api/audit/equatorial', async (req, res) => {
         `;
 
         // Analisar com Gemini
-        const { GoogleGenAI } = require('@google/genai');
+        const { GoogleGenerativeAI } = require('@google/generative-ai');
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const modelObj = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
         const prompt = `Analise esta fatura da Equatorial. A geração de energia injetada abateu o consumo corretamente? Diga em português.
