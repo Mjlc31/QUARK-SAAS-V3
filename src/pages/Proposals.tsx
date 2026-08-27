@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { ProposalEditor, ProposalData } from '../components/ProposalEditor';
-import { FileText, Plus, ChevronRight, Calculator, CheckCircle, LayoutGrid, List, Search, Trash2, Copy, Edit3, TrendingUp, Calendar, Zap } from 'lucide-react';
+import { FileText, Plus, ChevronRight, Calculator, CheckCircle, LayoutGrid, List, Search, Trash2, Copy, Edit3, TrendingUp, Calendar, Zap, Loader2 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { DISTRIBUTORS, DEFAULT_DISTRIBUTOR, getEffectiveFiob, Distributor } from '../components/proposal/distributors';
 import { calcRecommendedPower, calcConsumptionFromBill } from '../components/proposal/solarCalc';
+import { useProposals } from '../hooks/useProposals';
 
 const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 const formatDate = (iso?: string) => iso ? new Date(iso).toLocaleDateString('pt-BR') : '—';
@@ -26,10 +27,7 @@ function hashColor(str: string) {
 
 const Proposals: React.FC = () => {
   const { addLead } = useApp();
-  const [proposals, setProposals] = useState<ProposalData[]>(() => {
-    const saved = localStorage.getItem('quark_proposals');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const { proposals, saveProposal, deleteProposal, isLoading } = useProposals();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -66,11 +64,6 @@ const Proposals: React.FC = () => {
     publicLighting: 30,
     generationFactor: 130,
   });
-
-
-  useEffect(() => {
-    localStorage.setItem('quark_proposals', JSON.stringify(proposals));
-  }, [proposals]);
 
   const handleNextStep1 = () => {
     if (!formData.clientName || !formData.city) {
@@ -129,30 +122,25 @@ const Proposals: React.FC = () => {
     setStep(4);
   };
 
-  const handleSavePreview = (payload: ProposalData) => {
-    if (payload.id) {
-      setProposals(prev => prev.map(p => p.id === payload.id ? { ...payload, updatedAt: new Date().toISOString() } : p));
-    } else {
-      const newProposal = {
-        ...payload,
-        id: crypto.randomUUID(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        status: 'draft' as const,
-      };
-      setProposals(prev => [...prev, newProposal]);
-      
-      // Atualiza o formData com a nova proposta para que o próximo salvamento atualize esta
-      setFormData(newProposal);
+  const handleSavePreview = async (payload: ProposalData) => {
+    const isNew = !payload.id;
+    try {
+      const savedProposal = await saveProposal.mutateAsync(payload as any);
+      setFormData(savedProposal);
 
-      addLead({
-        name: newProposal.clientName,
-        city: newProposal.city,
-        value: newProposal.finalPrice,
-        monthlyConsumption: newProposal.consumption,
-        phone: newProposal.phone || '',
-        status: 'Proposta'
-      });
+      if (isNew) {
+        addLead({
+          name: savedProposal.clientName,
+          city: savedProposal.city,
+          value: savedProposal.finalPrice,
+          monthlyConsumption: savedProposal.consumption,
+          phone: savedProposal.phone || '',
+          status: 'Proposta'
+        });
+      }
+    } catch (e) {
+      console.error('Erro ao salvar proposta', e);
+      alert('Ocorreu um erro ao salvar a proposta.');
     }
   };
 
@@ -161,21 +149,24 @@ const Proposals: React.FC = () => {
     setStep(4); // Abre direto no editor WYSIWYG
   };
 
-  const handleDeleteProposal = (id: string) => {
-    setProposals(prev => prev.filter(p => p.id !== id));
-    setDeleteConfirmId(null);
+  const handleDeleteProposal = async (id: string) => {
+    try {
+      await deleteProposal.mutateAsync(id);
+      setDeleteConfirmId(null);
+    } catch (e) {
+      console.error('Erro ao deletar', e);
+    }
   };
 
-  const handleDuplicateProposal = (proposal: ProposalData) => {
-    const copy: ProposalData = {
-      ...proposal,
-      id: crypto.randomUUID(),
-      clientName: `${proposal.clientName} (cópia)`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      status: 'draft',
-    };
-    setProposals(prev => [copy, ...prev]);
+  const handleDuplicateProposal = async (proposal: ProposalData) => {
+    try {
+      const copy = { ...proposal };
+      delete copy.id;
+      copy.clientName = `${proposal.clientName} (cópia)`;
+      await saveProposal.mutateAsync(copy);
+    } catch (e) {
+      console.error('Erro ao duplicar', e);
+    }
   };
 
   const thisMonth = new Date().getMonth();

@@ -18,8 +18,8 @@ import {
   closestCenter,
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
+import { pdf } from '@react-pdf/renderer';
+import { ProposalPDF } from './ProposalPDF';
 
 import { ProposalBlock, ProposalData, BlockType, ProposalTheme, DEFAULT_THEME, FONT_FAMILY_MAP, ProposalMode } from './types';
 import { BLOCK_CATALOG, buildInitialBlocks } from './catalog';
@@ -180,56 +180,15 @@ export function ProposalBuilder({ data, onClose, onSave, onDelete }: ProposalBui
     const isDark = mode === 'dark';
     if (isDark) { setIsExporting(true); setExportStatus('loading'); }
     else { setIsExportingLight(true); setExportLightStatus('loading'); }
-    const exportTheme: ProposalTheme = isDark
-      ? { ...theme, mode: 'dark', backgroundColor: '#0A0A0A', textColor: '#ffffff' }
-      : { ...theme, mode: 'light', backgroundColor: '#ffffff', textColor: '#111111' };
     try {
-      setTheme(exportTheme);
-      // Aguardar renderização do novo tema e imagens
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      const exportTheme: ProposalTheme = isDark
+        ? { ...theme, mode: 'dark', backgroundColor: '#0A0A0A', textColor: '#ffffff' }
+        : { ...theme, mode: 'light', backgroundColor: '#ffffff', textColor: '#111111' };
 
-      const element = document.getElementById('proposal-canvas-a4');
-      if (!element) throw new Error('Canvas não encontrado');
+      const blob = await pdf(
+        <ProposalPDF blocks={blocks} theme={exportTheme} clientName={data.clientName} />
+      ).toBlob();
 
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: exportTheme.backgroundColor,
-        windowHeight: element.scrollHeight,
-        height: element.scrollHeight,
-        windowWidth: element.scrollWidth,
-        width: element.scrollWidth,
-        scrollY: 0,
-      });
-
-      const imgData = canvas.toDataURL('image/jpeg', 1.0);
-      const pdfDoc = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdfDoc.internal.pageSize.getWidth();
-      const pdfHeight = pdfDoc.internal.pageSize.getHeight();
-      
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
-      const ratio = pdfWidth / imgWidth;
-      const scaledHeight = imgHeight * ratio;
-      
-      let heightLeft = scaledHeight;
-      let position = 0;
-      
-      pdfDoc.addImage(imgData, 'JPEG', 0, position, pdfWidth, scaledHeight);
-      heightLeft -= pdfHeight;
-      
-      while (heightLeft > 0) {
-        position = heightLeft - scaledHeight;
-        pdfDoc.addPage();
-        pdfDoc.addImage(imgData, 'JPEG', 0, position, pdfWidth, scaledHeight);
-        heightLeft -= pdfHeight;
-      }
-      
-      const blob = pdfDoc.output('blob');
-      
-      // Restaurar tema original
-      setTheme(theme);
       const url = URL.createObjectURL(blob);
       const suffix = isDark ? 'Escuro' : 'Claro';
       const filename = `Proposta_${suffix}_${data.clientName.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`;
@@ -237,9 +196,12 @@ export function ProposalBuilder({ data, onClose, onSave, onDelete }: ProposalBui
       a.href = url; a.download = filename;
       document.body.appendChild(a); a.click();
       document.body.removeChild(a); URL.revokeObjectURL(url);
+      
+      // Upload opcional ao Storage
       storageService.uploadFile('quark_arquivos', `propostas/${filename}`, blob).then(publicUrl => {
         if (publicUrl) console.log('✅ Proposta salva no Storage:', publicUrl);
       });
+      
       if (isDark) { setExportStatus('success'); setTimeout(() => setExportStatus('idle'), 3000); }
       else { setExportLightStatus('success'); setTimeout(() => setExportLightStatus('idle'), 3000); }
     } catch (err) {

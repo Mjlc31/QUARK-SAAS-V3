@@ -32,7 +32,7 @@ function getSansFont(isBold: boolean = false) {
 
 // ── CORES LUXURY ───────────────────────────────
 const TEXT_H = '#0f172a';
-const DARK = TEXT_H; // Preto mais profundo
+const DARK = '#ffffff'; // Fundo ABNT
 const SURFACE = '#f8fafc';
 const BORDER = '#e2e8f0';
 const MUTED = '#64748b';
@@ -216,6 +216,13 @@ const GaugeIcon = ({ color }: { color: string }) => (
 // ─────────────────────────────────────────────────────────────
 // Blocos PDF individuais
 // ─────────────────────────────────────────────────────────────
+
+const PageFooter = () => (
+  <View style={{ position: 'absolute', bottom: 30, left: 50, right: 50, flexDirection: 'row', justifyContent: 'space-between', borderTopColor: BORDER, borderTopWidth: 1, paddingTop: 10 }} fixed>
+    <Text style={{ fontSize: 8, color: MUTED, fontFamily: getSansFont(false) }}>Quark Energia — Proposta Comercial</Text>
+    <Text style={{ fontSize: 8, color: MUTED, fontFamily: getSansFont(false) }} render={({ pageNumber }) => `Página ${pageNumber}`} />
+  </View>
+);
 function PDFCover({ content: c, theme }: { content: CoverContent; theme: ProposalTheme }) {
   const pri = theme.primaryColor || '#1e3a8a';
   const fontSerif = getPdfFont(theme.fontFamily, false);
@@ -340,6 +347,7 @@ function PDFTechSpecs({ content: c, theme }: { content: TechSpecsContent; theme:
           </View>
         </View>
       </View>
+      <PageFooter />
     </Page>
   );
 }
@@ -432,6 +440,7 @@ function PDFFinancial({ content: c, theme }: { content: FinancialContent; theme:
           </View>
         </View>
       </View>
+      <PageFooter />
     </Page>
   );
 }
@@ -468,6 +477,7 @@ function PDFSocialProof({ content: c, theme }: { content: SocialProofContent; th
           </View>
         ))}
       </View>
+      <PageFooter />
     </Page>
   );
 }
@@ -523,6 +533,7 @@ function PDFFinancingBlock({ content: c, theme }: { content: FinancingContent; t
           * Valores sujeitos à aprovação de crédito pelas instituições financeiras. Condições válidas até o término da validade desta proposta.
         </Text>
       </View>
+      <PageFooter />
     </Page>
   );
 }
@@ -534,6 +545,95 @@ function PDFText({ content: c, theme }: { content: TextContent; theme: ProposalT
   return (
     <Page size="A4" style={[s.page, { fontFamily: getSansFont() }]}>
       <Text style={s.textBlock}>{plain}</Text>
+      <PageFooter />
+    </Page>
+  );
+}
+
+function PDFHowItWorks({ content: c, theme }: { content: any; theme: ProposalTheme }) {
+  const pri = theme.primaryColor || '#1e3a8a';
+  const fontSerifBold = getPdfFont(theme.fontFamily, true);
+  return (
+    <Page size="A4" style={[s.page, { fontFamily: getSansFont() }]}>
+      <View style={s.section}>
+        <Text style={[s.sectionTag, { color: pri }]}>Etapas</Text>
+        <Text style={[s.sectionH2, { fontFamily: fontSerifBold }]}>{c.title || 'Como Funciona'}</Text>
+        <Text style={s.sectionSub}>{c.subtitle || 'Nosso processo de ponta a ponta.'}</Text>
+        
+        <View style={{ marginTop: 20 }}>
+          {(c.steps || []).map((step: any, index: number) => (
+            <View key={index} style={{ flexDirection: 'row', marginBottom: 20 }}>
+              <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: `${pri}15`, alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
+                <Text style={{ color: pri, fontFamily: fontSerifBold, fontSize: 12 }}>{index + 1}</Text>
+              </View>
+              <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: BORDER, paddingBottom: 16 }}>
+                <Text style={{ fontSize: 14, color: TEXT_H, fontFamily: fontSerifBold, marginBottom: 4 }}>{step.label}</Text>
+                <Text style={{ fontSize: 10, color: MUTED, fontFamily: getSansFont(false) }}>{step.duration}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      </View>
+      <PageFooter />
+    </Page>
+  );
+}
+
+function PDFGenerationChart({ content: c, theme }: { content: any; theme: ProposalTheme }) {
+  const pri = theme.primaryColor || '#1e3a8a';
+  const fontSerifBold = getPdfFont(theme.fontFamily, true);
+  
+  const maxVal = Math.max(
+    ...(c.data || []).map((d: any) => Math.max(d.generation || 0, d.consumption || 0)),
+    1
+  );
+
+  return (
+    <Page size="A4" style={[s.page, { fontFamily: getSansFont() }]}>
+      <View style={s.section}>
+        <Text style={[s.sectionTag, { color: pri }]}>Geração e Consumo</Text>
+        <Text style={[s.sectionH2, { fontFamily: fontSerifBold }]}>{c.title || 'Balanço Energético'}</Text>
+        <Text style={s.sectionSub}>{c.subtitle || 'Projeção mensal de geração, consumo e saldo acumulado.'}</Text>
+        
+        <View style={s.table}>
+          <View style={{ flexDirection: 'row', padding: '10 0', borderBottomColor: BORDER, borderBottomWidth: 1 }}>
+            <Text style={{ flex: 1, fontSize: 8, color: MUTED, fontFamily: getSansFont(true), textTransform: 'uppercase' }}>Mês</Text>
+            <Text style={{ flex: 1.5, fontSize: 8, color: MUTED, fontFamily: getSansFont(true), textTransform: 'uppercase' }}>Geração (kWh)</Text>
+            <Text style={{ flex: 1.5, fontSize: 8, color: MUTED, fontFamily: getSansFont(true), textTransform: 'uppercase' }}>Consumo (kWh)</Text>
+            <Text style={{ flex: 1, fontSize: 8, color: MUTED, fontFamily: getSansFont(true), textTransform: 'uppercase', textAlign: 'right' }}>Saldo</Text>
+          </View>
+          
+          {(c.data || []).map((row: any, i: number) => {
+            const genPct = ((row.generation || 0) / maxVal) * 100;
+            const consPct = ((row.consumption || 0) / maxVal) * 100;
+            
+            return (
+              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', padding: '12 0', borderBottomColor: BORDER, borderBottomWidth: 1 }}>
+                <Text style={{ flex: 1, fontSize: 10, color: TEXT_H, fontFamily: fontSerifBold }}>{row.month}</Text>
+                
+                <View style={{ flex: 1.5, paddingRight: 20 }}>
+                  <Text style={{ fontSize: 10, color: TEXT_H, marginBottom: 4 }}>{row.generation}</Text>
+                  <View style={{ height: 4, backgroundColor: SURFACE, borderRadius: 2 }}>
+                    <View style={{ width: `${genPct}%`, height: '100%', backgroundColor: pri, borderRadius: 2 }} />
+                  </View>
+                </View>
+                
+                <View style={{ flex: 1.5, paddingRight: 20 }}>
+                  <Text style={{ fontSize: 10, color: TEXT_H, marginBottom: 4 }}>{row.consumption}</Text>
+                  <View style={{ height: 4, backgroundColor: SURFACE, borderRadius: 2 }}>
+                    <View style={{ width: `${consPct}%`, height: '100%', backgroundColor: MUTED, borderRadius: 2 }} />
+                  </View>
+                </View>
+                
+                <Text style={{ flex: 1, fontSize: 10, color: row.balance >= 0 ? '#10b981' : '#ef4444', fontFamily: fontSerifBold, textAlign: 'right' }}>
+                  {row.balance > 0 ? '+' : ''}{row.balance}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      </View>
+      <PageFooter />
     </Page>
   );
 }
@@ -569,6 +669,10 @@ export function ProposalPDF({ blocks, theme, clientName }: ProposalPDFProps) {
             return <PDFFinancingBlock key={block.id} content={block.content as FinancingContent} theme={theme} />;
           case 'text':
             return <PDFText key={block.id} content={block.content as TextContent} theme={theme} />;
+          case 'how_it_works':
+            return <PDFHowItWorks key={block.id} content={block.content as any} theme={theme} />;
+          case 'generation_chart':
+            return <PDFGenerationChart key={block.id} content={block.content as any} theme={theme} />;
           default:
             return null;
         }
