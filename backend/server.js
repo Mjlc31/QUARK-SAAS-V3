@@ -64,6 +64,52 @@ app.post('/api/evolution/send', async (req, res) => {
   }
 });
 
+// =========== ROTAS DO INSTAGRAM (META API) ===========
+const VERIFY_TOKEN = process.env.INSTA_VERIFY_TOKEN || 'quark_insta_token';
+
+app.get('/api/instagram/webhook', (req, res) => {
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+
+  if (mode && token) {
+    if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+      console.log('[INSTAGRAM] Webhook Verificado');
+      res.status(200).send(challenge);
+    } else {
+      res.sendStatus(403);
+    }
+  } else {
+    res.sendStatus(400);
+  }
+});
+
+app.post('/api/instagram/webhook', async (req, res) => {
+  try {
+    const body = req.body;
+    if (body.object === 'instagram') {
+      console.log('[INSTAGRAM] Evento Recebido:');
+      console.dir(body, { depth: null });
+      // WIP: Aqui o código vai interagir com o Supabase para checar a palavra-chave
+      // nas tabelas instagram_campaigns e depois enviar a DM usando a Meta Graph API.
+      res.status(200).send('EVENT_RECEIVED');
+    } else {
+      res.sendStatus(404);
+    }
+  } catch (error) {
+    console.error('[INSTAGRAM] Erro no Webhook:', error);
+    res.sendStatus(500);
+  }
+});
+
+// =========== AGENTE AUTÔNOMO CRM ===========
+// Simulação do loop do agente rodando em background (inspirado no trycompai/crm)
+setInterval(() => {
+  console.log('[AGENT] Heartbeat: Analisando leads e enriquecendo dados no background...');
+  // O Agente deverá consultar o banco (Supabase) por leads parados e usar a IA 
+  // para preencher CNPJ, fazer resumos ou agendar tarefas.
+}, 5 * 60 * 1000);
+
 app.listen(port, () => {
   console.log(`🚀 Servidor Quark Worker rodando na porta ${port}`);
   console.log(`🤖 IA e 📱 WhatsApp prontos para configuração.`);
