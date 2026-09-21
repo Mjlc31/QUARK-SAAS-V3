@@ -90,8 +90,49 @@ app.post('/api/instagram/webhook', async (req, res) => {
     if (body.object === 'instagram') {
       console.log('[INSTAGRAM] Evento Recebido:');
       console.dir(body, { depth: null });
-      // WIP: Aqui o código vai interagir com o Supabase para checar a palavra-chave
-      // nas tabelas instagram_campaigns e depois enviar a DM usando a Meta Graph API.
+      
+      // Processar todas as entradas (pode haver mais de uma ao mesmo tempo)
+      for (const entry of body.entry) {
+        const igAccountId = entry.id;
+        
+        // Iterar sobre as mudanças (ex: comentários)
+        for (const change of entry.changes || []) {
+          if (change.field === 'comments') {
+            const comment = change.value;
+            const text = comment.text ? comment.text.toLowerCase() : '';
+            
+            console.log(`[INSTAGRAM] Comentário recebido de ${comment.from?.username}: ${text}`);
+            
+            // Regra simples de palavra-chave
+            if (text.includes('teste') || text.includes('eu quero')) {
+              console.log(`[INSTAGRAM] Palavra-chave detectada! Enviando DM...`);
+              
+              const META_TOKEN = process.env.META_ACCESS_TOKEN;
+              
+              // Fazer POST para a Graph API para enviar a resposta privada (Private Reply)
+              const response = await fetch(`https://graph.instagram.com/v20.0/${igAccountId}/messages`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${META_TOKEN}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  recipient: {
+                    comment_id: comment.id
+                  },
+                  message: {
+                    text: `Olá, ${comment.from?.username}! Recebemos o seu comentário e essa é uma mensagem automática da nossa nova IA. Como podemos te ajudar com energia solar hoje?`
+                  }
+                })
+              });
+              
+              const result = await response.json();
+              console.log('[INSTAGRAM] Resposta da Meta:', result);
+            }
+          }
+        }
+      }
+      
       res.status(200).send('EVENT_RECEIVED');
     } else {
       res.sendStatus(404);
