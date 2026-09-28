@@ -3,9 +3,10 @@ import { FileText, Download, Calculator, Sparkles, Loader2, Zap, Settings2 } fro
 import { Lead } from '../types';
 import { calcRecommendedPower, calcSolar, calcFinancingOptions } from './proposal/solarCalc';
 import { pdf } from '@react-pdf/renderer';
-import { ProposalPDF } from './proposal/ProposalPDF';
+import ProposalPDF from './proposal/ProposalPDF';
 import { buildInitialBlocks } from './proposal/catalog';
 import { ProposalData, DEFAULT_THEME } from './proposal/types';
+import toast from 'react-hot-toast';
 
 interface LeadCPQPanelProps {
     lead: Lead;
@@ -55,7 +56,6 @@ export const LeadCPQPanel: React.FC<LeadCPQPanelProps> = ({ lead, onUpdateLead }
                 inverterBrand: 'Growatt',
                 inverterPower: recommendedKwp,
                 inverterCount: 1,
-                pricePerModule: pricePerWp * 550,
                 priceKit: finalPrice * 0.6,
                 priceCA: finalPrice * 0.1,
                 taxPercentage: 10,
@@ -87,7 +87,7 @@ export const LeadCPQPanel: React.FC<LeadCPQPanelProps> = ({ lead, onUpdateLead }
             
         } catch (error) {
             console.error("Erro ao gerar PDF:", error);
-            alert("Erro ao gerar PDF");
+            toast.error("Erro ao gerar PDF");
         } finally {
             setIsGenerating(false);
         }

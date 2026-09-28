@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Users, Calculator, CheckSquare, Package, LogOut, PieChart, X, HardHat, MessageSquare, DollarSign, FileText, Kanban } from 'lucide-react';
+import { LayoutDashboard, Users, Calculator, CheckSquare, Package, LogOut, PieChart, X, HardHat, MessageSquare, DollarSign, FileText, Kanban, Instagram, MapPin, Headphones, Brain, Wrench, Bell, Bot, ShoppingCart } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -59,6 +59,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Visão Geral', icon: LayoutDashboard, path: '/' },
     { id: 'crm', label: 'Leads & CRM', icon: Users, path: '/crm' },
+    { id: 'prospeccao', label: 'Prospecção', icon: MapPin, path: '/prospeccao' },
     { id: 'proposals', label: 'Propostas', icon: FileText, path: '/proposals' },
     { id: 'conversations', label: 'Conversas', icon: MessageSquare, path: '/conversations' },
     { id: 'calculator', label: 'Calculadora', icon: Calculator, path: '/calculator' },
@@ -69,9 +70,20 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
   const commercialItems = [
     { id: 'products', label: 'Catálogo', icon: Package, path: '/products' },
+    { id: 'insta-automation', label: 'Insta Auto', icon: Instagram, path: '/insta-automation' },
     { id: 'financeiro', label: 'Financeiro', icon: DollarSign, path: '/financeiro' },
     { id: 'reports', label: 'Intelligence', icon: PieChart, path: '/reports' },
     { id: 'audit', label: 'Auditoria Fatura', icon: FileText, path: '/audit' },
+  ];
+
+  const servicosItems = [
+    { id: 'tickets', label: 'Tickets', icon: Headphones, path: '/tickets' },
+    { id: 'clientes', label: 'Catálogo de Clientes', icon: Users, path: '/clientes' },
+    { id: 'intelligence', label: 'Inteligência', icon: Brain, path: '/intelligence' },
+    { id: 'maintenance', label: 'Manutenção', icon: Wrench, path: '/maintenance' },
+    { id: 'maintenance-alerts', label: 'Alertas', icon: Bell, path: '/maintenance-alerts' },
+    { id: 'utility-robot', label: 'Robô Faturas', icon: Bot, path: '/utility-robot' },
+    { id: 'ecommerce', label: 'E-commerce', icon: ShoppingCart, path: '/ecommerce' },
   ];
 
   const NavItem = ({ item }: { item: MenuItem }) => (
@@ -128,6 +140,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
           <p className="px-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 mt-8">Dados</p>
           {commercialItems.map((item) => (
+            <NavItem key={item.id} item={item} />
+          ))}
+
+          <p className="px-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 mt-8">Serviços & Automação</p>
+          {servicosItems.map((item) => (
             <NavItem key={item.id} item={item} />
           ))}
         </nav>

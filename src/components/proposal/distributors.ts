@@ -17,6 +17,7 @@ export interface Distributor {
     bi: number;            // Bifásico
     tri: number;           // Trifásico
   };
+  cip: number;             // Valor médio Iluminação Pública (CIP/COSIP) R$
 }
 
 // Percentual de Fio B pago em 2025 (Lei 14.300/2022)
@@ -32,7 +33,7 @@ export const DISTRIBUTORS: Distributor[] = [
     uf: 'AL',
     fiobTotal: 0.22626,
     tariffB1: 0.8823,    // Tarifa B1 após redução mai/2025 (Res. 3.450/2025)
-    custoDispo: { mono: 30, bi: 50, tri: 100 },
+    custoDispo: { mono: 30, bi: 50, tri: 100 }, cip: 35,
   },
   {
     id: 'equatorial-pa',
@@ -41,7 +42,7 @@ export const DISTRIBUTORS: Distributor[] = [
     uf: 'PA',
     fiobTotal: 0.1189,
     tariffB1: 0.7654,
-    custoDispo: { mono: 30, bi: 50, tri: 100 },
+    custoDispo: { mono: 30, bi: 50, tri: 100 }, cip: 35,
   },
   {
     id: 'equatorial-pi',
@@ -50,7 +51,7 @@ export const DISTRIBUTORS: Distributor[] = [
     uf: 'PI',
     fiobTotal: 0.1205,
     tariffB1: 0.7891,
-    custoDispo: { mono: 30, bi: 50, tri: 100 },
+    custoDispo: { mono: 30, bi: 50, tri: 100 }, cip: 35,
   },
   {
     id: 'equatorial-ma',
@@ -59,7 +60,7 @@ export const DISTRIBUTORS: Distributor[] = [
     uf: 'MA',
     fiobTotal: 0.1312,
     tariffB1: 0.8120,
-    custoDispo: { mono: 30, bi: 50, tri: 100 },
+    custoDispo: { mono: 30, bi: 50, tri: 100 }, cip: 35,
   },
   {
     id: 'equatorial-go',
@@ -68,7 +69,7 @@ export const DISTRIBUTORS: Distributor[] = [
     uf: 'GO',
     fiobTotal: 0.1434,
     tariffB1: 0.8340,
-    custoDispo: { mono: 30, bi: 50, tri: 100 },
+    custoDispo: { mono: 30, bi: 50, tri: 100 }, cip: 35,
   },
   {
     id: 'cemig',
@@ -77,7 +78,7 @@ export const DISTRIBUTORS: Distributor[] = [
     uf: 'MG',
     fiobTotal: 0.1485,
     tariffB1: 0.8640,
-    custoDispo: { mono: 30, bi: 50, tri: 100 },
+    custoDispo: { mono: 30, bi: 50, tri: 100 }, cip: 35,
   },
   {
     id: 'copel',
@@ -86,7 +87,7 @@ export const DISTRIBUTORS: Distributor[] = [
     uf: 'PR',
     fiobTotal: 0.1621,
     tariffB1: 0.9012,
-    custoDispo: { mono: 30, bi: 50, tri: 100 },
+    custoDispo: { mono: 30, bi: 50, tri: 100 }, cip: 35,
   },
   {
     id: 'celpe',
@@ -95,7 +96,7 @@ export const DISTRIBUTORS: Distributor[] = [
     uf: 'PE',
     fiobTotal: 0.1293,
     tariffB1: 0.8223,
-    custoDispo: { mono: 30, bi: 50, tri: 100 },
+    custoDispo: { mono: 30, bi: 50, tri: 100 }, cip: 35,
   },
   {
     id: 'enel-ce',
@@ -104,7 +105,7 @@ export const DISTRIBUTORS: Distributor[] = [
     uf: 'CE',
     fiobTotal: 0.1406,
     tariffB1: 0.8456,
-    custoDispo: { mono: 30, bi: 50, tri: 100 },
+    custoDispo: { mono: 30, bi: 50, tri: 100 }, cip: 35,
   },
   {
     id: 'cosern',
@@ -113,7 +114,7 @@ export const DISTRIBUTORS: Distributor[] = [
     uf: 'RN',
     fiobTotal: 0.1448,
     tariffB1: 0.8312,
-    custoDispo: { mono: 30, bi: 50, tri: 100 },
+    custoDispo: { mono: 30, bi: 50, tri: 100 }, cip: 35,
   },
   {
     id: 'neoenergia-coelba',
@@ -122,7 +123,7 @@ export const DISTRIBUTORS: Distributor[] = [
     uf: 'BA',
     fiobTotal: 0.1371,
     tariffB1: 0.8234,
-    custoDispo: { mono: 30, bi: 50, tri: 100 },
+    custoDispo: { mono: 30, bi: 50, tri: 100 }, cip: 35,
   },
   {
     id: 'celesc',
@@ -131,7 +132,7 @@ export const DISTRIBUTORS: Distributor[] = [
     uf: 'SC',
     fiobTotal: 0.1557,
     tariffB1: 0.8890,
-    custoDispo: { mono: 30, bi: 50, tri: 100 },
+    custoDispo: { mono: 30, bi: 50, tri: 100 }, cip: 35,
   },
   {
     id: 'energisa-pb',
@@ -140,7 +141,7 @@ export const DISTRIBUTORS: Distributor[] = [
     uf: 'PB',
     fiobTotal: 0.1289,
     tariffB1: 0.8015,
-    custoDispo: { mono: 30, bi: 50, tri: 100 },
+    custoDispo: { mono: 30, bi: 50, tri: 100 }, cip: 35,
   },
   {
     id: 'energisa-se',
@@ -149,7 +150,7 @@ export const DISTRIBUTORS: Distributor[] = [
     uf: 'SE',
     fiobTotal: 0.1340,
     tariffB1: 0.8123,
-    custoDispo: { mono: 30, bi: 50, tri: 100 },
+    custoDispo: { mono: 30, bi: 50, tri: 100 }, cip: 35,
   },
   {
     id: 'energisa-mt',
@@ -158,7 +159,7 @@ export const DISTRIBUTORS: Distributor[] = [
     uf: 'MT',
     fiobTotal: 0.1612,
     tariffB1: 0.9234,
-    custoDispo: { mono: 30, bi: 50, tri: 100 },
+    custoDispo: { mono: 30, bi: 50, tri: 100 }, cip: 35,
   },
   {
     id: 'light',
@@ -167,7 +168,7 @@ export const DISTRIBUTORS: Distributor[] = [
     uf: 'RJ',
     fiobTotal: 0.1534,
     tariffB1: 0.9120,
-    custoDispo: { mono: 30, bi: 50, tri: 100 },
+    custoDispo: { mono: 30, bi: 50, tri: 100 }, cip: 35,
   },
   {
     id: 'enel-sp',
@@ -176,7 +177,7 @@ export const DISTRIBUTORS: Distributor[] = [
     uf: 'SP',
     fiobTotal: 0.1598,
     tariffB1: 0.9341,
-    custoDispo: { mono: 30, bi: 50, tri: 100 },
+    custoDispo: { mono: 30, bi: 50, tri: 100 }, cip: 35,
   },
   {
     id: 'cpfl-paulista',
@@ -185,7 +186,7 @@ export const DISTRIBUTORS: Distributor[] = [
     uf: 'SP',
     fiobTotal: 0.1723,
     tariffB1: 0.9567,
-    custoDispo: { mono: 30, bi: 50, tri: 100 },
+    custoDispo: { mono: 30, bi: 50, tri: 100 }, cip: 35,
   },
   {
     id: 'edp-sp',
@@ -194,7 +195,7 @@ export const DISTRIBUTORS: Distributor[] = [
     uf: 'SP',
     fiobTotal: 0.1489,
     tariffB1: 0.9120,
-    custoDispo: { mono: 30, bi: 50, tri: 100 },
+    custoDispo: { mono: 30, bi: 50, tri: 100 }, cip: 35,
   },
   {
     id: 'celg',
@@ -203,7 +204,7 @@ export const DISTRIBUTORS: Distributor[] = [
     uf: 'GO',
     fiobTotal: 0.1398,
     tariffB1: 0.8234,
-    custoDispo: { mono: 30, bi: 50, tri: 100 },
+    custoDispo: { mono: 30, bi: 50, tri: 100 }, cip: 35,
   },
   {
     id: 'eletropaulo',
@@ -212,7 +213,7 @@ export const DISTRIBUTORS: Distributor[] = [
     uf: 'CE',
     fiobTotal: 0.1380,
     tariffB1: 0.8198,
-    custoDispo: { mono: 30, bi: 50, tri: 100 },
+    custoDispo: { mono: 30, bi: 50, tri: 100 }, cip: 35,
   },
 ];
 

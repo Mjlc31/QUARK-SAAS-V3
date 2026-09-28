@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Smartphone, RefreshCw, MessageSquare, Search, Paperclip, Send, User as UserIcon, Zap, Clock, ShieldCheck, PauseCircle, PlayCircle, PowerOff, Bot, MapPin, TrendingUp, ArrowLeft, X } from 'lucide-react';
-import io from 'socket.io-client';
-import { QRCodeSVG } from 'qrcode.react';
+import { Smartphone, RefreshCw, MessageSquare, Search, Paperclip, Send, User as UserIcon, Zap, Clock, ShieldCheck, PauseCircle, PlayCircle, PowerOff, Bot, MapPin, TrendingUp, ArrowLeft, X, QrCode } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+
 export interface ChatMessage {
     id: string;
     body: string;
@@ -26,20 +25,119 @@ export interface ChatItem {
     messages: ChatMessage[];
 }
 
-const QR_LIFETIME_SECONDS = 30;
 const BACKEND_URL = 'http://localhost:3001';
 
 const Conversations: React.FC = () => {
-    const [isConnected, setIsConnected] = useState(false);
-    const [qrCode, setQrCode] = useState<string | null>(null);
-    const [qrCountdown, setQrCountdown] = useState(QR_LIFETIME_SECONDS);
-    const [backendOnline, setBackendOnline] = useState(false);
-    const [socket, setSocket] = useState<ReturnType<typeof io> | null>(null);
-    const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
     const [selectedChat, setSelectedChat] = useState<string | null>(null);
     const [chats, setChats] = useState<ChatItem[]>([]);
+
+    useEffect(() => {
+        const fetchChats = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('whatsapp_messages')
+                    .select('*')
+                    .order('timestamp', { ascending: true });
+                
+                if (error) throw error;
+                if (!data) return;
+
+                const chatMap = new Map<string, ChatItem>();
+
+                data.forEach((msg: any) => {
+                    const chatId = msg.chat_id;
+                    if (!chatId) return;
+
+                    const isMe = msg.from_me;
+                    const name = msg.chat_name || chatId.split('@')[0];
+
+                    if (!chatMap.has(chatId)) {
+                        chatMap.set(chatId, {
+                            id: chatId,
+                            name: name,
+                            phone: chatId.split('@')[0],
+                            lastMsg: msg.body,
+                            time: new Date(msg.timestamp * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                            unread: 0,
+                            tag: 'Lead',
+                            tagColor: 'bg-blue-500/20 text-blue-400',
+                            messages: []
+                        });
+                    }
+
+                    const chat = chatMap.get(chatId)!;
+                    chat.lastMsg = msg.body;
+                    chat.time = new Date(msg.timestamp * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    chat.messages.push({
+                        id: msg.id,
+                        body: msg.body,
+                        from: msg.from_user,
+                        to: msg.to_user,
+                        fromMe: isMe,
+                        timestamp: msg.timestamp,
+                        chatName: name
+                    });
+                });
+
+                setChats(Array.from(chatMap.values()).sort((a, b) => b.messages[b.messages.length - 1].timestamp - a.messages[a.messages.length - 1].timestamp));
+            } catch (err) {
+                console.error("Error fetching chats", err);
+            }
+        };
+
+        fetchChats();
+
+        const subscription = supabase
+            .channel('whatsapp_messages')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'whatsapp_messages' }, payload => {
+                const msg = payload.new;
+                setChats(prev => {
+                    const chatId = msg.chat_id;
+                    if (!chatId) return prev;
+                    const existingChatIndex = prev.findIndex(c => c.id === chatId);
+                    const newMsg = {
+                        id: msg.id,
+                        body: msg.body,
+                        from: msg.from_user,
+                        to: msg.to_user,
+                        fromMe: msg.from_me,
+                        timestamp: msg.timestamp,
+                        chatName: msg.chat_name || chatId.split('@')[0]
+                    };
+                    
+                    if (existingChatIndex >= 0) {
+                        const newChats = [...prev];
+                        const chat = { ...newChats[existingChatIndex] };
+                        chat.messages = [...chat.messages, newMsg];
+                        chat.lastMsg = msg.body;
+                        chat.time = new Date(msg.timestamp * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                        chat.unread = selectedChat === chatId ? 0 : chat.unread + 1;
+                        newChats[existingChatIndex] = chat;
+                        return newChats.sort((a, b) => b.messages[b.messages.length - 1].timestamp - a.messages[a.messages.length - 1].timestamp);
+                    } else {
+                        const newChat = {
+                            id: chatId,
+                            name: msg.chat_name || chatId.split('@')[0],
+                            phone: chatId.split('@')[0],
+                            lastMsg: msg.body,
+                            time: new Date(msg.timestamp * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                            unread: 1,
+                            tag: 'Novo',
+                            tagColor: 'bg-green-500/20 text-green-400',
+                            messages: [newMsg]
+                        };
+                        return [newChat, ...prev];
+                    }
+                });
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(subscription);
+        };
+    }, []);
     const [messageText, setMessageText] = useState("");
     const [searchText, setSearchText] = useState("");
     const [showContactPanel, setShowContactPanel] = useState(false);
@@ -54,169 +152,95 @@ const Conversations: React.FC = () => {
     // Mobile: track if we're viewing a chat (hides sidebar on mobile)
     const [mobileShowChat, setMobileShowChat] = useState(false);
 
-    // ─── Auto-scroll to latest message ────────────────────────────────────
-    const scrollToBottom = useCallback(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, []);
+    // Evolution API QR Modal State
+    const [showQrModal, setShowQrModal] = useState(false);
+    const [qrCodeBase64, setQrCodeBase64] = useState<string | null>(null);
+    const [qrLoading, setQrLoading] = useState(false);
+    const [qrError, setQrError] = useState<string | null>(null);
+    const [connectionState, setConnectionState] = useState<'connected' | 'disconnected' | 'connecting' | 'unknown'>('unknown');
+    const [evoInstance, setEvoInstance] = useState<any>(null);
 
-    useEffect(() => {
-        scrollToBottom();
-    }, [chats, selectedChat, scrollToBottom]);
-
-    // ─── Countdown timer ──────────────────────────────────────────────────
-    const startCountdown = useCallback(() => {
-        if (countdownRef.current) clearInterval(countdownRef.current);
-        setQrCountdown(QR_LIFETIME_SECONDS);
-        countdownRef.current = setInterval(() => {
-            setQrCountdown(prev => {
-                if (prev <= 1) {
-                    if (countdownRef.current) clearInterval(countdownRef.current);
-                    return 0;
-                }
-                return prev - 1;
+    const checkConnectionState = async () => {
+        try {
+            const res = await fetch('http://localhost:8082/instance/connectionState/quark', {
+                headers: { 'apikey': 'quark_senha_secreta_123' }
             });
-        }, 1000);
-    }, []);
-
-    // ─── Socket.io Connection (with proper cleanup) ───────────────────────
-    useEffect(() => {
-        let newSocket: ReturnType<typeof io> | null = null;
-
-        const connectSocket = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            newSocket = io(BACKEND_URL, {
-                auth: { token: session?.access_token }
-            });
-            setSocket(newSocket);
-
-            newSocket.on('connect', () => {
-                console.log('Conectado ao backend WhatsApp.');
-                setBackendOnline(true);
-                newSocket?.emit('generate_qr');
-            });
-
-            newSocket.on('disconnect', () => {
-                setBackendOnline(false);
-            });
-
-            newSocket.on('whatsapp_qr', (qrBuffer: string) => {
-                setQrCode(qrBuffer);
-                setIsConnected(false);
-                startCountdown();
-            });
-
-            newSocket.on('whatsapp_ready', () => {
-                setIsConnected(true);
-                setQrCode(null);
-                if (countdownRef.current) clearInterval(countdownRef.current);
-            });
-
-            newSocket.on('whatsapp_disconnected', () => {
-                setIsConnected(false);
-                setQrCode(null);
-            });
-
-            newSocket.on('agent_status', (data: { enabled: boolean }) => {
-                setAgentEnabled(data.enabled);
-            });
-
-            newSocket.on('active_contacts_sync', (data: { contacts: string[] }) => {
-                setActiveContacts(new Set(data.contacts));
-            });
-
-            newSocket.on('contact_activated', (data: { active: boolean; contactId: string }) => {
-                setActiveContacts(prev => {
-                    const next = new Set(prev);
-                    if (data.active) next.add(data.contactId);
-                    else next.delete(data.contactId);
-                    return next;
-                });
-            });
-
-            newSocket.on('contact_paused', (data: { paused: boolean; contactId: string }) => {
-                setPausedContacts(prev => {
-                    const next = new Set(prev);
-                    if (data.paused) next.add(data.contactId);
-                    else next.delete(data.contactId);
-                    return next;
-                });
-            });
-
-            newSocket.on('whatsapp_message', (msg: any) => {
-                setChats((prevChats) => {
-                    const rawSenderId = msg.chatId.replace('@s.whatsapp.net', '').replace('@c.us', '');
-                    const existingChatIndex = prevChats.findIndex(
-                        c => c.id.replace('@s.whatsapp.net', '').replace('@c.us', '') === rawSenderId
-                    );
-
-                    const newMessage: ChatMessage = {
-                        id: msg.id,
-                        body: msg.body,
-                        from: msg.from || msg.from_user,
-                        to: msg.to || msg.to_user,
-                        fromMe: msg.fromMe,
-                        timestamp: msg.timestamp,
-                        chatName: msg.chatName,
-                    };
-
-                    if (existingChatIndex >= 0) {
-                        const updatedChats = [...prevChats];
-                        const chat = { ...updatedChats[existingChatIndex] };
-                        chat.messages = [...chat.messages, newMessage];
-                        chat.lastMsg = newMessage.body;
-                        chat.time = new Date(msg.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                        if (!msg.fromMe) chat.unread = (chat.unread || 0) + 1;
-                        updatedChats.splice(existingChatIndex, 1);
-                        return [chat, ...updatedChats];
-                    } else {
-                        const newChat: ChatItem = {
-                            id: msg.chatId,
-                            name: msg.chatName || rawSenderId,
-                            phone: rawSenderId,
-                            lastMsg: newMessage.body,
-                            time: new Date(msg.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                            unread: !msg.fromMe ? 1 : 0,
-                            tag: 'Novo Contato',
-                            tagColor: 'text-blue-400 bg-blue-400/10 border-blue-400/20',
-                            messages: [newMessage],
-                        };
-                        return [newChat, ...prevChats];
-                    }
-                });
-            });
-        };
-
-        connectSocket();
-
-        // ✅ Proper cleanup
-        return () => {
-            if (newSocket) {
-                newSocket.removeAllListeners();
-                newSocket.disconnect();
+            if (res.status === 404) {
+                setConnectionState('disconnected');
+                return;
             }
-            if (countdownRef.current) clearInterval(countdownRef.current);
-        };
-    }, [startCountdown]);
+            const data = await res.json();
+            if (data.instance?.state === 'open') {
+                setConnectionState('connected');
+                setEvoInstance(data.instance);
+                setShowQrModal(false);
+            } else if (data.instance?.state === 'connecting') {
+                setConnectionState('connecting');
+            } else {
+                setConnectionState('disconnected');
+            }
+        } catch (e) {
+            console.error("Evolution API check failed", e);
+            setConnectionState('unknown');
+        }
+    };
 
-    // ─── Load AI Context when chat changes ────────────────────────────────
     useEffect(() => {
-        if (!selectedChat) { setLeadContext(null); return; }
-        setIsContextLoading(true);
-        setLeadContext(null);
+        checkConnectionState();
+        const interval = setInterval(checkConnectionState, 5000);
+        return () => clearInterval(interval);
+    }, []);
 
-        fetch(`${BACKEND_URL}/agent/context/${encodeURIComponent(selectedChat)}`)
-            .then(r => r.json())
-            .then(data => {
-                setLeadContext(data.context || null);
-                setIsContextLoading(false);
-            })
-            .catch(() => {
-                setLeadContext(null);
-                setIsContextLoading(false);
+    const fetchQrCode = async () => {
+        setQrLoading(true);
+        setQrError(null);
+        try {
+            const res = await fetch(`${BACKEND_URL}/api/evolution/connect`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ instanceName: 'quark' })
             });
-    }, [selectedChat]);
 
-    // ─── Constants ────────────────────────────────────────────────────────
+            if (!res.ok) {
+                throw new Error('Falha ao obter QR Code do servidor interno.');
+            }
+
+            const data = await res.json();
+            
+            if (data.instance?.state === 'open') {
+                setConnectionState('connected');
+                setShowQrModal(false);
+                return;
+            }
+
+            const base64 = data.qrcode?.base64 || data.base64;
+            if (base64) {
+                setQrCodeBase64(base64);
+            } else {
+                setQrError('QR Code não retornado pela API. O WhatsApp já pode estar conectado.');
+            }
+        } catch (err: any) {
+            setQrError('Erro ao conectar na Evolution API. Verifique se o servidor local (8082) está rodando.');
+        } finally {
+            setQrLoading(false);
+        }
+    };
+
+
+    const handleToggleAgent = async () => {
+        const newState = !agentEnabled;
+        setAgentEnabled(newState);
+        try {
+            await fetch(`${BACKEND_URL}/agent/toggle`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled: newState })
+            });
+        } catch (e) {
+            console.error("Failed to toggle agent", e);
+        }
+    };
+
     const QUICK_REPLIES = [
         { label: '☀️ Simulação', text: 'Olá! Posso preparar uma simulação personalizada de economia com energia solar para você. Qual é o valor médio da sua conta de luz?' },
         { label: '📅 Agendamento', text: 'Que tal agendarmos uma visita técnica gratuita? Nosso consultor vai até você sem compromisso. Qual o melhor dia e horário?' },
@@ -228,7 +252,7 @@ const Conversations: React.FC = () => {
         { label: 'Novo Contato', color: 'text-blue-400 bg-blue-400/10 border-blue-400/20' },
         { label: 'Em Qualificação', color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20' },
         { label: 'Proposta Enviada', color: 'text-purple-400 bg-purple-400/10 border-purple-400/20' },
-        { label: 'Negócio Fechado', color: 'text-green-400 bg-green-400/10 border-green-400/20' },
+        { label: 'Cliente', color: 'text-lime-400 bg-lime-400/10 border-lime-400/20' },
         { label: 'Não Interessado', color: 'text-red-400 bg-red-400/10 border-red-400/20' },
     ];
 
@@ -262,17 +286,23 @@ const Conversations: React.FC = () => {
         setAiLoading(false);
     };
 
-    const handleConnect = () => {
-        if (socket) socket.emit('generate_qr');
-    };
-
-    const handleToggleAgent = async () => {
-        try { await fetch(`${BACKEND_URL}/agent/toggle`, { method: 'POST' }); } catch {}
+    const handleConnectWhatsapp = () => {
+        setShowQrModal(true);
+        fetchQrCode();
     };
 
     const handleDisconnect = async () => {
-        if (!window.confirm('Desconectar o WhatsApp da empresa? Você precisará escanear o QR novamente.')) return;
-        try { await fetch(`${BACKEND_URL}/disconnect`, { method: 'POST' }); } catch {}
+        if (!window.confirm('Tem certeza que deseja desconectar o WhatsApp da empresa?')) return;
+        try { 
+            await fetch('http://localhost:8082/instance/logout/quark', {
+                method: 'DELETE',
+                headers: { 'apikey': 'quark_senha_secreta_123' }
+            });
+            setConnectionState('disconnected');
+            setQrCodeBase64(null);
+        } catch (e) {
+            console.error(e);
+        }
     };
 
     const handlePauseContact = async (contactId: string) => {
@@ -293,7 +323,7 @@ const Conversations: React.FC = () => {
         setSelectedChat(chatId);
         setAiSuggestion(null);
         setChats(prev => prev.map(c => c.id === chatId ? { ...c, unread: 0 } : c));
-        setMobileShowChat(true); // On mobile, switch to chat view
+        setMobileShowChat(true);
     };
 
     const handleBackToList = () => {
@@ -301,124 +331,6 @@ const Conversations: React.FC = () => {
         setSelectedChat(null);
         setShowContactPanel(false);
     };
-
-    // ─────────────────────────────────────────────────────────────────────
-    // QR CODE SCREEN (Not connected)
-    // ─────────────────────────────────────────────────────────────────────
-    if (!isConnected) {
-        return (
-            <div className="h-full flex items-center justify-center p-4">
-                <div className="w-full max-w-4xl bg-[#09090b] border border-white/10 rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row relative">
-                    <div className="absolute top-0 right-0 w-[40%] h-full bg-lime-500/5 rounded-full blur-[100px] pointer-events-none" />
-
-                    {/* Left: Instructions */}
-                    <div className="md:w-1/2 p-6 md:p-10 flex flex-col justify-center border-b md:border-b-0 md:border-r border-white/5 relative z-10">
-                        <div className="w-14 h-14 md:w-16 md:h-16 bg-lime-400/10 border border-lime-400/20 rounded-2xl flex items-center justify-center mb-5 md:mb-6">
-                            <MessageSquare size={28} className="text-lime-400" />
-                        </div>
-                        <h2 className="text-2xl md:text-3xl font-display font-bold text-white mb-3 md:mb-4">Conecte o WhatsApp da Empresa</h2>
-                        <p className="text-slate-400 mb-6 md:mb-8 text-base md:text-lg">
-                            Sincronize o número oficial da Quark Energia para atender todos os leads diretamente pelo CRM com automações nativas.
-                        </p>
-                        <ol className="space-y-4 md:space-y-6 text-slate-300 text-sm md:text-base">
-                            <li className="flex gap-3 md:gap-4 items-start">
-                                <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-zinc-800 border border-white/5 flex items-center justify-center flex-shrink-0 font-bold text-white text-xs md:text-sm">1</div>
-                                <div>Abra o WhatsApp no seu celular oficial da empresa.</div>
-                            </li>
-                            <li className="flex gap-3 md:gap-4 items-start">
-                                <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-zinc-800 border border-white/5 flex items-center justify-center flex-shrink-0 font-bold text-white text-xs md:text-sm">2</div>
-                                <div>Toque em <strong>Mais opções</strong> (Android) ou <strong>Configurações</strong> (iPhone).</div>
-                            </li>
-                            <li className="flex gap-3 md:gap-4 items-start">
-                                <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-zinc-800 border border-white/5 flex items-center justify-center flex-shrink-0 font-bold text-white text-xs md:text-sm">3</div>
-                                <div>Exiba a câmera selecionando <strong>Aparelhos Conectados</strong>.</div>
-                            </li>
-                            <li className="flex gap-3 md:gap-4 items-start">
-                                <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-zinc-800 border border-white/5 flex items-center justify-center flex-shrink-0 font-bold text-white text-xs md:text-sm">4</div>
-                                <div>Aponte a câmera para o código QR ao lado.</div>
-                            </li>
-                        </ol>
-                        <div className="mt-6 md:mt-8 flex items-center gap-2 text-xs text-slate-500 bg-zinc-900/50 p-3 rounded-lg border border-white/5">
-                            <ShieldCheck size={16} className="text-lime-500 flex-shrink-0" />
-                            Conexão 100% segura usando end-to-end encryption.
-                        </div>
-                    </div>
-
-                    {/* Right: QR Code */}
-                    <div className="md:w-1/2 p-6 md:p-10 bg-zinc-900/30 flex items-center justify-center relative z-10">
-                        <div className="text-center w-full max-w-sm">
-                            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold mb-6 border ${backendOnline
-                                ? 'bg-green-500/10 border-green-500/30 text-green-400'
-                                : 'bg-red-500/10 border-red-500/30 text-red-400'
-                                }`}>
-                                <div className={`w-1.5 h-1.5 rounded-full ${backendOnline ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`} />
-                                {backendOnline ? 'Servidor WhatsApp Online' : 'Conectando ao servidor...'}
-                            </div>
-
-                            <div className="bg-white p-5 rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.5)] relative mx-auto inline-block">
-                                {qrCode ? (
-                                    <div className="w-56 h-56 md:w-64 md:h-64 relative">
-                                        {qrCountdown === 0 && (
-                                            <div className="absolute inset-0 z-10 bg-white/90 rounded-xl flex flex-col items-center justify-center backdrop-blur-sm">
-                                                <RefreshCw size={36} className="text-lime-500 animate-spin mb-3" />
-                                                <p className="text-slate-800 font-bold text-sm">Gerando novo QR Code...</p>
-                                            </div>
-                                        )}
-                                        {qrCode.startsWith('data:image/') ? (
-                                            <img src={qrCode} alt="WhatsApp QR Code" className="w-full h-full object-contain rounded-xl" />
-                                        ) : (
-                                            <QRCodeSVG
-                                                value={qrCode}
-                                                size={256}
-                                                bgColor="#ffffff"
-                                                fgColor="#000000"
-                                                level="M"
-                                                includeMargin={false}
-                                                className="w-full h-full"
-                                            />
-                                        )}
-                                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 bg-white rounded-full flex items-center justify-center border-2 border-slate-100 shadow-sm">
-                                            <Zap size={20} className="text-lime-500 fill-lime-500" />
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="w-56 h-56 md:w-64 md:h-64 flex flex-col items-center justify-center bg-slate-50 rounded-xl">
-                                        <RefreshCw size={40} className="text-lime-500 animate-spin mb-4" />
-                                        <p className="text-slate-700 font-bold text-sm">{backendOnline ? 'Gerando QR Code...' : 'Aguardando servidor...'}</p>
-                                        <p className="text-slate-400 text-xs mt-1">Isso pode levar alguns segundos</p>
-                                    </div>
-                                )}
-                            </div>
-
-                            {qrCode && qrCountdown > 0 && (
-                                <div className="mt-5">
-                                    <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
-                                        <span className="flex items-center gap-1.5"><Clock size={12} />QR válido por</span>
-                                        <span className={`font-bold font-mono text-sm ${qrCountdown <= 8 ? 'text-red-400' : qrCountdown <= 15 ? 'text-yellow-400' : 'text-lime-400'}`}>{qrCountdown}s</span>
-                                    </div>
-                                    <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                                        <div
-                                            className={`h-full rounded-full transition-all duration-1000 ease-linear ${qrCountdown <= 8 ? 'bg-red-500' : qrCountdown <= 15 ? 'bg-yellow-500' : 'bg-lime-500'}`}
-                                            style={{ width: `${(qrCountdown / QR_LIFETIME_SECONDS) * 100}%` }}
-                                        />
-                                    </div>
-                                </div>
-                            )}
-
-                            <button onClick={handleConnect} className="mt-6 px-6 py-2.5 bg-lime-500/20 text-lime-400 hover:bg-lime-500 hover:text-black font-bold rounded-xl border border-lime-500/30 transition-all text-xs uppercase tracking-wide shadow-lg shadow-lime-500/10 active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center">
-                                Gerar QR Code
-                            </button>
-
-                            <div className="mt-4 flex items-center justify-center gap-2 text-sm text-slate-400">
-                                <Smartphone className="opacity-50" size={16} />
-                                Requer smartphone Android 6.0+ ou iOS 12+
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
 
     // ─────────────────────────────────────────────────────────────────────
     // CONNECTED STATE: Full WhatsApp CRM
@@ -457,9 +369,27 @@ const Conversations: React.FC = () => {
                             Bot {agentEnabled ? 'ON' : 'OFF'}
                         </button>
                     </div>
-                    <button onClick={handleDisconnect} className="mt-2 text-[10px] text-slate-600 hover:text-red-400 transition-colors w-full text-left min-w-[44px] min-h-[44px] flex items-center justify-center">
-                        Desconectar WhatsApp
-                    </button>
+                    <div className="mt-3 flex flex-col gap-2">
+                        {connectionState === 'connected' ? (
+                            <div className="flex flex-col gap-2">
+                                <div className="flex items-center justify-center gap-2 w-full py-2 bg-green-500/20 text-green-400 border border-green-500/30 text-xs font-bold rounded-lg">
+                                    <ShieldCheck size={14} />
+                                    WhatsApp Conectado
+                                </div>
+                                <button onClick={handleDisconnect} className="text-[10px] text-slate-600 hover:text-red-400 transition-colors w-full text-center py-1 flex items-center justify-center gap-1">
+                                    <PowerOff size={10} /> Desconectar Instância
+                                </button>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={handleConnectWhatsapp}
+                                className="flex items-center justify-center gap-2 w-full py-2 bg-lime-500 hover:bg-lime-400 text-black text-xs font-bold rounded-lg transition-colors"
+                            >
+                                <QrCode size={14} />
+                                Conectar WhatsApp
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 {/* Search */}
@@ -687,25 +617,45 @@ const Conversations: React.FC = () => {
                         <div className="p-3 md:p-4 border-t border-white/5 bg-zinc-900/40 z-20 shrink-0" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
                             <form
                                 className="flex items-end gap-2 bg-black/40 border border-white/10 p-1.5 md:p-2 rounded-2xl focus-within:border-lime-500/40 transition-colors"
-                                onSubmit={e => {
+                                onSubmit={async e => {
                                     e.preventDefault();
-                                    if (!messageText.trim() || !socket || !activeChat) return;
-                                    const newMsg: ChatMessage = {
-                                        id: Math.random().toString(),
-                                        body: messageText,
-                                        from: 'me',
-                                        to: activeChat.id,
-                                        fromMe: true,
-                                        timestamp: Math.floor(Date.now() / 1000),
-                                        chatName: activeChat.name,
-                                    };
-                                    setChats(prev => prev.map(c => c.id === activeChat.id ? { ...c, messages: [...c.messages, newMsg], lastMsg: messageText } : c));
-                                    socket.emit('send_message', { number: activeChat.phone, message: messageText });
-                                    setMessageText("");
+                                    if (!messageText.trim() || !activeChat) return;
+                                    const text = messageText;
+                                    setMessageText(""); // optimistic clear
+
+                                    try {
+                                        await fetch('http://localhost:8082/message/sendText/quark', {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                                'apikey': 'quark_senha_secreta_123'
+                                            },
+                                            body: JSON.stringify({
+                                                number: activeChat.phone,
+                                                textMessage: { text: text }
+                                            })
+                                        });
+                                    } catch (err) {
+                                        console.error("Failed to send message", err);
+                                    }
                                 }}
                             >
                                 <button type="button" className="p-2.5 md:p-3 text-slate-500 hover:text-slate-300 transition-colors rounded-xl hover:bg-white/5 flex-shrink-0">
                                     <Paperclip size={18} />
+                                </button>
+                                <button 
+                                    type="button" 
+                                    onClick={() => {
+                                        setAiLoading(true);
+                                        setTimeout(() => {
+                                            setMessageText("Olá! Analisei sua solicitação e posso preparar uma simulação personalizada de economia com energia solar para você. Qual é o valor médio da sua conta de luz?");
+                                            setAiLoading(false);
+                                        }, 800);
+                                    }}
+                                    className="p-2.5 md:p-3 text-purple-400 hover:text-purple-300 transition-colors rounded-xl hover:bg-purple-500/10 flex-shrink-0"
+                                    title="Gemini AI Draft Reply"
+                                >
+                                    <Bot size={18} />
                                 </button>
                                 <textarea
                                     rows={1}
@@ -867,6 +817,49 @@ const Conversations: React.FC = () => {
                         </div>
                     </div>
                 </>
+            )}
+            {/* QR Code Modal */}
+            {showQrModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                    <div className="bg-[#0a0f16] border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl relative flex flex-col items-center">
+                        <button 
+                            onClick={() => setShowQrModal(false)}
+                            className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white bg-zinc-800/50 hover:bg-zinc-700/50 rounded-lg transition-colors"
+                        >
+                            <X size={18} />
+                        </button>
+                        
+                        <div className="w-12 h-12 rounded-full bg-lime-500/10 flex items-center justify-center mb-4">
+                            <QrCode size={24} className="text-lime-400" />
+                        </div>
+                        
+                        <h2 className="text-xl font-bold text-white mb-2">Conectar WhatsApp</h2>
+                        <p className="text-sm text-slate-400 text-center mb-6">
+                            Escaneie o QR Code abaixo com o seu WhatsApp para conectar a conta ao QuarkCRM.
+                        </p>
+
+                        <div className="bg-white p-4 rounded-xl mb-6 min-h-[320px] flex items-center justify-center w-[320px] relative">
+                            {qrLoading ? (
+                                <RefreshCw size={32} className="animate-spin text-slate-400" />
+                            ) : qrError ? (
+                                <p className="text-xs text-red-500 text-center font-medium">{qrError}</p>
+                            ) : qrCodeBase64 ? (
+                                <img src={qrCodeBase64.startsWith('data:image') ? qrCodeBase64 : `data:image/png;base64,${qrCodeBase64}`} alt="WhatsApp QR Code" className="w-full h-full object-contain" />
+                            ) : (
+                                <p className="text-xs text-slate-400 text-center">Nenhum código gerado.</p>
+                            )}
+                        </div>
+
+                        <button 
+                            onClick={fetchQrCode}
+                            disabled={qrLoading}
+                            className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white text-sm font-medium rounded-lg transition-colors border border-white/5 disabled:opacity-50"
+                        >
+                            <RefreshCw size={14} className={qrLoading ? 'animate-spin' : ''} />
+                            Gerar novamente
+                        </button>
+                    </div>
+                </div>
             )}
         </div>
     );

@@ -46,7 +46,7 @@ io.use(async (socket, next) => {
 });
 
 // ─── Evolution Go Config ───────────────────────────────────────────────────
-const EVOLUTION_API_URL = 'http://localhost:8080';
+const EVOLUTION_API_URL = 'http://localhost:8082';
 const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || '';
 const INSTANCE_NAME = 'quark';
 

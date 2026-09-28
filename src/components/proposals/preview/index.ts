@@ -1,0 +1,9 @@
+export { default as PreviewCover } from './PreviewCover';
+export { default as PreviewClientInfo } from './PreviewClientInfo';
+export { default as PreviewHowItWorks } from './PreviewHowItWorks';
+export { default as PreviewTechSpecs } from './PreviewTechSpecs';
+export { default as PreviewGenerationChart } from './PreviewGenerationChart';
+export { default as PreviewEconomy } from './PreviewEconomy';
+export { default as PreviewROI } from './PreviewROI';
+export { default as PreviewSocialProof } from './PreviewSocialProof';
+export { default as PreviewContact } from './PreviewContact';

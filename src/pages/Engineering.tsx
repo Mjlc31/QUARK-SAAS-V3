@@ -3,6 +3,7 @@ import { HardHat, Link as WebhookIcon, Paperclip, Plus, Loader2, Calendar, FileT
 import { useApp } from '../contexts/AppContext';
 import { Project, ProjectStatus } from '../types';
 import { supabase } from '../lib/supabaseClient';
+import toast from 'react-hot-toast';
 
 const isImageFile = (url: string) => url.startsWith('data:image') || url.match(/\.(jpeg|jpg|gif|png|webp)(\?.*)?$/i);
 
@@ -87,7 +88,7 @@ const Engineering: React.FC = () => {
         await updateProject(selectedObra.id, { attachments: fileDataArray });
       } catch (err) {
         console.error("Erro no upload", err);
-        alert("Falha no envio do anexo. Certifique-se de ter criado o bucket 'attachments' público no painel do Supabase.");
+        toast("Falha no envio do anexo. Certifique-se de ter criado o bucket 'attachments' público no painel do Supabase.");
       } finally {
         setIsUploading(false);
       }
@@ -99,7 +100,7 @@ const Engineering: React.FC = () => {
     const newStatus = !selectedObra.hasWebhook;
     setSelectedObra({ ...selectedObra, hasWebhook: newStatus });
     await updateProject(selectedObra.id, { hasWebhook: newStatus });
-    if(newStatus) alert('Webhook vinculado! Integrado a Evolution API. (Fake)');
+    if(newStatus) toast('Webhook vinculado! Integrado a Evolution API. (Fake)');
   };
 
   const fullLead = selectedObra ? leads.find(l => l.id === selectedObra.clientId) : null;

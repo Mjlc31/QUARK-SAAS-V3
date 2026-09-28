@@ -198,3 +198,178 @@ export interface FinancialTransaction {
   note?: string;
   user_id?: string;
 }
+
+export interface ProspectLead {
+  id: number;
+  nome: string;
+  avaliacao: string;
+  endereco: string;
+  telefone: string;
+  website: string;
+  latitude: string;
+  longitude: string;
+}
+
+
+// ── Portal do Cliente ──
+export type TicketCategory = 'manutencao' | 'limpeza' | 'projeto' | 'homologacao' | 'financeiro' | 'outros';
+export type TicketPriority = 'baixa' | 'normal' | 'alta' | 'urgente';
+export type TicketStatus = 'aberto' | 'em_andamento' | 'aguardando_cliente' | 'resolvido' | 'fechado';
+export type MaintenanceServiceType = 'manutencao' | 'limpeza' | 'inspecao' | 'reparo';
+export type MaintenanceServiceStatus = 'pendente' | 'agendado' | 'em_campo' | 'concluido' | 'cancelado';
+export type AlertType = 'manutencao_preventiva' | 'limpeza' | 'inspecao' | 'garantia';
+export type AlertChannel = 'whatsapp' | 'email' | 'sms' | 'portal';
+export type AlertStatus = 'pendente' | 'enviado' | 'lido' | 'respondido';
+export type ProjectPhase = 'venda_confirmada' | 'projeto_elaboracao' | 'projeto_enviado' | 'aprovacao_concessionaria' | 'logistica_entrega' | 'instalacao' | 'homologacao' | 'comissionamento' | 'finalizado';
+
+export interface ClientPortalUser {
+  id: string;
+  lead_id?: string;
+  name: string;
+  email: string;
+  phone?: string;
+  cpf?: string;
+  birth_date?: string;
+  auth_user_id?: string;
+  is_active: boolean;
+  quark_points?: number;
+  referral_code?: string;
+  last_login?: string;
+  created_at?: string;
+}
+
+export interface SupportTicket {
+  id: string;
+  client_id: string;
+  user_id?: string;
+  subject: string;
+  description?: string;
+  category: TicketCategory;
+  priority: TicketPriority;
+  status: TicketStatus;
+  assigned_to?: string;
+  resolved_at?: string;
+  created_at: string;
+  updated_at: string;
+  // Joined fields
+  client_name?: string;
+  messages?: TicketMessage[];
+}
+
+export interface TicketMessage {
+  id: string;
+  ticket_id: string;
+  sender_type: 'client' | 'operator' | 'system';
+  sender_id?: string;
+  message: string;
+  attachments: string[];
+  created_at: string;
+}
+
+export interface ProjectTrackingPhase {
+  id: string;
+  project_id: string;
+  client_id?: string;
+  user_id?: string;
+  phase: ProjectPhase;
+  phase_label: string;
+  started_at: string;
+  completed_at?: string;
+  notes?: string;
+  is_current: boolean;
+}
+
+export interface MaintenanceService {
+  id: string;
+  user_id: string;
+  client_id?: string;
+  lead_id?: string;
+  service_type: MaintenanceServiceType;
+  status: MaintenanceServiceStatus;
+  scheduled_date?: string;
+  completed_date?: string;
+  price: number;
+  cost: number;
+  technician?: string;
+  notes?: string;
+  before_photos: string[];
+  after_photos: string[];
+  created_at: string;
+  updated_at: string;
+  // Joined
+  client_name?: string;
+}
+
+export interface ClientIntelligenceRecord {
+  id: string;
+  user_id: string;
+  lead_id?: string;
+  client_name: string;
+  install_start_date?: string;
+  install_end_date?: string;
+  system_size_kw?: number;
+  last_maintenance_date?: string;
+  next_maintenance_date?: string;
+  total_savings_brl: number;
+  monthly_generation_kwh?: number;
+  utility_account?: string;
+  utility_login?: { cpf?: string; birth_date?: string; email?: string };
+  installed_by: 'quark' | 'terceiro';
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UtilityInvoice {
+  id: string;
+  intelligence_id: string;
+  user_id?: string;
+  month_ref: string;
+  consumption_kwh?: number;
+  generation_kwh?: number;
+  amount_brl?: number;
+  savings_brl?: number;
+  pdf_url?: string;
+  captured_at: string;
+}
+
+export interface EcommerceProduct {
+  id: string;
+  user_id: string;
+  name: string;
+  description?: string;
+  category?: string;
+  price: number;
+  promo_price?: number;
+  image_url?: string;
+  is_active: boolean;
+  includes_installation: boolean;
+  delivery_days: number;
+  overload_percentage?: number;
+  created_at: string;
+}
+
+export interface MaintenanceAlert {
+  id: string;
+  intelligence_id: string;
+  user_id?: string;
+  alert_type: AlertType;
+  message?: string;
+  scheduled_for?: string;
+  sent_at?: string;
+  channel: AlertChannel;
+  status: AlertStatus;
+  created_at: string;
+  // Joined
+  client_name?: string;
+}
+
+// ── Maintenance Dashboard Stats ──
+export interface MaintenanceStats {
+  totalServices: number;
+  completedThisMonth: number;
+  revenueThisMonth: number;
+  profitThisMonth: number;
+  monthlyGoal: number;
+  avgProfitPerService: number;
+}

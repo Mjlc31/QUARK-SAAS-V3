@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { CheckCircle, Clock, Plus, User, AlertCircle, Trash2, X, Calendar as CalendarIcon, Flag, MessageCircle, Mail, Bell, BellOff, List as ListIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
+import toast from 'react-hot-toast';
 
 // 1. Mock Data
 const TEAM_MEMBERS = [
@@ -51,7 +52,7 @@ const Tasks: React.FC = () => {
   const handleNotify = async (type: 'whatsapp' | 'email', taskData: { title: string, priority: string, deadline: string, assignee: string }) => {
     const member = TEAM_MEMBERS.find(m => m.name === taskData.assignee);
     if (!member) {
-      alert("Contato do responsável não encontrado na base de dados.");
+      toast("Contato do responsável não encontrado na base de dados.");
       return;
     }
 
@@ -74,13 +75,13 @@ const Tasks: React.FC = () => {
         });
         const result = await response.json();
         if (result.whatsappSent) {
-          alert(`📲 Tarefa delegada via WhatsApp para ${member.name.split(' ')[0]}!`);
+          toast(`📲 Tarefa delegada via WhatsApp para ${member.name.split(' ')[0]}!`);
         } else {
-          alert(`Aviso: O Backend alcançou o servidor mas a mensagem falhou (QR Code lido?).`);
+          toast(`Aviso: O Backend alcançou o servidor mas a mensagem falhou (QR Code lido?).`);
         }
       } catch (err) {
         console.error(err);
-        alert("Erro ao conectar com whatsapp-backend na porta 3001.");
+        toast.error("Erro ao conectar com whatsapp-backend na porta 3001.");
       }
     } else {
       window.open(`mailto:${member.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');

@@ -150,7 +150,9 @@ export function calcSolar(input: SolarCalcInput): SolarCalcResult {
   const fioBRate = tariffRate * 0.28 * fioBPercent;
   
   // O custo do Fio B incide sobre a energia que foi injetada e compensada
-  const fioBCost = compensatedEnergy * (fiobEffective > 0 ? fiobEffective : fioBRate);
+  // O custo do Fio B incide sobre a energia que foi injetada e compensada (apenas o % do ano)
+  const actualFiobRate = (fiobEffective > 0 ? fiobEffective : tariffRate * 0.28) * fioBPercent;
+  const fioBCost = compensatedEnergy * actualFiobRate;
 
   // Conta depois = max(custo disponibilidade, consumo faturado * tarifa) + CIP + Fio B
   let monthlyBillAfter = Math.max(custoDispo_R, billedConsumption * tariffRate);
@@ -163,8 +165,10 @@ export function calcSolar(input: SolarCalcInput): SolarCalcResult {
   // ── 3. Fluxo de Caixa ───────────────────────────────────────
   const adjustRate = tariffAdjustmentRate / 100;
   const tmaRate = tma / 100;
+  const degradationRate = 0.005; // 0.5% ao ano de perda de eficiência
   const cashFlowsArray: number[] = [-finalPrice]; // Ano 0 = investimento
   const cashFlow: CashFlowYear[] = [];
+  
   let cumulativeSavings = 0;
   let cumulativeNet = -finalPrice;
   let cumulativeDiscounted = -finalPrice;
@@ -172,8 +176,11 @@ export function calcSolar(input: SolarCalcInput): SolarCalcResult {
   let paybackDiscountedYears = 0;
 
   for (let year = 1; year <= systemLifeYears; year++) {
-    // Economia cresce com reajuste tarifário
-    const yearSavings = annualSavings * Math.pow(1 + adjustRate, year - 1);
+    // Geração cai 0.5% ao ano. A economia real é proporcional à geração.
+    // Tarifa sobe conforme o reajuste tarifário.
+    const degradation = Math.pow(1 - degradationRate, year - 1);
+    const yearSavings = annualSavings * degradation * Math.pow(1 + adjustRate, year - 1);
+    
     cumulativeSavings += yearSavings;
     cumulativeNet += yearSavings;
 
@@ -250,7 +257,7 @@ export function calcSolar(input: SolarCalcInput): SolarCalcResult {
  */
 export function calcRecommendedPower(
   monthlyConsumptionKwh: number,
-  generationFactor: number = 128.64,
+  generationFactor: number = 125,
   targetCompensation: number = 1.0 // 100% de compensação
 ): number {
   if (generationFactor <= 0) return 0;

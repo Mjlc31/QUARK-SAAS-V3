@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Upload, Loader2, Sparkles } from 'lucide-react';
 import { extractInvoiceData, ExtractedInvoice } from '../services/aiOcrService';
+import toast from 'react-hot-toast';
 
 interface AIOCRInvoiceUploaderProps {
   onSuccess: (data: ExtractedInvoice) => void;
@@ -24,7 +25,7 @@ export const AIOCRInvoiceUploader: React.FC<AIOCRInvoiceUploaderProps> = ({ onSu
           onSuccess(extracted);
         } catch (err) {
           console.error(err);
-          alert('Erro ao processar fatura pela IA. Tente novamente ou insira manualmente.');
+          toast.error('Erro ao processar fatura pela IA. Tente novamente ou insira manualmente.');
         } finally {
           setIsProcessing(false);
           if (fileInputRef.current) {

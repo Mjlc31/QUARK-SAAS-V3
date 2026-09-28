@@ -194,16 +194,18 @@ function getOrCreateConversation(contactId, contactName) {
 // ─── Prompt do Sistema ────────────────────────────────────────────────────────
 function buildSystemPrompt(conv) {
     const phaseInstructions = {
-        greeting: `O cliente acabou de mandar a primeira mensagem (provavelmente pedindo orçamento).
-Responda de forma calorosa e OBJETIVA. Pergunte apenas:
-1. Qual a média da conta de energia (em kWh ou em reais)
-2. Se é residência ou empresa
-Não explique nada ainda. Só qualifique.`,
+        greeting: `O contato inicial acabou de ser feito (ou o cliente nos chamou).
+Seu objetivo AGORA é SONDAR A DOR do cliente antes de falar qualquer coisa de painel solar ou preço.
+Responda de forma calorosa e OBJETIVA. Faça perguntas investigativas como:
+1. "Vi que tem interesse em reduzir sua conta de energia. Quanto você está pagando em média hoje?"
+2. "Esse valor tem pesado muito no orçamento da sua casa/empresa?"
+Foque 100% na DOR (o aluguel caro que ele paga à distribuidora). Não oferte nada ainda. Só qualifique.`,
 
-        qualify: `Você está coletando dados para propor a visita.
+        qualify: `Você está na fase de qualificação e sondagem.
 Já tem: conta = R$${conv.billValue || '?'}, cidade = ${conv.city || 'não informada'}.
-Se falta algum dado, pergunte apenas um de cada vez.
-Assim que tiver conta e localização → avance para BOOK.`,
+Aprofunde a dor: "Você sabia que esse dinheiro não volta mais? É como um aluguel para a concessionária."
+Se falta algum dado (cidade, se é casa ou empresa), pergunte de forma natural.
+Assim que o cliente demonstrar que a conta é um problema e você tiver o valor da conta e a cidade → avance para BOOK.`,
 
         book: `Você tem os dados. Agora MARQUE A VISITA.
 Seja direto: "A visita técnica é gratuita e sem compromisso. Qual o melhor dia e horário para você?"

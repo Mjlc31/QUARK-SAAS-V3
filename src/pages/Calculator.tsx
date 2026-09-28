@@ -3,10 +3,11 @@ import { Calculator as CalcIcon, Sun, Zap, FileText, MapPin, AlertTriangle, Tren
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Line, Area, Cell, AreaChart } from 'recharts';
 import { CityData, SolarSystemResult } from '../types';
 import { useApp } from '../contexts/AppContext';
-import { jsPDF } from 'jspdf';
 import { useNavigate } from 'react-router-dom';
-import html2canvas from 'html2canvas';
-import { ProposalTemplate, ProposalProps } from '../components/ProposalTemplate';
+import { pdf } from '@react-pdf/renderer';
+import ProposalPDF from '../components/proposal/ProposalPDF';
+import { buildInitialBlocks } from '../components/proposal/catalog';
+import { ProposalData, DEFAULT_THEME } from '../components/proposal/types';
 
 const ALAGOAS_TARIFF_DEFAULT = 0.98;
 
@@ -41,8 +42,6 @@ const Calculator: React.FC = () => {
   const [consumption, setConsumption] = useState<number>(1200);
   const [tariff, setTariff] = useState<number>(0.98);
   const [clientName, setClientName] = useState<string>('');
-
-  const proposalRef = useRef<HTMLDivElement>(null);
 
   const [inverterPower, setInverterPower] = useState<number>(8);
   const [azimuthLoss, setAzimuthLoss] = useState<number>(0);
@@ -260,38 +259,49 @@ const Calculator: React.FC = () => {
   };
 
   const generatePDF = async () => {
-    if (!result || !proposalRef.current) return;
+    if (!result) return;
     setIsGeneratingPDF(true);
     
     try {
-      // Create new PDF (A4)
-      const doc = new jsPDF('p', 'mm', 'a4');
       const name = proposalCustom.clientName || clientName || 'Cliente';
-      
-      // We will capture pages 1 to 5
-      for (let i = 1; i <= 5; i++) {
-         const pageElement = proposalRef.current.querySelector(`#page-${i}`) as HTMLElement;
-         if (pageElement) {
-            const canvas = await html2canvas(pageElement, { 
-               scale: 2, 
-               useCORS: true, 
-               logging: false,
-               windowWidth: 794 
-            });
-            const imgData = canvas.toDataURL('image/png');
-            
-            if (i > 1) {
-               doc.addPage();
-            }
-            
-            doc.addImage(imgData, 'PNG', 0, 0, 210, 297);
-         }
-      }
+      const discountedPrice = result.totalInvestment * (1 - proposalCustom.discount / 100);
+      const panel = products.find(p => p.id === selectedModuleId);
 
-      doc.save(`Proposta_Quark_${name.replace(/\s/g, '_')}.pdf`);
+      const baseData: ProposalData = {
+        clientName: name,
+        city: selectedCity || '',
+        consumption: consumption,
+        systemSizeKw: result.systemSizeKw,
+        moduleBrand: panel?.brand || panel?.name || 'Canadian Solar',
+        modulePower: panel?.power || DEFAULT_MODULE_POWER,
+        modulesCount: result.modulesCount,
+        inverterBrand: 'Growatt',
+        inverterPower: result.inverterSizeKw,
+        inverterCount: 1,
+        priceKit: discountedPrice * 0.6,
+        priceCA: discountedPrice * 0.1,
+        taxPercentage: 10,
+        profitPercentage: 20,
+        additionalCosts: 0,
+        finalPrice: discountedPrice,
+        monthlyGenerationKwh: result.monthlyGeneration,
+        monthlySavings: result.monthlySavings,
+        paybackYears: result.paybackYears,
+        co2EvitedKgYear: (result.monthlyGeneration * 12 * 0.084)
+      };
+
+      const blocks = buildInitialBlocks(baseData);
+      const blob = await pdf(<ProposalPDF blocks={blocks} theme={DEFAULT_THEME} clientName={name} />).toBlob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Proposta_Quark_${name.replace(/\s+/g, '_')}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
       setShowProposalModal(false);
-    } catch(err) {
-      console.error(err);
+    } catch (err) {
+      console.error('Erro ao gerar PDF:', err);
     } finally {
       setIsGeneratingPDF(false);
     }
@@ -319,39 +329,6 @@ const Calculator: React.FC = () => {
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 animate-enter pb-20 relative">
-
-      {/* Hidden Proposal Template for html2canvas generation */}
-      {result && (
-         <div className="fixed top-[200vh] left-0 opacity-0 pointer-events-none -z-50">
-             <ProposalTemplate 
-               ref={proposalRef}
-               clientName={proposalCustom.clientName || clientName || 'Cliente'}
-               systemSizeKw={result.systemSizeKw}
-               modulesCount={result.modulesCount}
-               inverterSizeKw={result.inverterSizeKw}
-               areaM2={result.areaM2}
-               monthlyGeneration={result.monthlyGeneration}
-               annualGeneration={result.monthlyGeneration * 12}
-               generationData={generationData}
-               oldBill={comparisonData[0]?.valor || 0}
-               newBill={comparisonData[1]?.valor || 0}
-               investment={result.totalInvestment * (1 - proposalCustom.discount / 100)}
-               monthlySavings={result.monthlySavings}
-               paybackYears={result.paybackYears}
-               roi25Years={result.roi25Years}
-               isFinanced={isFinanced}
-               loanTerm={loanTerm}
-               monthlyPayment={result.monthlyPayment || 0}
-               cardOptions={[6, 12, 18].filter(i => i <= cardInstallments).map(inst => ({
-                   installments: inst,
-                   value: calcCardInstallment(result.totalInvestment * (1 - proposalCustom.discount / 100), inst, cardInterestRate)
-               }))}
-               city={selectedCity}
-               state={CITIES.find(c => c.name === selectedCity)?.state || 'AL'}
-               proposalId={`${Math.floor(Math.random() * 90000) + 10000}`}
-             />
-         </div>
-      )}
 
       {/* --- LEFT COLUMN: CONTROLS --- */}
       <div className="xl:col-span-4 flex flex-col gap-6">
