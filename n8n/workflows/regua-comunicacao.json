@@ -1,0 +1,80 @@
+{
+  "name": "Régua de Comunicação",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [ { "field": "cronExpression", "expression": "0 9 * * *" } ]
+        }
+      },
+      "id": "schedule-node",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/projects?status=eq.pending_phases",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "supabase-get",
+      "name": "Fetch Projects",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [400, 300]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "split-batches",
+      "name": "Split In Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 2,
+      "position": [600, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://whatsapp-backend/api/evolution/send",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "message", "value": "=Status update for project {{ $json.id }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "whatsapp-notify",
+      "name": "WhatsApp Notify",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [800, 300]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [ [ { "node": "Fetch Projects", "type": "main", "index": 0 } ] ]
+    },
+    "Fetch Projects": {
+      "main": [ [ { "node": "Split In Batches", "type": "main", "index": 0 } ] ]
+    },
+    "Split In Batches": {
+      "main": [ [ { "node": "WhatsApp Notify", "type": "main", "index": 0 } ] ]
+    },
+    "WhatsApp Notify": {
+      "main": [ [ { "node": "Split In Batches", "type": "main", "index": 0 } ] ]
+    }
+  },
+  "settings": {}
+}

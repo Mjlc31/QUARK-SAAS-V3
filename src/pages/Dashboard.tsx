@@ -94,8 +94,8 @@ const Dashboard: React.FC = () => {
       return false;
     };
 
-    const totalPipeline = filteredLeads.reduce((acc, curr) => acc + (!isLeadFechado(curr) ? curr.value : 0), 0);
-    const totalRevenue = filteredLeads.filter(l => isLeadFechado(l)).reduce((acc, curr) => acc + curr.value, 0);
+    const totalPipeline = filteredLeads.reduce((acc, curr) => acc + (!isLeadFechado(curr) ? (Number(curr.value) || 0) : 0), 0);
+    const totalRevenue = filteredLeads.filter(l => isLeadFechado(l)).reduce((acc, curr) => acc + (Number(curr.value) || 0), 0);
     const activeLeads = filteredLeads.filter(l => !isLeadFechado(l)).length;
     const closedCount = filteredLeads.filter(l => isLeadFechado(l)).length;
     const totalLeadsCount = filteredLeads.length;
@@ -109,7 +109,7 @@ const Dashboard: React.FC = () => {
       let prob = 0.1;
       if (curr.status === 'Qualificacao') prob = 0.3;
       if (curr.status === 'Proposta') prob = 0.6;
-      return acc + (curr.value * prob);
+      return acc + ((Number(curr.value) || 0) * prob);
     }, 0);
 
     return { totalPipeline, totalRevenue, activeLeads, avgTicket, closedCount, conversionRate, totalLeadsCount, projectedRevenue };
@@ -186,9 +186,9 @@ const Dashboard: React.FC = () => {
 
       if (monthData) {
         if (isLeadFechado(lead)) {
-          monthData.revenue += lead.value;
+          monthData.revenue += (Number(lead.value) || 0);
         } else {
-          monthData.pipeline += lead.value;
+          monthData.pipeline += (Number(lead.value) || 0);
         }
       }
     });

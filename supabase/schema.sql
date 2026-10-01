@@ -236,7 +236,7 @@ CREATE TABLE IF NOT EXISTS public.client_portal_users (
     name TEXT NOT NULL,
     email TEXT NOT NULL UNIQUE,
     phone TEXT,
-    cpf TEXT,
+    cpf TEXT UNIQUE,
     birth_date DATE,
     auth_user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     is_active BOOLEAN DEFAULT true,
@@ -598,3 +598,176 @@ CREATE INDEX IF NOT EXISTS idx_agent_notes_user ON public.agent_notes(user_id);
 CREATE INDEX IF NOT EXISTS idx_evo_msgs_user ON public.evolution_messages(user_id);
 CREATE INDEX IF NOT EXISTS idx_prop_versions_prop ON public.proposal_versions(proposal_id);
 CREATE INDEX IF NOT EXISTS idx_prop_versions_user ON public.proposal_versions(user_id);
+
+-- Função Genérica de Auto-Update para TIMESTAMPTZ
+CREATE OR REPLACE FUNCTION public.handle_updated_at()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$;
+
+-- Aplicação dos Triggers nas tabelas com updated_at
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.leads FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.lead_pipelines FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.tasks FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.projects FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.products FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.instagram_campaigns FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.opportunities FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.agent_notes FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- Configuração do Supabase Realtime (WebSockets)
+ALTER PUBLICATION supabase_realtime ADD TABLE public.leads;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.opportunities;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.proposals;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.evolution_messages;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.support_tickets;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.ticket_messages;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.agent_notes;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.whatsapp_messages;
+
+CREATE TABLE IF NOT EXISTS public.whatsapp_messages (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    chat_id TEXT NOT NULL,
+    chat_name TEXT,
+    from_me BOOLEAN NOT NULL DEFAULT false,
+    body TEXT NOT NULL,
+    timestamp BIGINT NOT NULL,
+    message_id TEXT UNIQUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.whatsapp_messages ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "whatsapp_messages_read" ON public.whatsapp_messages
+    FOR SELECT USING (true);
+    
+CREATE POLICY "whatsapp_messages_insert" ON public.whatsapp_messages
+    FOR INSERT WITH CHECK (true);
+
+
+-- ============================================================
+-- MIGRATION 2024-10-01: Code Review + DB Architect Audit
+-- Applied via Supabase MCP
+-- ============================================================
+
+-- ─────────────────────────────────────────────────────────────
+-- 1. CREATE MISSING 'activities' TABLE
+-- Used by: proposal/editor.tsx, save/editor.tsx, proposal-actions.ts
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.activities (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    lead_id TEXT REFERENCES public.leads(id) ON DELETE CASCADE,
+    opportunity_id UUID REFERENCES public.opportunities(id) ON DELETE CASCADE,
+    type TEXT NOT NULL DEFAULT 'nota',
+    content TEXT NOT NULL,
+    created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_activities_lead_id ON public.activities(lead_id);
+CREATE INDEX IF NOT EXISTS idx_activities_opportunity_id ON public.activities(opportunity_id);
+CREATE INDEX IF NOT EXISTS idx_activities_created_at ON public.activities(created_at DESC);
+ALTER TABLE public.activities ENABLE ROW LEVEL SECURITY;
+CREATE POLICY activities_tenant_select ON public.activities FOR SELECT USING (auth.uid() = created_by);
+CREATE POLICY activities_tenant_insert ON public.activities FOR INSERT WITH CHECK (auth.uid() = created_by);
+CREATE POLICY activities_tenant_delete ON public.activities FOR DELETE USING (auth.uid() = created_by);
+
+-- ─────────────────────────────────────────────────────────────
+-- 2. CREATE MISSING 'notifications' TABLE
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    body TEXT,
+    type TEXT NOT NULL DEFAULT 'info',
+    entity_type TEXT,
+    entity_id TEXT,
+    is_read BOOLEAN DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON public.notifications(user_id, is_read, created_at DESC);
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+CREATE POLICY notifications_tenant ON public.notifications FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- ─────────────────────────────────────────────────────────────
+-- 3. ADD MISSING COLUMNS TO 'opportunities'
+-- ─────────────────────────────────────────────────────────────
+ALTER TABLE public.opportunities ADD COLUMN IF NOT EXISTS consumption_kwh NUMERIC;
+ALTER TABLE public.opportunities ADD COLUMN IF NOT EXISTS tariff NUMERIC;
+ALTER TABLE public.opportunities ADD COLUMN IF NOT EXISTS connection_type TEXT;
+ALTER TABLE public.opportunities ADD COLUMN IF NOT EXISTS roof_type TEXT;
+ALTER TABLE public.opportunities ADD COLUMN IF NOT EXISTS avg_bill NUMERIC;
+ALTER TABLE public.opportunities ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+
+-- ─────────────────────────────────────────────────────────────
+-- 4. SOFT DELETE COLUMNS
+-- ─────────────────────────────────────────────────────────────
+ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE public.proposals ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE public.financial_transactions ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE public.client_portal_users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+
+-- Partial indexes for soft-delete performance
+CREATE INDEX IF NOT EXISTS idx_leads_active ON public.leads(user_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_opportunities_active ON public.opportunities(user_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_proposals_active ON public.proposals(user_id) WHERE deleted_at IS NULL;
+
+-- ─────────────────────────────────────────────────────────────
+-- 5. FIX WHATSAPP RLS SECURITY VULNERABILITY
+-- ─────────────────────────────────────────────────────────────
+ALTER TABLE public.whatsapp_messages ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_user_id ON public.whatsapp_messages(user_id);
+-- Old insecure policies (USING true) dropped; new tenant-isolated policies created
+
+-- ─────────────────────────────────────────────────────────────
+-- 6. ENABLE RLS ON PREVIOUSLY UNPROTECTED TABLES
+-- ─────────────────────────────────────────────────────────────
+ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.opportunities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.opportunity_tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.landing_page_leads ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.client_context ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.active_tasks ENABLE ROW LEVEL SECURITY;
+
+-- ─────────────────────────────────────────────────────────────
+-- 7. MISSING updated_at TRIGGERS
+-- ─────────────────────────────────────────────────────────────
+CREATE OR REPLACE TRIGGER set_updated_at BEFORE UPDATE ON public.proposals FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+CREATE OR REPLACE TRIGGER set_updated_at BEFORE UPDATE ON public.support_tickets FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+CREATE OR REPLACE TRIGGER set_updated_at BEFORE UPDATE ON public.maintenance_services FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+CREATE OR REPLACE TRIGGER set_updated_at BEFORE UPDATE ON public.client_intelligence FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+CREATE OR REPLACE TRIGGER set_updated_at BEFORE UPDATE ON public.ecommerce_products FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- ─────────────────────────────────────────────────────────────
+-- 8. PERFORMANCE INDEXES
+-- ─────────────────────────────────────────────────────────────
+CREATE INDEX IF NOT EXISTS idx_client_portal_email ON public.client_portal_users(email);
+CREATE INDEX IF NOT EXISTS idx_client_portal_cpf ON public.client_portal_users(cpf);
+CREATE INDEX IF NOT EXISTS idx_client_portal_auth_user ON public.client_portal_users(auth_user_id);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_status ON public.support_tickets(status);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_client ON public.support_tickets(client_id);
+CREATE INDEX IF NOT EXISTS idx_financial_date ON public.financial_transactions(date DESC);
+CREATE INDEX IF NOT EXISTS idx_financial_type ON public.financial_transactions(type);
+CREATE INDEX IF NOT EXISTS idx_financial_category ON public.financial_transactions(category);
+CREATE INDEX IF NOT EXISTS idx_proposals_status ON public.proposals(status);
+CREATE INDEX IF NOT EXISTS idx_proposals_created_at ON public.proposals(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_proposals_public_token ON public.proposals(public_token);
+CREATE INDEX IF NOT EXISTS idx_evolution_contact ON public.evolution_messages(contact_id);
+CREATE INDEX IF NOT EXISTS idx_evolution_timestamp ON public.evolution_messages(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_opportunities_status ON public.opportunities(status);
+CREATE INDEX IF NOT EXISTS idx_opportunities_created_at ON public.opportunities(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_opportunities_user_id ON public.opportunities(user_id);
+
+-- ─────────────────────────────────────────────────────────────
+-- 9. REALTIME PUBLICATIONS
+-- ─────────────────────────────────────────────────────────────
+ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.activities;

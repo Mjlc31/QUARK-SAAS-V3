@@ -50,7 +50,7 @@ export default function ClientCatalog() {
               <div className="p-2.5 bg-lime-500/10 rounded-xl border border-lime-500/20">
                 <Users className="w-6 h-6 text-lime-400" />
               </div>
-              Catálogo de Clientes
+              Clientes
             </h1>
             <p className="text-zinc-400 text-sm md:text-base max-w-2xl">
               Gerencie todos os clientes ativos. Os clientes cadastrados aqui terão acesso automático ao Portal do Cliente.

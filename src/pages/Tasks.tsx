@@ -60,7 +60,7 @@ const Tasks: React.FC = () => {
 
     if (type === 'whatsapp') {
       try {
-        const response = await fetch('http://localhost:3001/agent/task-notify', {
+        const response = await fetch('/agent/task-notify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -81,7 +81,7 @@ const Tasks: React.FC = () => {
         }
       } catch (err) {
         console.error(err);
-        toast.error("Erro ao conectar com whatsapp-backend na porta 3001.");
+        toast.error("Erro ao conectar com o serviço de notificações (porta 3001).");
       }
     } else {
       window.open(`mailto:${member.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
@@ -101,7 +101,8 @@ const Tasks: React.FC = () => {
     const assigneeMember = TEAM_MEMBERS.find(m => m.name === newTaskData.assignee);
 
     try {
-      await fetch('http://localhost:3001/agent/task-notify', {
+      await fetch('/agent/task-notify', {
+
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -20,6 +20,12 @@ export interface SolarCalcInput {
   tariffAdjustmentRate: number;     // % a.a. reajuste tarifário (padrão 7)
   systemLifeYears: number;          // Anos de vida útil (padrão 25)
   tma: number;                      // Taxa Mínima de Atratividade % a.a. (padrão 12)
+
+  // Novas variáveis
+  financingRate?: number;           // % a.m. (padrão BNB ou Sicoob)
+  creditCardRate?: number;          // % a.m. (padrão 2.99)
+  financingInstallments?: number;   // Quantidade de parcelas (ex: 60, 84)
+  simultaneityFactor?: number;      // Fração de autoconsumo (ex: 0.30 = 30%)
 }
 
 export interface SolarCalcResult {
@@ -51,6 +57,13 @@ export interface SolarCalcResult {
 
   // Fluxo de caixa anual
   cashFlow: CashFlowYear[];
+
+  // Detalhamento da nova conta
+  billBreakdown: {
+    custoDispo: number;
+    fioB: number;
+    publicLighting: number;
+  };
 }
 
 export interface CashFlowYear {
@@ -94,10 +107,10 @@ function calcTIR(cashFlows: number[], maxIter = 1000, tolerance = 1e-7): number 
       if (t > 0) dvpl -= t * cashFlows[t] / Math.pow(1 + rate, t + 1);
     }
     const newRate = rate - vpl / dvpl;
-    if (Math.abs(newRate - rate) < tolerance) return newRate;
+    if (Math.abs(newRate - rate) < tolerance) return Math.max(0, newRate);
     rate = newRate;
   }
-  return rate;
+  return Math.max(0, rate);
 }
 
 /**
@@ -122,73 +135,117 @@ export function calcSolar(input: SolarCalcInput): SolarCalcResult {
   const monthlyGenerationKwh = systemPowerKwp * generationFactor;
   const annualGenerationKwh = monthlyGenerationKwh * 12;
 
-  // ── 2. Conta antes/depois ───────────────────────────────────
   const custoDispo_kwh = CUSTO_DISPO_KWH[connectionType] || 30;
-  const custoDispo_R = custoDispo_kwh * tariffRate;
 
-  // Conta antes = consumo * tarifa + CIP
-  const monthlyBillBefore = monthlyConsumptionKwh * tariffRate + publicLighting;
-
-  // Autoconsumo simultâneo (30%) e Energia injetada (70%)
-  const simultaneousConsumption = monthlyGenerationKwh * 0.30;
-  const injectedEnergy = monthlyGenerationKwh * 0.70;
-
-  // A energia consumida da rede é o consumo total menos o autoconsumo
-  const gridConsumption = Math.max(0, monthlyConsumptionKwh - simultaneousConsumption);
-  
-  // A energia compensada da rede é a energia injetada, limitada ao que foi consumido da rede
-  const compensatedEnergy = Math.min(injectedEnergy, gridConsumption);
-
-  // O consumo faturado é o que sobrou após a compensação
-  const billedConsumption = gridConsumption - compensatedEnergy;
-
-  // Cálculo da tarifa do Fio B aplicável sobre a energia compensada
-  // Fio B = 28% da tarifa. Cobrança = 15% (2023), 30% (2024), 45% (2025), etc.
-  const currentYear = new Date().getFullYear();
-  const baseYear = 2022; // 2023 é o ano 1 (15%)
-  const fioBPercent = Math.min(Math.max((currentYear - baseYear) * 0.15, 0), 1); // Capped at 100%
-  const fioBRate = tariffRate * 0.28 * fioBPercent;
-  
-  // O custo do Fio B incide sobre a energia que foi injetada e compensada
-  // O custo do Fio B incide sobre a energia que foi injetada e compensada (apenas o % do ano)
-  const actualFiobRate = (fiobEffective > 0 ? fiobEffective : tariffRate * 0.28) * fioBPercent;
-  const fioBCost = compensatedEnergy * actualFiobRate;
-
-  // Conta depois = max(custo disponibilidade, consumo faturado * tarifa) + CIP + Fio B
-  let monthlyBillAfter = Math.max(custoDispo_R, billedConsumption * tariffRate);
-  monthlyBillAfter += fioBCost + publicLighting;
-
-  // Economia mensal
-  const monthlySavings = monthlyBillBefore - monthlyBillAfter;
-  const annualSavings = monthlySavings * 12;
-
-  // ── 3. Fluxo de Caixa ───────────────────────────────────────
+  // ── 2. Fluxo de Caixa Dinâmico ──────────────────────────────
   const adjustRate = tariffAdjustmentRate / 100;
   const tmaRate = tma / 100;
+  const ipcaRate = 0.045; // 4.5% para o reajuste isolado da TUSD/Fio B
   const degradationRate = 0.005; // 0.5% ao ano de perda de eficiência
-  const cashFlowsArray: number[] = [-finalPrice]; // Ano 0 = investimento
-  const cashFlow: CashFlowYear[] = [];
+  
+  // Detalhes de pagamento
+  // Se for financiado, a entrada é no ano 0, e as parcelas são deduzidas nos anos seguintes
+  const isFinanced = (input.financingInstallments || 0) > 0 && (input.financingRate !== undefined);
+  const finMonthly = isFinanced ? (input.financingRate || 0) / 100 : 0;
+  const finInstallments = input.financingInstallments || 0;
+  
+  const finPmt = (isFinanced && finMonthly > 0)
+    ? finalPrice * (finMonthly * Math.pow(1 + finMonthly, finInstallments)) / (Math.pow(1 + finMonthly, finInstallments) - 1)
+    : (isFinanced ? finalPrice / finInstallments : 0);
+  
+  const initialInvestment = isFinanced ? 0 : finalPrice;
+  
+  const cashFlowsArray: number[] = [-initialInvestment]; // Ano 0 = investimento ou 0 (se 100% financiado)
+  const cashFlow: CashFlowYear[] = [{
+    year: 0,
+    annualSavings: 0,
+    cumulativeSavings: 0,
+    cumulativeNet: -initialInvestment,
+    discountedCashFlow: -initialInvestment,
+  }];
   
   let cumulativeSavings = 0;
-  let cumulativeNet = -finalPrice;
-  let cumulativeDiscounted = -finalPrice;
+  let cumulativeNet = -initialInvestment;
+  let cumulativeDiscounted = -initialInvestment;
   let paybackMonths = -1;
   let paybackDiscountedYears = 0;
 
+  const currentYear = new Date().getFullYear();
+  const baseYear = 2022; // 2023 é o ano 1 (15%)
+
+  let firstYearMonthlyBillBefore = 0;
+  let firstYearMonthlyBillAfter = 0;
+  let firstYearMonthlySavings = 0;
+  let firstYearAnnualSavings = 0;
+  
+  // Curva de sazonalidade (multiplicadores para cada mês, simulando verão/inverno no Brasil)
+  const seasonalMultipliers = [1.10, 1.08, 1.05, 0.95, 0.85, 0.80, 0.82, 0.90, 1.00, 1.05, 1.15, 1.25]; // Soma = 12
+
   for (let year = 1; year <= systemLifeYears; year++) {
-    // Geração cai 0.5% ao ano. A economia real é proporcional à geração.
-    // Tarifa sobe conforme o reajuste tarifário.
-    const degradation = Math.pow(1 - degradationRate, year - 1);
-    const yearSavings = annualSavings * degradation * Math.pow(1 + adjustRate, year - 1);
+    const simulationYear = currentYear + year - 1;
     
-    cumulativeSavings += yearSavings;
-    cumulativeNet += yearSavings;
+    // Geração com degradação
+    const degradation = Math.pow(1 - degradationRate, year - 1);
+    const yearlyGen = annualGenerationKwh * degradation;
+    
+    let yearBillBefore = 0;
+    let yearBillAfter = 0;
+    
+    // Fio B step-up
+    const fioBPercent = Math.min(Math.max((simulationYear - baseYear) * 0.15, 0), 1);
+    
+    // Tarifa de Energia (com inflação pesada)
+    const currentTariff = tariffRate * Math.pow(1 + adjustRate, year - 1);
+    
+    // Fio B (com inflação isolada - IPCA)
+    const fiobBase = fiobEffective > 0 ? (fiobEffective * Math.pow(1 + ipcaRate, year - 1)) : (tariffRate * 0.28 * Math.pow(1 + ipcaRate, year - 1));
+    const actualFiobRate = fiobBase * fioBPercent;
+    const custoDispo_R = custoDispo_kwh * currentTariff;
+    
+    // Iteração mensal para precisão sazonal
+    for (let m = 0; m < 12; m++) {
+      const monthlyGen = (yearlyGen / 12) * seasonalMultipliers[m];
+      const simultaneousConsumption = monthlyGen * (input.simultaneityFactor || 0.30);
+      const injectedEnergy = monthlyGen * (1 - (input.simultaneityFactor || 0.30));
+      const gridConsumption = Math.max(0, monthlyConsumptionKwh - simultaneousConsumption);
+      const compensatedEnergy = Math.min(injectedEnergy, gridConsumption); // sem acúmulo entre meses (simplificado)
+      const billedConsumption = gridConsumption - compensatedEnergy;
+      
+      const fioBCost = compensatedEnergy * actualFiobRate;
+      
+      const mBillBefore = monthlyConsumptionKwh * currentTariff + publicLighting;
+      let mBillAfter = Math.max(custoDispo_R, billedConsumption * currentTariff);
+      mBillAfter += fioBCost + publicLighting;
+      
+      yearBillBefore += mBillBefore;
+      yearBillAfter += mBillAfter;
+      
+      if (year === 1 && m === 0) { // Guarda métricas do 1º mês
+        firstYearMonthlyBillBefore = mBillBefore;
+        firstYearMonthlyBillAfter = mBillAfter;
+        firstYearMonthlySavings = mBillBefore - mBillAfter;
+      }
+    }
+
+    let yearSavings = yearBillBefore - yearBillAfter;
+
+    if (year === 1) {
+      firstYearAnnualSavings = yearSavings;
+    }
+    
+    // Subtrai parcelas do financiamento caso existam naquele ano
+    const installmentsThisYear = Math.max(0, Math.min(12, finInstallments - (year - 1) * 12));
+    const debtService = installmentsThisYear * finPmt;
+    const netCashFlowThisYear = yearSavings - debtService;
+    
+    cumulativeSavings += yearSavings; // Total economizado puro
+    cumulativeNet += netCashFlowThisYear; // Saldo real no bolso
 
     const discountFactor = Math.pow(1 + tmaRate, year);
-    const discountedCF = yearSavings / discountFactor;
+    const discountedCF = netCashFlowThisYear / discountFactor;
     cumulativeDiscounted += discountedCF;
 
-    cashFlowsArray.push(yearSavings);
+    cashFlowsArray.push(netCashFlowThisYear);
     cashFlow.push({
       year,
       annualSavings: yearSavings,
@@ -197,11 +254,10 @@ export function calcSolar(input: SolarCalcInput): SolarCalcResult {
       discountedCashFlow: discountedCF,
     });
 
-    // Payback simples (quando saldo fica positivo)
+    // Payback simples
     if (paybackMonths < 0 && cumulativeNet >= 0) {
-      // Interpolação para meses
-      const prevNet = cumulativeNet - yearSavings;
-      const fraction = -prevNet / yearSavings;
+      const prevNet = cumulativeNet - netCashFlowThisYear;
+      const fraction = -prevNet / netCashFlowThisYear;
       paybackMonths = Math.round((year - 1 + fraction) * 12);
     }
 
@@ -211,22 +267,25 @@ export function calcSolar(input: SolarCalcInput): SolarCalcResult {
     }
   }
 
-  if (paybackMonths < 0) paybackMonths = systemLifeYears * 12;
-  const paybackYears = paybackMonths / 12;
+  if (paybackMonths < 0) paybackMonths = -1;
 
-  // ── 4. TIR e VPL ────────────────────────────────────────────
+  // ── 3. TIR e VPL ────────────────────────────────────────────
   const tirDecimal = calcTIR(cashFlowsArray);
   const tir = tirDecimal * 100;
 
-  let vpl = -finalPrice;
-  for (let t = 1; t <= systemLifeYears; t++) {
+  let vpl = 0;
+  for (let t = 0; t <= systemLifeYears; t++) {
     vpl += cashFlowsArray[t] / Math.pow(1 + tmaRate, t);
   }
 
-  const roi = finalPrice > 0 ? ((cumulativeSavings - finalPrice) / finalPrice) * 100 : 0;
-  const totalSavings25Years = cumulativeSavings;
+  if (paybackMonths < 0) paybackMonths = 0;
+  const paybackYears = paybackMonths > 0 ? paybackMonths / 12 : 0;
 
-  // ── 5. Ambiental ────────────────────────────────────────────
+  // O ROI baseia-se no Investimento Inicial, se for zero (100% financiado), consideramos o preço total para não dar infinito
+  const investmentBase = initialInvestment > 0 ? initialInvestment : finalPrice;
+  const roi = ((cumulativeSavings - investmentBase) / investmentBase) * 100;
+
+  // ── 4. Ambiental ────────────────────────────────────────────
   const co2EvitedKgYear = annualGenerationKwh * CO2_KG_PER_KWH;
   const co2EvitedTon25Years = (co2EvitedKgYear * systemLifeYears) / 1000;
   const treesEquivalent = Math.round(co2EvitedTon25Years * 1000 / CO2_PER_TREE_KG_YEAR);
@@ -234,21 +293,26 @@ export function calcSolar(input: SolarCalcInput): SolarCalcResult {
   return {
     monthlyGenerationKwh,
     annualGenerationKwh,
-    monthlyBillBefore,
-    monthlyBillAfter,
-    monthlySavings,
-    annualSavings,
+    monthlyBillBefore: firstYearMonthlyBillBefore,
+    monthlyBillAfter: firstYearMonthlyBillAfter,
+    monthlySavings: firstYearMonthlySavings,
+    annualSavings: firstYearAnnualSavings,
     paybackMonths,
     paybackYears,
     paybackDiscountedYears,
     tir,
     vpl,
     roi,
-    totalSavings25Years,
+    totalSavings25Years: cumulativeSavings,
     co2EvitedKgYear,
     co2EvitedTon25Years,
     treesEquivalent,
     cashFlow,
+    billBreakdown: {
+      custoDispo: (CUSTO_DISPO_KWH[connectionType] || 30) * tariffRate,
+      fioB: firstYearMonthlyBillAfter - ((CUSTO_DISPO_KWH[connectionType] || 30) * tariffRate) - publicLighting,
+      publicLighting: publicLighting
+    }
   };
 }
 
@@ -280,12 +344,13 @@ export function calcConsumptionFromBill(
   return Math.max(0, Math.round(netBill / tariffRate));
 }
 
-/**
- * Calcular opções de financiamento
- */
 export function calcFinancingOptions(
   totalPrice: number,
-  discountRate = 0.05 // desconto à vista padrão
+  discountRate = 0.05, // desconto à vista padrão
+  customFinancingRate?: number,
+  customInstallments?: number,
+  customCreditCardRate?: number,
+  multipleInstallments?: number[]
 ): FinancingOption[] {
   const options: FinancingOption[] = [];
 
@@ -302,71 +367,47 @@ export function calcFinancingOptions(
     downPayment: 0,
   });
 
-  // Financiamento BNB / FNE Verde (7.5% a.a.)
-  const bnbAnnual = 0.075;
-  const bnbMonthly = Math.pow(1 + bnbAnnual, 1 / 12) - 1;
-  const bnbInstallments = 84; // 7 anos
-  const bnbPmt = totalPrice * (bnbMonthly * Math.pow(1 + bnbMonthly, bnbInstallments)) /
-    (Math.pow(1 + bnbMonthly, bnbInstallments) - 1);
-  options.push({
-    id: 'bnb-fne',
-    label: 'BNB / FNE Verde',
-    description: 'Linha especial solar — até 7 anos sem entrada',
-    installments: bnbInstallments,
-    monthlyRate: bnbMonthly * 100,
-    annualRate: bnbAnnual * 100,
-    installmentValue: bnbPmt,
-    totalPaid: bnbPmt * bnbInstallments,
-    downPayment: 0,
+  // Financiamento Customizado / Padrão (Sicoob)
+  const finMonthly = (customFinancingRate !== undefined ? customFinancingRate : 1.29) / 100;
+  
+  const installmentsToUse = (multipleInstallments && multipleInstallments.length > 0) 
+    ? multipleInstallments 
+    : [customInstallments || 60];
+
+  installmentsToUse.forEach(finInstallments => {
+    const finPmt = finMonthly > 0 
+      ? totalPrice * (finMonthly * Math.pow(1 + finMonthly, finInstallments)) / (Math.pow(1 + finMonthly, finInstallments) - 1)
+      : totalPrice / finInstallments;
+      
+    options.push({
+      id: `custom-fin-${finInstallments}`,
+      label: `Financiamento ${finInstallments}x`,
+      description: `Crédito solar — ${finInstallments}× sem entrada`,
+      installments: finInstallments,
+      monthlyRate: finMonthly * 100,
+      annualRate: (Math.pow(1 + finMonthly, 12) - 1) * 100,
+      installmentValue: finPmt,
+      totalPaid: finPmt * finInstallments,
+      downPayment: 0,
+    });
   });
 
-  // Financiamento Sicoob / Caixa (1.29% a.m. / ~16.6% a.a.)
-  const sicoobMonthly = 0.0129;
-  const sicoobInstallments = 60; // 5 anos
-  const sicoobPmt = totalPrice * (sicoobMonthly * Math.pow(1 + sicoobMonthly, sicoobInstallments)) /
-    (Math.pow(1 + sicoobMonthly, sicoobInstallments) - 1);
-  options.push({
-    id: 'sicoob',
-    label: 'Financiamento Sicoob / Caixa',
-    description: 'Crédito solar — 60× sem entrada',
-    installments: sicoobInstallments,
-    monthlyRate: sicoobMonthly * 100,
-    annualRate: (Math.pow(1 + sicoobMonthly, 12) - 1) * 100,
-    installmentValue: sicoobPmt,
-    totalPaid: sicoobPmt * sicoobInstallments,
-    downPayment: 0,
-  });
-
-  // Cartão de crédito 18× (taxa 2.99% a.m.)
-  const cardMonthly = 0.0299;
+  // Cartão de crédito Customizado / Padrão (18x)
+  const cardMonthly = (customCreditCardRate !== undefined ? customCreditCardRate : 2.99) / 100;
   const cardInstallments = 18;
-  const cardPmt = totalPrice * (cardMonthly * Math.pow(1 + cardMonthly, cardInstallments)) /
-    (Math.pow(1 + cardMonthly, cardInstallments) - 1);
+  const cardPmt = cardMonthly > 0 
+    ? totalPrice * (cardMonthly * Math.pow(1 + cardMonthly, cardInstallments)) / (Math.pow(1 + cardMonthly, cardInstallments) - 1)
+    : totalPrice / cardInstallments;
+    
   options.push({
-    id: 'credit-card-18',
-    label: 'Cartão de Crédito 18×',
+    id: 'credit-card',
+    label: `Cartão de Crédito ${cardInstallments}×`,
     description: 'Parcelamento no cartão sem burocracia',
     installments: cardInstallments,
     monthlyRate: cardMonthly * 100,
     annualRate: (Math.pow(1 + cardMonthly, 12) - 1) * 100,
     installmentValue: cardPmt,
     totalPaid: cardPmt * cardInstallments,
-    downPayment: 0,
-  });
-
-  // Cartão de crédito 12× (taxa 2.49% a.m.)
-  const card12Monthly = 0.0249;
-  const card12Pmt = totalPrice * (card12Monthly * Math.pow(1 + card12Monthly, 12)) /
-    (Math.pow(1 + card12Monthly, 12) - 1);
-  options.push({
-    id: 'credit-card-12',
-    label: 'Cartão de Crédito 12×',
-    description: 'Parcelamento em 12× no cartão',
-    installments: 12,
-    monthlyRate: card12Monthly * 100,
-    annualRate: (Math.pow(1 + card12Monthly, 12) - 1) * 100,
-    installmentValue: card12Pmt,
-    totalPaid: card12Pmt * 12,
     downPayment: 0,
   });
 

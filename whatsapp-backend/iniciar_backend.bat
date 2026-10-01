@@ -1,10 +1,9 @@
 @echo off
-title Quark Backend — Iniciando...
-cd /d "C:\Users\arthu\Documents\QUARK OS\QUARK-SAAS-V3-main\QUARK-SAAS-V3-main\whatsapp-backend"
+title Quark Backend — Redirecionando para o Backend Unificado
+cd /d "%~dp0\.."
 echo =========================================
-echo   QUARK OS — Backend WhatsApp + Agenda
+echo   QUARK OS — Redirecionando para Backend Unificado
 echo =========================================
 echo.
-echo Iniciando servidor na porta 3001...
-node index.js
+node backend/server.js
 pause

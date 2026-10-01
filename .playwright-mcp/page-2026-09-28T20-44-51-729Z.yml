@@ -1,0 +1,58 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e6]:
+      - img "Quark Energia" [ref=e7]
+      - generic [ref=e8]: Offline
+    - navigation [ref=e11]:
+      - paragraph [ref=e12]: Plataforma
+      - link "Visão Geral" [ref=e13] [cursor=pointer]:
+        - /url: /
+      - link "Leads & CRM" [ref=e22] [cursor=pointer]:
+        - /url: /crm
+      - link "Prospecção" [ref=e29] [cursor=pointer]:
+        - /url: /prospeccao
+      - link "Propostas" [ref=e34] [cursor=pointer]:
+        - /url: /proposals
+      - link "Conversas" [ref=e39] [cursor=pointer]:
+        - /url: /conversations
+      - link "Calculadora" [ref=e43] [cursor=pointer]:
+        - /url: /calculator
+      - link "Engenharia" [ref=e47] [cursor=pointer]:
+        - /url: /engineering
+      - link "Acompanhamento" [ref=e50] [cursor=pointer]:
+        - /url: /follow-up
+      - link "Tarefas" [ref=e57] [cursor=pointer]:
+        - /url: /tasks
+      - paragraph [ref=e62]: Dados
+      - link "Catálogo" [ref=e63] [cursor=pointer]:
+        - /url: /products
+      - link "Insta Auto" [ref=e69] [cursor=pointer]:
+        - /url: /insta-automation
+      - link "Financeiro" [ref=e74] [cursor=pointer]:
+        - /url: /financeiro
+      - link "Intelligence" [ref=e78] [cursor=pointer]:
+        - /url: /reports
+      - link "Auditoria Fatura" [ref=e83] [cursor=pointer]:
+        - /url: /audit
+      - paragraph [ref=e88]: Serviços & Automação
+      - link "Tickets" [ref=e89] [cursor=pointer]:
+        - /url: /tickets
+      - link "Catálogo de Clientes" [ref=e93] [cursor=pointer]:
+        - /url: /clientes
+      - link "Inteligência" [ref=e100] [cursor=pointer]:
+        - /url: /intelligence
+      - link "Manutenção" [ref=e105] [cursor=pointer]:
+        - /url: /maintenance
+      - link "Alertas" [ref=e109] [cursor=pointer]:
+        - /url: /maintenance-alerts
+      - link "Robô Faturas" [ref=e114] [cursor=pointer]:
+        - /url: /utility-robot
+      - link "E-commerce" [ref=e119] [cursor=pointer]:
+        - /url: /ecommerce
+    - generic [ref=e126] [cursor=pointer]:
+      - generic [ref=e127]: U
+      - generic [ref=e129]:
+        - paragraph [ref=e130]: Usuário
+        - paragraph [ref=e131]: arthurmoraesp12@gmail.com
+      - button [ref=e132]
+  - main [ref=e136]

@@ -1,0 +1,35 @@
+--- src/App.tsx
++++ src/App.tsx
+@@ -34,2 +34,3 @@
+ import { AppProvider, useApp } from './contexts/AppContext';
++import { PortalProvider, usePortal } from './contexts/PortalContext';
+ import { LayoutDashboard, Menu, Zap, Users, CheckSquare, HardHat, DollarSign } from 'lucide-react';
+@@ -107,13 +108,15 @@
+ const PortalLayout: React.FC = () => {
+   return (
+-    <div className="min-h-[100dvh] bg-quark-bg text-slate-200 font-sans selection:bg-lime-500/30 overflow-hidden">
+-      {/* Aqui virá o PortalProvider posteriormente */}
+-      <Suspense fallback={<SkeletonLoader />}>
+-        <Routes>
+-          <Route path="/" element={<PageWrapper><PortalDashboard /></PageWrapper>} />
+-          <Route path="/tickets" element={<PageWrapper><PortalTickets /></PageWrapper>} />
+-          <Route path="/tracking" element={<PageWrapper><PortalTracking /></PageWrapper>} />
+-          <Route path="/payments" element={<PageWrapper><PortalPayments /></PageWrapper>} />
+-          <Route path="/shop" element={<PageWrapper><PortalEcommerce /></PageWrapper>} />
+-        </Routes>
+-      </Suspense>
+-    </div>
++    <PortalProvider>
++      <div className="min-h-[100dvh] bg-quark-bg text-slate-200 font-sans selection:bg-lime-500/30 overflow-hidden">
++        <Suspense fallback={<SkeletonLoader />}>
++          <Routes>
++            <Route path="/" element={<PageWrapper><PortalDashboard /></PageWrapper>} />
++            <Route path="/tickets" element={<PageWrapper><PortalTickets /></PageWrapper>} />
++            <Route path="/tracking" element={<PageWrapper><PortalTracking /></PageWrapper>} />
++            <Route path="/payments" element={<PageWrapper><PortalPayments /></PageWrapper>} />
++            <Route path="/shop" element={<PageWrapper><PortalEcommerce /></PageWrapper>} />
++          </Routes>
++        </Suspense>
++      </div>
++    </PortalProvider>
+   );

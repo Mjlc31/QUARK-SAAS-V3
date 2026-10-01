@@ -44,3 +44,10 @@ Este repositório contém diretrizes para a criação e invocação de subagente
 **Objetivo**: Responsável por construir a versão mobile da aplicação, cuidando de performance, UI/UX (Touch-first, offline-capable), e decisões multiplataforma (iOS e Android).
 **Skills Requeridas**: 
 - Deve carregar e seguir a skill `mobile-design`.
+
+## quark-fullstack-auditor
+**Role**: Auditor Fullstack e Arquiteto de Software Sênior.
+**Objetivo**: Responsável pela análise contínua de código, otimização de métricas (SLOC), eliminação de código morto, unificação de backends e garantia de integração ponta a ponta (React, Express, Docker, Evolution API, Supabase).
+**Skills Requeridas**:
+- Deve carregar e seguir as skills `code-review` e `fullstack-developer`.
+

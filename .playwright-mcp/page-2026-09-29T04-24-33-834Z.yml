@@ -1,0 +1,230 @@
+- generic [ref=f3e3]:
+  - complementary [ref=f3e4]:
+    - generic [ref=f3e6]:
+      - img "Quark Energia" [ref=f3e7]
+      - generic [ref=f3e8]: Online
+    - navigation [ref=f3e11]:
+      - paragraph [ref=f3e12]: Plataforma
+      - link "Visão Geral" [ref=f3e175] [cursor=pointer]:
+        - /url: /
+      - link "Leads & CRM" [ref=f3e182] [cursor=pointer]:
+        - /url: /crm
+      - link "Prospecção" [ref=f3e189] [cursor=pointer]:
+        - /url: /prospeccao
+      - link "Propostas" [ref=f3e194] [cursor=pointer]:
+        - /url: /proposals
+      - link "Conversas" [ref=f3e201] [cursor=pointer]:
+        - /url: /conversations
+      - link "Calculadora" [ref=f3e205] [cursor=pointer]:
+        - /url: /calculator
+      - link "Engenharia" [ref=f3e209] [cursor=pointer]:
+        - /url: /engineering
+      - link "Acompanhamento" [ref=f3e212] [cursor=pointer]:
+        - /url: /follow-up
+      - link "Tarefas" [ref=f3e219] [cursor=pointer]:
+        - /url: /tasks
+      - paragraph [ref=f3e62]: Dados
+      - link "Catálogo" [ref=f3e224] [cursor=pointer]:
+        - /url: /products
+      - link "Insta Auto" [ref=f3e230] [cursor=pointer]:
+        - /url: /insta-automation
+      - link "Financeiro" [ref=f3e235] [cursor=pointer]:
+        - /url: /financeiro
+      - link "Intelligence" [ref=f3e239] [cursor=pointer]:
+        - /url: /reports
+      - link "Auditoria Fatura" [ref=f3e244] [cursor=pointer]:
+        - /url: /audit
+      - paragraph [ref=f3e88]: Serviços & Automação
+      - link "Tickets" [ref=f3e249] [cursor=pointer]:
+        - /url: /tickets
+      - link "Catálogo de Clientes" [ref=f3e253] [cursor=pointer]:
+        - /url: /clientes
+      - link "Inteligência" [ref=f3e260] [cursor=pointer]:
+        - /url: /intelligence
+      - link "Manutenção" [ref=f3e265] [cursor=pointer]:
+        - /url: /maintenance
+      - link "Alertas" [ref=f3e269] [cursor=pointer]:
+        - /url: /maintenance-alerts
+      - link "Robô Faturas" [ref=f3e274] [cursor=pointer]:
+        - /url: /utility-robot
+      - link "E-commerce" [ref=f3e279] [cursor=pointer]:
+        - /url: /ecommerce
+    - generic [ref=f3e126] [cursor=pointer]:
+      - generic [ref=f3e127]: TE
+      - generic [ref=f3e129]:
+        - paragraph [ref=f3e130]: Modo Offline
+        - paragraph [ref=f3e131]: test@test.com
+      - button [ref=f3e132]
+  - main [ref=f3e136]:
+    - generic [ref=f3e286]:
+      - generic [ref=f3e287]:
+        - generic [ref=f3e293]:
+          - heading "Propostas" [level=1] [ref=f3e294]
+          - paragraph [ref=f3e295]: Gerencie suas propostas comerciais
+        - button "Nova Proposta" [active] [ref=f3e296] [cursor=pointer]
+      - generic [ref=f3e298]:
+        - generic [ref=f3e304]:
+          - paragraph [ref=f3e305]: Total de Propostas
+          - paragraph [ref=f3e306]: "0"
+        - generic [ref=f3e312]:
+          - paragraph [ref=f3e313]: Valor Fechado
+          - paragraph [ref=f3e314]: R$ 0
+        - generic [ref=f3e320]:
+          - paragraph [ref=f3e321]: Taxa de Conversão
+          - paragraph [ref=f3e322]: 0.0%
+        - generic [ref=f3e327]:
+          - paragraph [ref=f3e328]: No Mês
+          - paragraph [ref=f3e329]: "0"
+      - generic [ref=f3e330]:
+        - generic [ref=f3e331]:
+          - textbox "Buscar por cliente ou cidade..." [ref=f3e336]
+          - generic [ref=f3e337]:
+            - button "Todos" [ref=f3e338] [cursor=pointer]
+            - button "Rascunho" [ref=f3e339] [cursor=pointer]
+            - button "Enviada" [ref=f3e340] [cursor=pointer]
+            - button "Aprovada" [ref=f3e341] [cursor=pointer]
+            - button "Recusada" [ref=f3e342] [cursor=pointer]
+        - generic [ref=f3e343]:
+          - button [ref=f3e344] [cursor=pointer]
+          - button [ref=f3e350] [cursor=pointer]
+      - generic [ref=f3e352]:
+        - heading "Nenhuma proposta encontrada" [level=3] [ref=f3e357]
+        - paragraph [ref=f3e358]: Você ainda não tem nenhuma proposta comercial. Comece criando a sua primeira proposta.
+        - button "Criar primeira proposta" [ref=f3e359] [cursor=pointer]
+      - generic [ref=f3e362]:
+        - button [ref=f3e363] [cursor=pointer]
+        - generic [ref=f3e369]:
+          - generic [ref=f3e375]:
+            - button [ref=f3e376] [cursor=pointer]
+            - generic [ref=f3e381]: Cliente
+          - generic [ref=f3e382]:
+            - button [disabled] [ref=f3e383]
+            - generic [ref=f3e387]: Técnico
+          - generic [ref=f3e388]:
+            - button [disabled] [ref=f3e389]
+            - generic [ref=f3e392]: Precificação
+          - generic [ref=f3e393]:
+            - button [disabled] [ref=f3e394]
+            - generic [ref=f3e398]: Preview
+          - generic [ref=f3e399]:
+            - button [disabled] [ref=f3e400]
+            - generic [ref=f3e404]: Exportar
+        - generic [ref=f3e407]:
+          - generic [ref=f3e408]:
+            - heading "Dados Pessoais" [level=3] [ref=f3e409]
+            - generic [ref=f3e413]:
+              - generic [ref=f3e414]:
+                - generic [ref=f3e415]: Nome Completo *
+                - 'textbox "Ex: João da Silva" [ref=f3e416]'
+              - generic [ref=f3e417]:
+                - generic [ref=f3e418]: CPF / CNPJ
+                - textbox "000.000.000-00" [ref=f3e419]
+              - generic [ref=f3e420]:
+                - generic [ref=f3e421]: Telefone
+                - textbox "(00) 00000-0000" [ref=f3e425]
+              - generic [ref=f3e426]:
+                - generic [ref=f3e427]: Email
+                - textbox "email@exemplo.com" [ref=f3e432]
+          - generic [ref=f3e433]:
+            - heading "Localização da Obra" [level=3] [ref=f3e434]
+            - generic [ref=f3e438]:
+              - generic [ref=f3e439]:
+                - generic [ref=f3e440]: Endereço
+                - textbox "Rua, Número, Bairro" [ref=f3e441]
+              - generic [ref=f3e442]:
+                - generic [ref=f3e443]: Cidade *
+                - 'textbox "Ex: São Paulo" [ref=f3e444]'
+              - generic [ref=f3e445]:
+                - generic [ref=f3e446]: Estado / UF
+                - combobox [ref=f3e450] [cursor=pointer]:
+                  - option "Selecione..." [selected]
+                  - option "AC"
+                  - option "AL"
+                  - option "AP"
+                  - option "AM"
+                  - option "BA"
+                  - option "CE"
+                  - option "DF"
+                  - option "ES"
+                  - option "GO"
+                  - option "MA"
+                  - option "MT"
+                  - option "MS"
+                  - option "MG"
+                  - option "PA"
+                  - option "PB"
+                  - option "PR"
+                  - option "PE"
+                  - option "PI"
+                  - option "RJ"
+                  - option "RN"
+                  - option "RS"
+                  - option "RO"
+                  - option "RR"
+                  - option "SC"
+                  - option "SP"
+                  - option "SE"
+                  - option "TO"
+              - generic [ref=f3e451]:
+                - generic [ref=f3e452]: Tipo de Telhado
+                - combobox [ref=f3e457] [cursor=pointer]:
+                  - option "Selecione..." [selected]
+                  - option "Cerâmico (Colonial)"
+                  - option "Metálico (Trapezoidal)"
+                  - option "Fibrocimento"
+                  - option "Laje"
+                  - option "Solo"
+          - generic [ref=f3e458]:
+            - heading "Dados Elétricos" [level=3] [ref=f3e459]
+            - generic [ref=f3e462]:
+              - generic [ref=f3e463]:
+                - generic [ref=f3e464]: Concessionária
+                - combobox [ref=f3e465] [cursor=pointer]:
+                  - option "Selecione a concessionária..." [selected]
+                  - option "Equatorial Alagoas (AL)"
+                  - option "Equatorial Pará (PA)"
+                  - option "Equatorial Piauí (PI)"
+                  - option "Equatorial Maranhão (MA)"
+                  - option "Equatorial Goiás (GO)"
+                  - option "CEMIG Distribuição (MG)"
+                  - option "COPEL Distribuição (PR)"
+                  - option "Neoenergia CELPE (PE)"
+                  - option "Enel Ceará (CE)"
+                  - option "COSERN (RN)"
+                  - option "Neoenergia Coelba (BA)"
+                  - option "CELESC Distribuição (SC)"
+                  - option "Energisa Paraíba (PB)"
+                  - option "Energisa Sergipe (SE)"
+                  - option "Energisa Mato Grosso (MT)"
+                  - option "Light (RJ)"
+                  - option "Enel São Paulo (SP)"
+                  - option "CPFL Paulista (SP)"
+                  - option "EDP São Paulo (SP)"
+                  - option "CELG Distribuição (GO)"
+                  - option "Edefor / Fortaleza (CE)"
+              - generic [ref=f3e466]:
+                - generic [ref=f3e467]: Fator de Geração (Mensal)
+                - 'spinbutton "Ex: 125" [ref=f3e471]': "125"
+                - paragraph [ref=f3e472]: Estimativa de kWh por kWp ao mês.
+              - generic [ref=f3e473]:
+                - generic [ref=f3e474]: Tipo de Ligação
+                - generic [ref=f3e475]:
+                  - generic [ref=f3e476] [cursor=pointer]:
+                    - radio "Monofásico" [checked] [ref=f3e477]
+                    - generic [ref=f3e478]: Monofásico
+                  - generic [ref=f3e479] [cursor=pointer]:
+                    - radio "Bifásico" [ref=f3e480]
+                    - generic [ref=f3e481]: Bifásico
+                  - generic [ref=f3e482] [cursor=pointer]:
+                    - radio "Trifásico" [ref=f3e483]
+                    - generic [ref=f3e484]: Trifásico
+              - generic [ref=f3e485]:
+                - generic [ref=f3e486]:
+                  - generic [ref=f3e487]: "Modo de Entrada:"
+                  - generic [ref=f3e488]:
+                    - button "Por kWh" [ref=f3e489] [cursor=pointer]
+                    - button "Por Valor (R$)" [ref=f3e490] [cursor=pointer]
+                - generic [ref=f3e491]:
+                  - generic [ref=f3e492]: Consumo Médio Mensal (kWh/mês) *
+                  - 'spinbutton "Ex: 500" [ref=f3e493]'
+          - button "Próximo" [ref=f3e495] [cursor=pointer]

@@ -1,0 +1,18 @@
+- generic [ref=e6]:
+  - generic [ref=e7]:
+    - heading "Quark." [level=1] [ref=e12]
+    - paragraph [ref=e13]: Enterprise Access
+  - generic [ref=e14]:
+    - generic [ref=e15]:
+      - generic [ref=e16]: Email Corporativo
+      - textbox "nome@empresa.com" [ref=e18]
+    - generic [ref=e22]:
+      - generic [ref=e23]:
+        - generic [ref=e24]: Senha
+        - button "Esqueceu a senha?" [ref=e25] [cursor=pointer]
+      - textbox "••••••••" [ref=e27]
+    - button "Acessar Sistema" [ref=e31] [cursor=pointer]
+  - generic [ref=e34]:
+    - paragraph [ref=e35]: Ainda não tem acesso?
+    - button "Criar nova conta" [ref=e36] [cursor=pointer]
+  - paragraph [ref=e41]: Protegido por criptografia End-to-End

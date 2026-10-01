@@ -13,11 +13,13 @@ const Conversations = React.lazy(() => import('./pages/Conversations'));
 const Products = React.lazy(() => import('./pages/Products'));
 const Reports = React.lazy(() => import('./pages/Reports'));
 const Proposals = React.lazy(() => import('./pages/Proposals'));
+const ProposalEditorPage = React.lazy(() => import('./pages/ProposalEditorPage'));
+const PublicProposal = React.lazy(() => import('./pages/PublicProposal'));
+const PublicCapture = React.lazy(() => import('./pages/PublicCapture'));
 const Engineering = React.lazy(() => import('./pages/Engineering'));
 const FollowUp = React.lazy(() => import('./pages/FollowUp'));
 const Financial = React.lazy(() => import('./pages/Financial'));
 const InvoiceAudit = React.lazy(() => import('./pages/InvoiceAudit'));
-const InstaAutomation = React.lazy(() => import('./pages/InstaAutomation'));
 const Prospeccao = React.lazy(() => import('./pages/Prospeccao'));
 const ClientCatalog = React.lazy(() => import('./pages/ClientCatalog'));
 const TicketAdmin = React.lazy(() => import('./pages/TicketAdmin'));
@@ -25,7 +27,6 @@ const ClientIntelligence = React.lazy(() => import('./pages/ClientIntelligence')
 const Maintenance = React.lazy(() => import('./pages/Maintenance'));
 const MaintenanceAlerts = React.lazy(() => import('./pages/MaintenanceAlerts'));
 const UtilityRobot = React.lazy(() => import('./pages/UtilityRobot'));
-const Ecommerce = React.lazy(() => import('./pages/Ecommerce'));
 const PortalDashboard = React.lazy(() => import('./pages/portal/PortalDashboard'));
 const PortalTickets = React.lazy(() => import('./pages/portal/PortalTickets'));
 const PortalTracking = React.lazy(() => import('./pages/portal/PortalTracking'));
@@ -81,7 +82,11 @@ const MainLayout: React.FC = () => {
             <Route path="/crm" element={<PageWrapper><CRM /></PageWrapper>} />
             <Route path="/conversations" element={<PageWrapper><Conversations /></PageWrapper>} />
             <Route path="/calculator" element={<PageWrapper><Calculator /></PageWrapper>} />
-            <Route path="/proposals" element={<PageWrapper><Proposals /></PageWrapper>} />
+            <Route path="/propostas" element={<PageWrapper><Proposals /></PageWrapper>} />
+            <Route path="/propostas/nova" element={<PageWrapper><ProposalEditorPage /></PageWrapper>} />
+            <Route path="/propostas/:id" element={<PageWrapper><ProposalEditorPage /></PageWrapper>} />
+            <Route path="/proposals" element={<Navigate to="/propostas" replace />} />
+            <Route path="/proposals/*" element={<Navigate to="/propostas" replace />} />
             <Route path="/engineering" element={<PageWrapper><Engineering /></PageWrapper>} />
             <Route path="/tasks" element={<PageWrapper><Tasks /></PageWrapper>} />
             <Route path="/products" element={<PageWrapper><Products /></PageWrapper>} />
@@ -89,7 +94,6 @@ const MainLayout: React.FC = () => {
             <Route path="/reports" element={<PageWrapper><Reports /></PageWrapper>} />
             <Route path="/financeiro" element={<PageWrapper><Financial /></PageWrapper>} />
             <Route path="/audit" element={<PageWrapper><InvoiceAudit /></PageWrapper>} />
-            <Route path="/insta-automation" element={<PageWrapper><InstaAutomation /></PageWrapper>} />
             <Route path="/prospeccao" element={<PageWrapper><Prospeccao /></PageWrapper>} />
             <Route path="/clientes" element={<PageWrapper><ClientCatalog /></PageWrapper>} />
 
@@ -99,7 +103,6 @@ const MainLayout: React.FC = () => {
             <Route path="/maintenance" element={<PageWrapper><Maintenance /></PageWrapper>} />
             <Route path="/maintenance-alerts" element={<PageWrapper><MaintenanceAlerts /></PageWrapper>} />
             <Route path="/utility-robot" element={<PageWrapper><UtilityRobot /></PageWrapper>} />
-            <Route path="/ecommerce" element={<PageWrapper><Ecommerce /></PageWrapper>} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes></AnimatePresence>
@@ -163,6 +166,16 @@ const App: React.FC = () => {
               <Route path="*" element={<PortalLayout />} />
             </Routes>
           </PortalProvider>
+        } />
+        <Route path="/p/:token" element={
+          <Suspense fallback={<SkeletonLoader />}>
+            <PublicProposal />
+          </Suspense>
+        } />
+        <Route path="/captura" element={
+          <Suspense fallback={<SkeletonLoader />}>
+            <PublicCapture />
+          </Suspense>
         } />
         <Route path="*" element={
           <AppProvider>

@@ -1,3 +1,4 @@
+import type { Database } from "../types/database.types";
 import { createClient } from '@supabase/supabase-js';
 
 // --- CONFIGURAÇÃO DO SUPABASE ---
@@ -45,6 +46,7 @@ console.log(
   `%c⚡ SUPABASE: ${finalUrl === FALLBACK_URL ? 'Fallback' : 'Env'} | ${isMobile ? '📱 Mobile' : '🖥️ Desktop'} | Storage: ${isLocalStorageAvailable ? '✅' : '⚠️ Memory'}`,
   'background: #84cc16; color: black; padding: 2px 6px; border-radius: 4px; font-weight: bold;'
 );
+
 
 export const supabase = createClient(finalUrl, finalKey, {
   auth: {

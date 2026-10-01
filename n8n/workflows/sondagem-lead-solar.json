@@ -1,0 +1,79 @@
+{
+  "id": "sondagem-lead-001",
+  "name": "Sondagem de Novo Lead (Proativo)",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "novo-lead-crm",
+        "httpMethod": "POST",
+        "options": {}
+      },
+      "id": "webhook-lead",
+      "name": "Webhook Novo Lead",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://evolution-go:8080/message/sendText/quark",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "quark_senha_secreta_123" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"{{ $json.body.telefone }}\",\n  \"options\": {\n    \"delay\": 2500,\n    \"presence\": \"composing\"\n  },\n  \"textMessage\": {\n    \"text\": \"Olá {{ $json.body.nome }}, tudo bem? Sou da equipe da Quark Energia ☀️\\n\\nVi que você tem interesse em se livrar do aluguel da conta de luz. Podemos conversar rapidinho?\"\n  }\n}",
+        "options": {}
+      },
+      "id": "enviar-primeira-msg",
+      "name": "Disparar Primeira Mensagem",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/leads?id=eq.{{ $('Webhook Novo Lead').item.json.body.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer ={{ $env.SUPABASE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"status\": \"Contatado (IA)\"\n}",
+        "options": {}
+      },
+      "id": "atualizar-crm",
+      "name": "Atualizar Status no CRM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [650, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Novo Lead": {
+      "main": [
+        [
+          { "node": "Disparar Primeira Mensagem", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Disparar Primeira Mensagem": {
+      "main": [
+        [
+          { "node": "Atualizar Status no CRM", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  }
+}

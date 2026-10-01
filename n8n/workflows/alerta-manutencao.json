@@ -1,0 +1,110 @@
+{
+  "name": "Alerta Manutenção",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [ { "field": "cronExpression", "expression": "0 8 * * 1" } ]
+        }
+      },
+      "id": "schedule-node",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/client_intelligence?last_maintenance_date=lt.NOW() - interval '6 months'",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "supabase-get",
+      "name": "Fetch Clients",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [400, 300]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "split-batches",
+      "name": "Split In Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 2,
+      "position": [600, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/maintenance_alert",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "client_id", "value": "={{ $json.id }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "supabase-insert",
+      "name": "Create Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [800, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://whatsapp-backend/api/evolution/send",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "message", "value": "It is time for maintenance!" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "whatsapp-notify",
+      "name": "WhatsApp Notify",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [800, 400]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [ [ { "node": "Fetch Clients", "type": "main", "index": 0 } ] ]
+    },
+    "Fetch Clients": {
+      "main": [ [ { "node": "Split In Batches", "type": "main", "index": 0 } ] ]
+    },
+    "Split In Batches": {
+      "main": [
+        [
+          { "node": "Create Alert", "type": "main", "index": 0 },
+          { "node": "WhatsApp Notify", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Create Alert": {
+      "main": [ [ { "node": "Split In Batches", "type": "main", "index": 0 } ] ]
+    }
+  },
+  "settings": {}
+}

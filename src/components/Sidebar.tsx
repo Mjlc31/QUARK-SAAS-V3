@@ -56,34 +56,30 @@ const BottomNav: React.FC = () => {
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { user, logout, isSupabaseConnected } = useApp();
 
-  const menuItems = [
+  const commercialItems = [
     { id: 'dashboard', label: 'Visão Geral', icon: LayoutDashboard, path: '/' },
     { id: 'crm', label: 'Leads & CRM', icon: Users, path: '/crm' },
     { id: 'prospeccao', label: 'Prospecção', icon: MapPin, path: '/prospeccao' },
-    { id: 'proposals', label: 'Propostas', icon: FileText, path: '/proposals' },
-    { id: 'conversations', label: 'Conversas', icon: MessageSquare, path: '/conversations' },
+    { id: 'conversations', label: 'WhatsApp & IA', icon: MessageSquare, path: '/conversations' },
+    { id: 'proposals', label: 'Propostas', icon: FileText, path: '/propostas' },
     { id: 'calculator', label: 'Calculadora', icon: Calculator, path: '/calculator' },
-    { id: 'engineering', label: 'Engenharia', icon: Kanban, path: '/engineering' },
+  ];
+
+  const operationsItems = [
     { id: 'follow-up', label: 'Acompanhamento', icon: HardHat, path: '/follow-up' },
     { id: 'tasks', label: 'Tarefas', icon: CheckSquare, path: '/tasks' },
-  ];
-
-  const commercialItems = [
-    { id: 'products', label: 'Catálogo', icon: Package, path: '/products' },
-    { id: 'insta-automation', label: 'Insta Auto', icon: Instagram, path: '/insta-automation' },
-    { id: 'financeiro', label: 'Financeiro', icon: DollarSign, path: '/financeiro' },
-    { id: 'reports', label: 'Intelligence', icon: PieChart, path: '/reports' },
-    { id: 'audit', label: 'Auditoria Fatura', icon: FileText, path: '/audit' },
-  ];
-
-  const servicosItems = [
-    { id: 'tickets', label: 'Tickets', icon: Headphones, path: '/tickets' },
-    { id: 'clientes', label: 'Catálogo de Clientes', icon: Users, path: '/clientes' },
-    { id: 'intelligence', label: 'Inteligência', icon: Brain, path: '/intelligence' },
+    { id: 'clientes', label: 'Clientes', icon: Users, path: '/clientes' },
     { id: 'maintenance', label: 'Manutenção', icon: Wrench, path: '/maintenance' },
-    { id: 'maintenance-alerts', label: 'Alertas', icon: Bell, path: '/maintenance-alerts' },
+  ];
+
+  const financeAdminItems = [
+    { id: 'financeiro', label: 'Financeiro', icon: DollarSign, path: '/financeiro' },
+    { id: 'audit', label: 'Auditoria Fatura', icon: FileText, path: '/audit' },
     { id: 'utility-robot', label: 'Robô Faturas', icon: Bot, path: '/utility-robot' },
-    { id: 'ecommerce', label: 'E-commerce', icon: ShoppingCart, path: '/ecommerce' },
+    { id: 'reports', label: 'Intelligence', icon: PieChart, path: '/reports' },
+    { id: 'intelligence', label: 'CRM Inteligência', icon: Brain, path: '/intelligence' },
+    { id: 'tickets', label: 'Tickets', icon: Headphones, path: '/tickets' },
+    { id: 'maintenance-alerts', label: 'Alertas', icon: Bell, path: '/maintenance-alerts' },
   ];
 
   const NavItem = ({ item }: { item: MenuItem }) => (
@@ -133,18 +129,18 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         </div>
 
         <nav className="flex-1 px-4 space-y-1 py-2 overflow-y-auto custom-scrollbar">
-          <p className="px-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 mt-2">Plataforma</p>
-          {menuItems.map((item) => (
-            <NavItem key={item.id} item={item} />
-          ))}
-
-          <p className="px-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 mt-8">Dados</p>
+          <p className="px-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 mt-2">Comercial</p>
           {commercialItems.map((item) => (
             <NavItem key={item.id} item={item} />
           ))}
 
-          <p className="px-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 mt-8">Serviços & Automação</p>
-          {servicosItems.map((item) => (
+          <p className="px-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 mt-8">Operações</p>
+          {operationsItems.map((item) => (
+            <NavItem key={item.id} item={item} />
+          ))}
+
+          <p className="px-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 mt-8">Financeiro & Admin</p>
+          {financeAdminItems.map((item) => (
             <NavItem key={item.id} item={item} />
           ))}
         </nav>

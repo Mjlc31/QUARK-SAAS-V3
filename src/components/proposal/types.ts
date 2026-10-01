@@ -152,6 +152,8 @@ export interface TechSpecsContent {
   inverterBrand: string;
   inverterPower: number;
   inverterCount: number;
+  moduleImageUrl?: string;
+  inverterImageUrl?: string;
   roofArea: number;
 }
 
@@ -188,6 +190,11 @@ export interface EconomyContent {
   totalSavings25Years: number;
   monthlyGenerationKwh: number;
   consumption: number;
+  breakdown?: {
+    custoDispo: number;
+    fioB: number;
+    publicLighting: number;
+  };
 }
 
 export interface ROIContent {
@@ -319,6 +326,7 @@ export interface ProposalData {
   concessionaria?: string;
   connectionType?: 'mono' | 'bi' | 'tri';
   publicLighting?: number;
+  simultaneityFactor?: number;
   generationFactor?: number;
 
   // ── Configuração Técnica (Step 2) ──
@@ -329,15 +337,29 @@ export interface ProposalData {
   inverterBrand: string;
   inverterPower: number;
   inverterCount: number;
+  moduleImageUrl?: string;
+  inverterImageUrl?: string;
 
   // ── Precificação (Step 3) ──
   priceKit: number;
   priceCA: number;
   installationCost?: number;
   additionalCosts: number;
+  commissionPercentage?: number;
   taxPercentage: number;
   profitPercentage: number;
+  clientDiscount?: number;
+  priceRounding?: number;
   finalPrice: number;
+
+  // ── Variáveis de Precificação ──
+  kwhPriceRegion?: number;
+  financingRate?: number;
+  creditCardRate?: number;
+  financingInstallments?: number;
+  multipleInstallments?: number[]; // Prazos de financiamento múltiplos (ex: [12, 24, 36, 48, 60, 72, 84, 96, 120])
+  validityDays?: number; // Validade da proposta
+  installationDays?: number; // Do pagamento à homologação
 
   // ── Resultados Calculados ──
   monthlySavings?: number;

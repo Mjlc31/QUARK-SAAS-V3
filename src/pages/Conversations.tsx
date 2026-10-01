@@ -25,7 +25,9 @@ export interface ChatItem {
     messages: ChatMessage[];
 }
 
-const BACKEND_URL = 'http://localhost:3001';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+const EVO_URL = import.meta.env.VITE_EVOLUTION_API_URL || 'http://localhost:8082';
+const EVO_API_KEY = import.meta.env.VITE_EVOLUTION_API_KEY || 'quark_senha_secreta_123';
 
 const Conversations: React.FC = () => {
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -81,7 +83,8 @@ const Conversations: React.FC = () => {
                     });
                 });
 
-                setChats(Array.from(chatMap.values()).sort((a, b) => b.messages[b.messages.length - 1].timestamp - a.messages[a.messages.length - 1].timestamp));
+                const getChatTimestamp = (c: ChatItem) => (c.messages.length > 0 ? c.messages[c.messages.length - 1].timestamp : 0);
+                setChats(Array.from(chatMap.values()).sort((a, b) => getChatTimestamp(b) - getChatTimestamp(a)));
             } catch (err) {
                 console.error("Error fetching chats", err);
             }
@@ -110,12 +113,17 @@ const Conversations: React.FC = () => {
                     if (existingChatIndex >= 0) {
                         const newChats = [...prev];
                         const chat = { ...newChats[existingChatIndex] };
+                        const alreadyExists = chat.messages.some(
+                            m => m.id === newMsg.id || (m.body === newMsg.body && Math.abs(m.timestamp - newMsg.timestamp) < 5)
+                        );
+                        if (alreadyExists) return prev;
                         chat.messages = [...chat.messages, newMsg];
                         chat.lastMsg = msg.body;
                         chat.time = new Date(msg.timestamp * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                         chat.unread = selectedChat === chatId ? 0 : chat.unread + 1;
                         newChats[existingChatIndex] = chat;
-                        return newChats.sort((a, b) => b.messages[b.messages.length - 1].timestamp - a.messages[a.messages.length - 1].timestamp);
+                        return newChats.sort((a, b) => (b.messages[b.messages.length - 1]?.timestamp || 0) - (a.messages[a.messages.length - 1]?.timestamp || 0));
+
                     } else {
                         const newChat = {
                             id: chatId,
@@ -162,26 +170,24 @@ const Conversations: React.FC = () => {
 
     const checkConnectionState = async () => {
         try {
-            const res = await fetch('http://localhost:8082/instance/connectionState/quark', {
-                headers: { 'apikey': 'quark_senha_secreta_123' }
-            });
-            if (res.status === 404) {
+            const res = await fetch('/api/evolution/status');
+            if (!res.ok) {
                 setConnectionState('disconnected');
                 return;
             }
             const data = await res.json();
-            if (data.instance?.state === 'open') {
+            const state = data.instance?.state || data.evolutionState;
+            if (state === 'open') {
                 setConnectionState('connected');
-                setEvoInstance(data.instance);
+                setEvoInstance(data.instance || { state: 'open' });
                 setShowQrModal(false);
-            } else if (data.instance?.state === 'connecting') {
+            } else if (state === 'connecting') {
                 setConnectionState('connecting');
             } else {
                 setConnectionState('disconnected');
             }
         } catch (e) {
-            console.error("Evolution API check failed", e);
-            setConnectionState('unknown');
+            setConnectionState('disconnected');
         }
     };
 
@@ -195,14 +201,14 @@ const Conversations: React.FC = () => {
         setQrLoading(true);
         setQrError(null);
         try {
-            const res = await fetch(`${BACKEND_URL}/api/evolution/connect`, {
+            const res = await fetch('/api/evolution/connect', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ instanceName: 'quark' })
             });
 
             if (!res.ok) {
-                throw new Error('Falha ao obter QR Code do servidor interno.');
+                throw new Error('Falha ao obter QR Code da Evolution API.');
             }
 
             const data = await res.json();
@@ -215,16 +221,17 @@ const Conversations: React.FC = () => {
 
             const base64 = data.qrcode?.base64 || data.base64;
             if (base64) {
-                setQrCodeBase64(base64);
+                setQrCodeBase64(base64.startsWith('data:') ? base64 : `data:image/png;base64,${base64}`);
             } else {
-                setQrError('QR Code não retornado pela API. O WhatsApp já pode estar conectado.');
+                setQrError('QR Code não retornado. Certifique-se de que os containers Docker estão rodando (docker compose up -d).');
             }
         } catch (err: any) {
-            setQrError('Erro ao conectar na Evolution API. Verifique se o servidor local (8082) está rodando.');
+            setQrError('Erro ao conectar na Evolution API. Verifique se o Docker está ativo e execute: docker compose up -d');
         } finally {
             setQrLoading(false);
         }
     };
+
 
 
     const handleToggleAgent = async () => {
@@ -294,16 +301,14 @@ const Conversations: React.FC = () => {
     const handleDisconnect = async () => {
         if (!window.confirm('Tem certeza que deseja desconectar o WhatsApp da empresa?')) return;
         try { 
-            await fetch('http://localhost:8082/instance/logout/quark', {
-                method: 'DELETE',
-                headers: { 'apikey': 'quark_senha_secreta_123' }
-            });
+            await fetch('/api/evolution/logout', { method: 'POST' });
             setConnectionState('disconnected');
             setQrCodeBase64(null);
         } catch (e) {
             console.error(e);
         }
     };
+
 
     const handlePauseContact = async (contactId: string) => {
         const isPaused = pausedContacts.has(contactId);
@@ -336,6 +341,13 @@ const Conversations: React.FC = () => {
     // CONNECTED STATE: Full WhatsApp CRM
     // ─────────────────────────────────────────────────────────────────────
     const activeChat = chats.find(c => c.id === selectedChat);
+
+    useEffect(() => {
+        if (messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [activeChat?.messages.length, selectedChat]);
+
 
     return (
         <div className="h-[calc(100vh-80px)] bg-[#050b14] border border-white/5 rounded-2xl overflow-hidden flex shadow-2xl relative animate-enter mx-auto">
@@ -620,23 +632,71 @@ const Conversations: React.FC = () => {
                                 onSubmit={async e => {
                                     e.preventDefault();
                                     if (!messageText.trim() || !activeChat) return;
-                                    const text = messageText;
+                                    const text = messageText.trim();
                                     setMessageText(""); // optimistic clear
 
+                                    const tempId = crypto.randomUUID();
+                                    const optimisticMsg: ChatMessage = {
+                                        id: tempId,
+                                        body: text,
+                                        from: 'me',
+                                        to: activeChat.phone,
+                                        fromMe: true,
+                                        timestamp: Math.floor(Date.now() / 1000),
+                                        chatName: activeChat.name
+                                    };
+
+                                    // 1. Optimistic UI update
+                                    setChats(prev => {
+                                        const idx = prev.findIndex(c => c.id === activeChat.id);
+                                        if (idx === -1) return prev;
+                                        const updated = [...prev];
+                                        const chat = { ...updated[idx] };
+                                        chat.messages = [...chat.messages, optimisticMsg];
+                                        chat.lastMsg = text;
+                                        chat.time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                        updated[idx] = chat;
+                                        return updated;
+                                    });
+
+                                    // 2. Dispatch via unified backend with Supabase fallback
                                     try {
-                                        await fetch('http://localhost:8082/message/sendText/quark', {
+                                        const res = await fetch('/api/evolution/send', {
                                             method: 'POST',
-                                            headers: {
-                                                'Content-Type': 'application/json',
-                                                'apikey': 'quark_senha_secreta_123'
-                                            },
+                                            headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({
-                                                number: activeChat.phone,
-                                                textMessage: { text: text }
+                                                phone: activeChat.phone,
+                                                message: text,
+                                                chatName: activeChat.name
                                             })
                                         });
+
+                                        if (!res.ok) {
+                                            await supabase.from('whatsapp_messages').insert([{
+                                                id: tempId,
+                                                chat_id: activeChat.id,
+                                                chat_name: activeChat.name,
+                                                from_user: 'me',
+                                                to_user: activeChat.id,
+                                                from_me: true,
+                                                body: text,
+                                                is_group: false,
+                                                timestamp: Math.floor(Date.now() / 1000)
+                                            }]);
+                                        }
                                     } catch (err) {
-                                        console.error("Failed to send message", err);
+                                        console.warn("Backend offline, salvando direto no Supabase:", err);
+                                        await supabase.from('whatsapp_messages').insert([{
+                                            id: tempId,
+                                            chat_id: activeChat.id,
+                                            chat_name: activeChat.name,
+                                            from_user: 'me',
+                                            to_user: activeChat.id,
+                                            from_me: true,
+                                            body: text,
+                                            is_group: false,
+                                            timestamp: Math.floor(Date.now() / 1000)
+                                        }]);
                                     }
                                 }}
                             >

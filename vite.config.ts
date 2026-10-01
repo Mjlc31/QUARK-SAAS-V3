@@ -13,6 +13,24 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(__dirname, './src'),
       },
     },
+    server: {
+      port: 5173,
+      proxy: {
+        '/api': {
+          target: 'http://localhost:3001',
+          changeOrigin: true,
+        },
+        '/agent': {
+          target: 'http://localhost:3001',
+          changeOrigin: true,
+        },
+        '/socket.io': {
+          target: 'http://localhost:3001',
+          ws: true,
+        },
+      },
+    },
+
     build: {
       outDir: 'dist',
       sourcemap: false,

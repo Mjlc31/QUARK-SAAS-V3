@@ -1,6 +1,6 @@
 import { BlockCatalogItem, ProposalBlock, ProposalData, ProposalTheme } from './types';
 import { nanoid } from './utils';
-import { calcSolar } from './solarCalc';
+import { calcSolar, calcFinancingOptions } from './solarCalc';
 
 export const BLOCK_CATALOG: BlockCatalogItem[] = [
   {
@@ -16,7 +16,7 @@ export const BLOCK_CATALOG: BlockCatalogItem[] = [
       finalPrice: 25000,
       currentBill: 860,
       newBill: 207,
-      tagline: 'SEU PASSAPORTE PARA A INDEPENDÊNCIA ENERGÉTICA',
+      tagline: 'PROPOSTA TÉCNICA E COMERCIAL',
     },
   },
   {
@@ -112,6 +112,17 @@ export const BLOCK_CATALOG: BlockCatalogItem[] = [
     },
   },
   {
+    type: 'financing',
+    label: 'Opções de Financiamento',
+    description: 'Linhas de crédito e parcelamento',
+    icon: 'Landmark',
+    defaultContent: {
+      finalPrice: 25000,
+      cashDiscountPct: 5,
+      options: [],
+    },
+  },
+  {
     type: 'social_proof',
     label: 'Prova Social',
     description: 'Fotos de instalações e depoimentos',
@@ -142,23 +153,29 @@ export function buildInitialBlocks(data: ProposalData, theme?: ProposalTheme): P
   const finalPrice = data.finalPrice || 25000;
   const systemSizeKw = data.systemSizeKw || 6.82;
   const consumptionBase = Math.round(data.consumption || 800);
-  const monthlyBill = data.billValue || consumptionBase * 0.85;
+  const tariffOverride = data.kwhPriceRegion || 1.17;
+  const monthlyBill = data.billValue || (consumptionBase * tariffOverride);
   const newBill = data.newMonthlyBill || 100;
   const monthlySavings = data.monthlySavings || (monthlyBill - newBill);
-  const generationMonthly = Math.round(data.monthlyGenerationKwh || systemSizeKw * 128.64);
+  const generationMonthly = Math.round(data.monthlyGenerationKwh || systemSizeKw * 125);
+  const seasonalMultipliers = [1.05, 0.98, 0.95, 0.90, 0.85, 0.82, 0.85, 0.95, 1.05, 1.12, 1.15, 1.10]; // Exemplo de sazonalidade BR
 
   const solarResult = calcSolar({
     monthlyConsumptionKwh: consumptionBase,
-    tariffRate: data.tariffRate || 0.85,
-    fiobEffective: data.fiobRate || 0.85 * 0.45,
-    publicLighting: data.publicLighting || 50,
+    tariffRate: tariffOverride,
+    fiobEffective: data.fiobRate || 0.22626,
+    publicLighting: data.publicLighting !== undefined ? data.publicLighting : 50,
     connectionType: data.connectionType || 'tri',
-    generationFactor: data.generationFactor || 128.64,
+    generationFactor: data.generationFactor || 125,
     systemPowerKwp: systemSizeKw,
     finalPrice: finalPrice,
     tariffAdjustmentRate: 7,
     systemLifeYears: 25,
     tma: 12,
+    financingRate: data.financingRate,
+    creditCardRate: data.creditCardRate,
+    financingInstallments: data.financingInstallments,
+    simultaneityFactor: data.simultaneityFactor || 0.30,
   });
 
   return [
@@ -172,8 +189,10 @@ export function buildInitialBlocks(data: ProposalData, theme?: ProposalTheme): P
         systemSizeKw,
         finalPrice,
         currentBill: monthlyBill,
-        newBill,
-        tagline: 'SEU PASSAPORTE PARA A INDEPENDÊNCIA ENERGÉTICA',
+        newBill: solarResult.monthlyBillAfter,
+        monthlySavings: solarResult.monthlySavings,
+        paybackYears: solarResult.paybackYears,
+        tagline: 'PROPOSTA TÉCNICA E COMERCIAL',
       },
     },
     {
@@ -202,7 +221,7 @@ export function buildInitialBlocks(data: ProposalData, theme?: ProposalTheme): P
         steps: [
           { label: 'Aprovação', duration: 'Semana 1' },
           { label: 'Homologação', duration: 'Semana 2' },
-          { label: 'Instalação', duration: 'Semana 3' },
+          { label: 'Instalação', duration: data.installationDays ? `Até ${data.installationDays} dias` : 'Semana 3' },
           { label: 'Vistoria', duration: 'Semana 4' },
           { label: 'Troca de Medidor', duration: 'Semana 4' }
         ]
@@ -220,6 +239,8 @@ export function buildInitialBlocks(data: ProposalData, theme?: ProposalTheme): P
         inverterBrand: data.inverterBrand || 'Sungrow',
         inverterPower: data.inverterPower || 5,
         inverterCount: data.inverterCount || 1,
+        moduleImageUrl: data.moduleImageUrl,
+        inverterImageUrl: data.inverterImageUrl,
         roofArea: Math.ceil((data.modulesCount || 12) * 2.4),
       },
     },
@@ -228,20 +249,15 @@ export function buildInitialBlocks(data: ProposalData, theme?: ProposalTheme): P
       type: 'generation_chart',
       content: {
         title: 'Geração vs Consumo',
-        data: [
-          { month: 'Jan', generation: generationMonthly, consumption: consumptionBase, balance: generationMonthly - consumptionBase },
-          { month: 'Fev', generation: generationMonthly, consumption: consumptionBase, balance: generationMonthly - consumptionBase },
-          { month: 'Mar', generation: generationMonthly, consumption: consumptionBase, balance: generationMonthly - consumptionBase },
-          { month: 'Abr', generation: generationMonthly, consumption: consumptionBase, balance: generationMonthly - consumptionBase },
-          { month: 'Mai', generation: generationMonthly, consumption: consumptionBase, balance: generationMonthly - consumptionBase },
-          { month: 'Jun', generation: generationMonthly, consumption: consumptionBase, balance: generationMonthly - consumptionBase },
-          { month: 'Jul', generation: generationMonthly, consumption: consumptionBase, balance: generationMonthly - consumptionBase },
-          { month: 'Ago', generation: generationMonthly, consumption: consumptionBase, balance: generationMonthly - consumptionBase },
-          { month: 'Set', generation: generationMonthly, consumption: consumptionBase, balance: generationMonthly - consumptionBase },
-          { month: 'Out', generation: generationMonthly, consumption: consumptionBase, balance: generationMonthly - consumptionBase },
-          { month: 'Nov', generation: generationMonthly, consumption: consumptionBase, balance: generationMonthly - consumptionBase },
-          { month: 'Dez', generation: generationMonthly, consumption: consumptionBase, balance: generationMonthly - consumptionBase },
-        ]
+        data: ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'].map((month, i) => {
+          const gen = Math.round(generationMonthly * seasonalMultipliers[i]);
+          return {
+            month,
+            generation: gen,
+            consumption: consumptionBase,
+            balance: gen - consumptionBase,
+          };
+        }),
       }
     },
     {
@@ -255,6 +271,7 @@ export function buildInitialBlocks(data: ProposalData, theme?: ProposalTheme): P
         totalSavings25Years: solarResult.totalSavings25Years,
         monthlyGenerationKwh: generationMonthly,
         consumption: consumptionBase,
+        breakdown: solarResult.billBreakdown,
       },
     },
     {
@@ -276,48 +293,40 @@ export function buildInitialBlocks(data: ProposalData, theme?: ProposalTheme): P
       },
     },
     {
+      id: 'block-financing',
+      type: 'financing',
+      content: {
+        finalPrice: finalPrice,
+        cashDiscountPct: 5,
+        options: calcFinancingOptions(finalPrice, 0.05, data.financingRate, data.financingInstallments, data.creditCardRate, data.multipleInstallments)
+      }
+    },
+    {
       id: 'block-' + '8',
       type: 'social_proof',
       content: {
         metrics: theme?.socialMetrics || [{ label: '+500', sub: 'Projetos Entregues' }, { label: '100%', sub: 'Satisfação' }, { label: '25 Anos', sub: 'Garantia de Geração' }],
-        headline: 'Por que os clientes mais exigentes escolhem a Quark?',
-        subheadline: 'Tecnologia Tier 1, engenharia cirúrgica e retorno garantido a cada ciclo de sol.',
+        headline: 'Nosso Compromisso com a Qualidade',
+        subheadline: 'Equipamentos Tier 1 certificados, engenharia especializada e garantia real de desempenho.',
         images: theme?.projectImages && theme.projectImages.length > 0 
           ? theme.projectImages.map((url: string, i: number) => ({ id: 'img-'+i, url, caption: `Projeto ${i+1}` }))
           : [
-            {
-              id: 'img-1',
-              url: 'https://images.unsplash.com/photo-1509391366360-12009a508f73?auto=format&fit=crop&q=80',
-              caption: '+500 Projetos Entregues',
-            },
-            {
-              id: 'img-2',
-              url: 'https://images.unsplash.com/photo-1508514177221-188b1cf16e9d?auto=format&fit=crop&q=80',
-              caption: 'Instalação Premium',
-            },
-            {
-              id: 'img-3',
-              url: 'https://images.unsplash.com/photo-1497440001374-f26997328c1b?auto=format&fit=crop&q=80',
-              caption: 'Equipe Especializada',
-            },
-            {
-              id: 'img-4',
-              url: 'https://images.unsplash.com/photo-1613665813446-82a78c468a1d?auto=format&fit=crop&q=80',
-              caption: 'Garantia de Geração',
-            },
-          ],
+              { id: 'img-1', url: 'https://images.unsplash.com/photo-1509391366360-1209530ea738?q=80&w=800&auto=format&fit=crop', caption: 'Instalação Premium' },
+              { id: 'img-2', url: 'https://images.unsplash.com/photo-1592833159155-c62df1b65634?q=80&w=800&auto=format&fit=crop', caption: 'Eficiência e Durabilidade' },
+              { id: 'img-3', url: 'https://images.unsplash.com/photo-1559302504-64aae6ca6b6f?q=80&w=800&auto=format&fit=crop', caption: 'Geração Garantida' }
+            ],
       },
     },
     {
       id: 'block-' + '11',
       type: 'contact',
       content: {
-        companyName: 'Quark Energia',
-        companyPhone: '(00) 00000-0000',
-        companyEmail: 'contato@quarkenergia.com.br',
-        companyAddress: 'Av. Principal, 1000 - Centro',
-        companyCnpj: '00.000.000/0001-00',
-        validityDays: 7,
+        companyName: theme?.companyName || 'Quark Energia',
+        companyPhone: theme?.companyPhone || '(11) 98765-4321',
+        companyEmail: theme?.companyEmail || 'comercial@quarkenergia.com.br',
+        companyAddress: theme?.companyAddress || 'Av. Paulista, 1000 - Bela Vista, SP',
+        companyCnpj: theme?.companyCnpj || '42.123.456/0001-89',
+        validityDays: data.validityDays || 7,
       },
     },
   ];

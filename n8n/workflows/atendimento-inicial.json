@@ -1,0 +1,113 @@
+{
+  "name": "Atendimento Inicial",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "atendimento",
+        "options": {}
+      },
+      "id": "webhook-node",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "output": "={{ $json.body.category }}",
+        "fallbackOutput": 4,
+        "rules": {
+          "rules": [
+            { "output": 0, "outputType": "number", "value": "manutencao" },
+            { "output": 1, "outputType": "number", "value": "limpeza" },
+            { "output": 2, "outputType": "number", "value": "projeto" },
+            { "output": 3, "outputType": "number", "value": "financeiro" },
+            { "output": 4, "outputType": "number", "value": "outros" }
+          ]
+        }
+      },
+      "id": "switch-node",
+      "name": "Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/support_ticket",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "category", "value": "={{ $json.body.category }}" },
+            { "name": "details", "value": "={{ $json.body.details }}" }
+          ]
+        }
+      },
+      "id": "supabase-insert",
+      "name": "Supabase Insert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://whatsapp-backend/api/evolution/send",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "message", "value": "Ticket created!" }
+          ]
+        }
+      },
+      "id": "whatsapp-send",
+      "name": "WhatsApp Notify",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [950, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"ticketId\": \"{{ $json.id }}\"\n}",
+        "options": {}
+      },
+      "id": "respond-node",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1200, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [ [ { "node": "Switch", "type": "main", "index": 0 } ] ]
+    },
+    "Switch": {
+      "main": [
+        [ { "node": "Supabase Insert", "type": "main", "index": 0 } ],
+        [ { "node": "Supabase Insert", "type": "main", "index": 0 } ],
+        [ { "node": "Supabase Insert", "type": "main", "index": 0 } ],
+        [ { "node": "Supabase Insert", "type": "main", "index": 0 } ],
+        [ { "node": "Supabase Insert", "type": "main", "index": 0 } ]
+      ]
+    },
+    "Supabase Insert": {
+      "main": [ [ { "node": "WhatsApp Notify", "type": "main", "index": 0 } ] ]
+    },
+    "WhatsApp Notify": {
+      "main": [ [ { "node": "Respond to Webhook", "type": "main", "index": 0 } ] ]
+    }
+  },
+  "settings": {}
+}

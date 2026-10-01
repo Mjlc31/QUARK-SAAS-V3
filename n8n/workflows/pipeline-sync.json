@@ -1,0 +1,122 @@
+{
+  "name": "Pipeline Sync",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pipeline-update",
+        "options": {}
+      },
+      "id": "webhook-node",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/lead_pipelines?lead_id=eq.{{ $json.body.leadId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Prefer", "value": "return=representation" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "stage", "value": "={{ $json.body.newStage }}" },
+            { "name": "pipeline_name", "value": "={{ $json.body.pipelineName }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "supabase-patch",
+      "name": "Update Lead Stage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.body.newStage }}",
+              "value2": "Fechado/Ganho"
+            }
+          ]
+        }
+      },
+      "id": "if-node",
+      "name": "IF",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/project_tracking",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "lead_id", "value": "={{ $json.body.leadId }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "supabase-insert",
+      "name": "Create Project",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [950, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://whatsapp-backend/api/evolution/send",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "message", "value": "Pipeline updated for lead {{ $json.body.leadId }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "whatsapp-notify",
+      "name": "WhatsApp Notify",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [950, 400]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [ [ { "node": "Update Lead Stage", "type": "main", "index": 0 } ] ]
+    },
+    "Update Lead Stage": {
+      "main": [ [ { "node": "IF", "type": "main", "index": 0 } ] ]
+    },
+    "IF": {
+      "main": [
+        [ { "node": "Create Project", "type": "main", "index": 0 } ],
+        [ { "node": "WhatsApp Notify", "type": "main", "index": 0 } ]
+      ]
+    },
+    "Create Project": {
+      "main": [ [ { "node": "WhatsApp Notify", "type": "main", "index": 0 } ] ]
+    }
+  },
+  "settings": {}
+}

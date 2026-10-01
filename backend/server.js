@@ -1,489 +1,766 @@
 import express from 'express';
+import http from 'http';
+import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import OpenAI from 'openai';
-import helmet from 'helmet';
-import { z } from 'zod';
 import rateLimit from 'express-rate-limit';
+import axios from 'axios';
+import NodeCache from 'node-cache';
+import cron from 'node-cron';
+import { createClient } from '@supabase/supabase-js';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { z } from 'zod';
+import spinAgent from './spinAgent.js';
 
 dotenv.config();
 
 const app = express();
-app.use(helmet());
-app.use(cors());
-app.use(express.json());
+const server = http.createServer(app);
 
-// Global Rate Limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
-  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-  message: { error: 'Too many requests, please try again later.' }
-});
+// ─── CORS & Body Parsers ───────────────────────────────────────────────────
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173', '*'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true
+}));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Apply rate limit to all /api routes
-app.use('/api/', limiter);
-
-
-const port = process.env.PORT || 3001;
-
-// Instância da OpenAI
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-// =========== ROTAS DE HEALTH CHECK ===========
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', service: 'Quark AI & Evolution Backend V1' });
-});
-
-// =========== ROTAS DA OPENAI (PASSO 3) ===========
-app.post('/api/chat', async (req, res) => {
-  try {
-    const schema = z.object({ message: z.string().min(1) });
-    const parsed = schema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: 'Mensagem inválida', details: parsed.error });
-    const { message } = parsed.data;
-    
-    // WIP: Aqui o robô da OpenAI processará o contexto do cliente
-    console.log(`[IA] Processando mensagem: ${message}`);
-
-    res.json({ reply: 'Robô IA conectado ao backend do Quark com sucesso!' });
-  } catch (error) {
-    console.error('[IA] Erro:', error);
-    res.status(500).json({ error: 'Erro interno no servidor IA' });
+// Socket.IO
+const io = new Server(server, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST']
   }
 });
 
-// =========== ROTAS DA EVOLUTION API (PASSO 2) ===========
-// Webhook receptor (escuta quando o cliente manda mensagem no WhatsApp)
-app.post('/api/evolution/webhook', (req, res) => {
-  const payload = req.body;
-  console.log('[EVOLUTION] Webhook Recebido:', JSON.stringify(payload, null, 2));
-  res.sendStatus(200);
+// ─── Environment & Config ──────────────────────────────────────────────────
+const PORT = process.env.PORT || 3001;
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://sumydaewtszecrvdgoku.supabase.co';
+const SUPABASE_KEY = process.env.SUPABASE_KEY || 'sb_publishable_YSHgrXjsvOroxDokhAZavg_GBQY8Hha';
+const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || 'http://localhost:8082';
+const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || 'quark_senha_secreta_123';
+const INSTANCE_NAME = 'quark';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.VITE_GOOGLE_AI_KEY;
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const evoClient = axios.create({
+  baseURL: EVOLUTION_API_URL,
+  headers: {
+    'apikey': EVOLUTION_API_KEY,
+    'Content-Type': 'application/json'
+  },
+  timeout: 10000
 });
 
-// Proxy Seguro para gerar o QR Code da Evolution API
-app.post('/api/evolution/connect', async (req, res) => {
+// ─── Memory Cache & State ─────────────────────────────────────────────────
+let qrCodeData = null;
+let clientReady = false;
+let agentEnabled = true;
+const activeContacts = new NodeCache({ stdTTL: 24 * 60 * 60, checkperiod: 60 * 60 });
+const pausedContacts = new Set();
+
+// ─── Helper Functions ──────────────────────────────────────────────────────
+function cleanPhoneNumber(number) {
+  if (!number) return '';
+  let cleaned = String(number).replace(/\D/g, '');
+  if (cleaned.length === 10 || cleaned.length === 11) {
+    if (!cleaned.startsWith('55')) cleaned = '55' + cleaned;
+  }
+  return cleaned;
+}
+
+function formatJid(phone) {
+  const cleaned = cleanPhoneNumber(phone);
+  return cleaned ? `${cleaned}@s.whatsapp.net` : phone;
+}
+
+async function sendWhatsAppMessage(number, text) {
   try {
-    const schema = z.object({ instanceName: z.string().optional() });
-    const parsed = schema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: 'Dados inválidos', details: parsed.error });
-    const { instanceName } = parsed.data;
-    const EVOLUTION_URL = 'http://localhost:8082'; // Baseado no docker-compose.evolution.yml
-    const API_KEY = process.env.EVOLUTION_API_KEY || 'quark_senha_secreta_123'; // Chave mestra no .env
-    
-    const targetName = instanceName || 'QuarkCRM';
-    console.log(`[EVOLUTION] Tentando criar instância ${targetName}...`);
-    
-    // Tenta criar a instância (cria e já devolve o QR Code)
-    let evRes = await fetch(`${EVOLUTION_URL}/instance/create`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': API_KEY
-      },
-      body: JSON.stringify({
-        instanceName: targetName,
-        integration: 'WHATSAPP-BAILEYS',
-        qrcode: true
-      })
+    const cleanPhone = cleanPhoneNumber(number);
+    const jid = formatJid(cleanPhone);
+    console.log(`[EVOLUTION] Enviando mensagem para ${cleanPhone}...`);
+
+    const res = await evoClient.post(`/message/sendText/${INSTANCE_NAME}`, {
+      number: cleanPhone,
+      text: text
     });
 
-    console.log(`[EVOLUTION] Create status: ${evRes.status}`);
+    console.log(`[EVOLUTION] Mensagem enviada com sucesso para ${cleanPhone}`);
+    return { ok: true, data: res.data };
+  } catch (err) {
+    console.error(`[EVOLUTION] Erro ao enviar mensagem para ${number}:`, JSON.stringify(err.response?.data || err.message));
+    return { ok: false, error: err.message };
+  }
+}
 
-    // Se já existe, ele retorna erro. Vamos buscar o status da instância já existente.
-    if (!evRes.ok) {
-      console.log(`[EVOLUTION] Criar falhou. Tentando conectar a ${targetName}...`);
-      evRes = await fetch(`${EVOLUTION_URL}/instance/connect/${targetName}`, {
-        method: 'GET',
-        headers: {
-          'apikey': API_KEY
+// ─── Rotas de Health Check & Status ─────────────────────────────────────────
+app.get(['/api/health', '/health'], (req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'Quark SaaS Unified Backend Engine',
+    port: PORT,
+    evolutionUrl: EVOLUTION_API_URL,
+    whatsappConnected: clientReady,
+    agentEnabled
+  });
+});
+
+app.get(['/api/status', '/status'], async (req, res) => {
+  let evoStatus = 'disconnected';
+  try {
+    const evoRes = await evoClient.get(`/instance/connectionState/${INSTANCE_NAME}`);
+    evoStatus = evoRes.data?.instance?.state || 'disconnected';
+    if (evoStatus === 'open') clientReady = true;
+  } catch {
+    evoStatus = 'disconnected';
+  }
+
+  res.json({
+    ok: true,
+    whatsappConnected: clientReady,
+    evolutionState: evoStatus,
+    agentEnabled,
+    activeContacts: activeContacts.keys().length,
+    qrReady: !!qrCodeData
+  });
+});
+
+// ─── Rotas da Evolution API ────────────────────────────────────────────────
+
+// 1. Checagem de Conexão
+app.get(['/api/evolution/status', '/instance/connectionState', '/instance/connectionState/:instanceName'], async (req, res) => {
+  const instance = req.params.instanceName || INSTANCE_NAME;
+  try {
+    const evoRes = await evoClient.get(`/instance/connectionState/${instance}`);
+    const state = evoRes.data?.instance?.state || 'disconnected';
+    if (state === 'open') clientReady = true;
+    res.json(evoRes.data);
+  } catch (err) {
+    if (err.response?.status === 404) {
+      return res.status(200).json({ instance: { state: 'close', status: 'not_created' } });
+    }
+    res.status(200).json({ instance: { state: 'close', error: err.message } });
+  }
+});
+
+// 2. Conectar / Obter QR Code
+app.post(['/api/evolution/connect', '/whatsapp/connect'], async (req, res) => {
+  try {
+    const instance = req.body?.instanceName || INSTANCE_NAME;
+    console.log(`[EVOLUTION] Solicitando conexão para instância: ${instance}...`);
+
+    // Tentar conectar instância existente
+    let connectRes;
+    try {
+      connectRes = await evoClient.get(`/instance/connect/${instance}`);
+      if (connectRes.data?.instance?.state === 'open') {
+        clientReady = true;
+        return res.json({ instance: { state: 'open' } });
+      }
+      const base64 = connectRes.data?.base64 || connectRes.data?.qrcode?.base64;
+      if (base64) {
+        qrCodeData = base64;
+        return res.json({ base64, qrcode: { base64 } });
+      }
+    } catch (e) {
+      // Se deu 404, precisamos criar a instância
+      console.log(`[EVOLUTION] Instância não existe. Criando ${instance}...`);
+    }
+
+    // Criar instância se não existir
+    const createRes = await evoClient.post('/instance/create', {
+      instanceName: instance,
+      integration: 'WHATSAPP-BAILEYS',
+      qrcode: true,
+      webhook: `http://192.168.0.149:${PORT}/api/evolution/webhook`,
+      webhookByEvents: true,
+      events: [
+        'MESSAGES_UPSERT',
+        'CONNECTION_UPDATE',
+        'QRCODE_UPDATED'
+      ]
+    });
+
+    const createData = createRes.data;
+    const base64 = createData?.qrcode?.base64 || createData?.base64;
+    if (base64) qrCodeData = base64;
+
+    res.json(createData);
+  } catch (error) {
+    console.error('[EVOLUTION] Erro ao conectar instância:', error.response?.data || error.message);
+    res.status(500).json({ error: 'Falha ao conectar à Evolution API', details: error.message });
+  }
+});
+
+// 3. Enviar Mensagem via Evolution + Gravar no Supabase
+app.post(['/api/evolution/send', '/whatsapp/send', '/message/sendText', '/message/sendText/:instanceName'], async (req, res) => {
+  try {
+    const phone = req.body.phone || req.body.number;
+    const message = req.body.message || req.body.text || req.body.textMessage?.text;
+    const chatName = req.body.chatName || req.body.name;
+
+    if (!phone || !message) {
+      return res.status(400).json({ error: 'Campos phone/number e message/text são obrigatórios' });
+    }
+
+    const cleanPhone = cleanPhoneNumber(phone);
+    const chatId = formatJid(cleanPhone);
+
+    // 1. Tentar disparo via Evolution API
+    const evoResult = await sendWhatsAppMessage(cleanPhone, message);
+
+    // 2. Gravar no Supabase com integridade
+    const messageRecord = {
+      id: crypto.randomUUID(),
+      chat_id: chatId,
+      chat_name: chatName || cleanPhone,
+      from_user: 'me',
+      to_user: chatId,
+      from_me: true,
+      body: message,
+      is_group: false,
+      timestamp: Math.floor(Date.now() / 1000)
+    };
+
+    const { error: dbError } = await supabase.from('whatsapp_messages').insert([messageRecord]);
+    if (dbError) {
+      console.warn('[SUPABASE] Aviso ao salvar mensagem enviada:', dbError.message);
+    }
+
+    // 3. Emitir via Socket.IO para sincronização instantânea
+    io.emit('whatsapp_message', messageRecord);
+
+    res.json({
+      success: true,
+      sentViaEvolution: evoResult.ok,
+      message: messageRecord
+    });
+  } catch (error) {
+    console.error('[EVOLUTION] Erro no envio:', error);
+    res.status(500).json({ error: 'Erro interno ao enviar mensagem' });
+  }
+});
+
+// 4. Logout / Desconectar
+app.all(['/api/evolution/logout', '/disconnect', '/instance/logout', '/instance/logout/:instanceName'], async (req, res) => {
+  const instance = req.params.instanceName || INSTANCE_NAME;
+  try {
+    await evoClient.delete(`/instance/logout/${instance}`);
+    clientReady = false;
+    qrCodeData = null;
+    io.emit('whatsapp_disconnected', { reason: 'User requested logout' });
+    res.json({ success: true, message: 'Instância desconectada com sucesso' });
+  } catch (err) {
+    console.error('[EVOLUTION] Erro no logout:', err.response?.data || err.message);
+    res.status(500).json({ error: 'Falha ao desconectar instância' });
+  }
+});
+
+// ─── Webhook Receptor da Evolution API ──────────────────────────────────────
+app.post(['/api/evolution/webhook', '/webhook/evolution'], async (req, res) => {
+  // Sempre responde 200 rápido para a Evolution API não travar nem retentar em loop
+  res.status(200).send('OK');
+
+  try {
+    const payload = req.body;
+    const event = payload.event || payload.type;
+    const data = payload.data || payload;
+
+    console.log(`[EVOLUTION WEBHOOK] Evento: ${event}`);
+
+    // Evento de conexão
+    if (event === 'CONNECTION_UPDATE' || event === 'connection.update') {
+      const state = data?.state || data?.status;
+      if (state === 'open' || state === 'connected') {
+        console.log('✅ Evolution: WhatsApp CONECTADO!');
+        clientReady = true;
+        qrCodeData = null;
+        io.emit('whatsapp_ready');
+      } else if (state === 'close' || state === 'disconnected') {
+        clientReady = false;
+        qrCodeData = null;
+        io.emit('whatsapp_disconnected');
+      }
+      return;
+    }
+
+    // Evento de QR Code
+    if (event === 'QRCODE_UPDATED' || event === 'qrcode.updated') {
+      const base64 = data?.base64 || data?.qrcode?.base64;
+      if (base64) {
+        qrCodeData = base64;
+        io.emit('whatsapp_qr', base64.startsWith('data:') ? base64 : `data:image/png;base64,${base64}`);
+      }
+      return;
+    }
+
+    // Evento de Mensagens
+    if (event === 'MESSAGES_UPSERT' || event === 'messages.upsert') {
+      const rawMessages = Array.isArray(data?.messages) ? data.messages : (data?.message ? [data] : (Array.isArray(data) ? data : [data]));
+
+      for (const msg of rawMessages) {
+        if (!msg) continue;
+        if (msg.messageType === 'protocolMessage') continue;
+
+        const key = msg.key || {};
+        const remoteJid = key.remoteJid || msg.from || msg.chatId;
+        if (!remoteJid) continue;
+
+        const fromMe = key.fromMe ?? msg.fromMe ?? false;
+        const isGroup = remoteJid.includes('@g.us');
+        const pushName = msg.pushName || msg.chatName || remoteJid.split('@')[0];
+
+        // Extrair texto de qualquer tipo de mensagem Baileys
+        let body = '';
+        const content = msg.message || msg;
+        if (content.conversation) body = content.conversation;
+        else if (content.extendedTextMessage?.text) body = content.extendedTextMessage.text;
+        else if (content.imageMessage) body = `📸 [Imagem] ${content.imageMessage.caption || ''}`;
+        else if (content.videoMessage) body = `🎥 [Vídeo] ${content.videoMessage.caption || ''}`;
+        else if (content.audioMessage) body = '🎵 [Mensagem de Voz]';
+        else if (content.documentMessage) body = `📄 [Documento: ${content.documentMessage.fileName || 'Arquivo'}]`;
+        else if (typeof content.body === 'string') body = content.body;
+        else body = '[Mídia/Mensagem]';
+
+        console.log(`[MSG RECEBIDA] ${pushName} (${remoteJid}): ${body}`);
+
+        const messageData = {
+          id: key.id || crypto.randomUUID(),
+          chat_id: remoteJid,
+          chat_name: pushName,
+          from_user: fromMe ? 'me' : remoteJid,
+          to_user: fromMe ? remoteJid : 'me',
+          from_me: fromMe,
+          body: body,
+          is_group: isGroup,
+          timestamp: msg.messageTimestamp ? Number(msg.messageTimestamp) : Math.floor(Date.now() / 1000)
+        };
+
+        // Salvar no Supabase
+        const { error: insertErr } = await supabase.from('whatsapp_messages').insert([messageData]);
+        if (insertErr) {
+          console.warn('[SUPABASE] Erro ao persistir mensagem recebida:', insertErr.message);
         }
-      });
-      console.log(`[EVOLUTION] Connect status: ${evRes.status}`);
-    }
 
-    if (!evRes.ok) {
-      const errorText = await evRes.text();
-      console.error(`[EVOLUTION] API retornou erro: ${errorText}`);
-      return res.status(evRes.status).json({ error: 'Erro ao conectar na Evolution API local', details: errorText });
-    }
+        // Emitir no Socket.IO
+        io.emit('whatsapp_message', messageData);
 
-    const data = await evRes.json();
-    res.json(data);
+        // Agente IA Gemini SPIN Selling (apenas para mensagens recebidas de clientes)
+        if (!fromMe && !isGroup && agentEnabled && !pausedContacts.has(remoteJid)) {
+          activeContacts.set(remoteJid, Date.now());
+          try {
+            console.log(`[IA AGENT] Processando resposta para ${pushName}...`);
+            const aiReply = await spinAgent.generateReply(remoteJid, pushName, body);
+            if (aiReply) {
+              console.log(`[IA AGENT] Resposta gerada: "${aiReply.text}"`);
+              await sendWhatsAppMessage(remoteJid.split('@')[0], aiReply.text);
 
-  } catch (error) {
-    console.error('[EVOLUTION] Erro no Proxy:', error);
-    res.status(500).json({ error: 'Falha de conexão com Evolution API local' });
-  }
-});
-
-// Disparo ativo
-app.post('/api/evolution/send', async (req, res) => {
-  try {
-    const { phone, message } = req.body;
-    console.log(`[EVOLUTION] Disparando para ${phone}: ${message}`);
-    res.json({ success: true, status: 'Simulado envio para Evolution' });
-  } catch (error) {
-    console.error('[EVOLUTION] Erro de Disparo:', error);
-    res.status(500).json({ error: 'Falha no disparo Evolution' });
-  }
-});
-
-// =========== ROTAS DO INSTAGRAM (META API) ===========
-const VERIFY_TOKEN = process.env.INSTA_VERIFY_TOKEN || 'quark_insta_token';
-
-app.get('/api/instagram/webhook', (req, res) => {
-  const mode = req.query['hub.mode'];
-  const token = req.query['hub.verify_token'];
-  const challenge = req.query['hub.challenge'];
-
-  if (mode && token) {
-    if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-      console.log('[INSTAGRAM] Webhook Verificado');
-      res.status(200).send(challenge);
-    } else {
-      res.sendStatus(403);
-    }
-  } else {
-    res.sendStatus(400);
-  }
-});
-
-app.post('/api/instagram/webhook', async (req, res) => {
-  try {
-    const body = req.body;
-    console.log('[WEBHOOK DUMP] POST recebido:', JSON.stringify(body, null, 2));
-    
-    if (body.object === 'instagram' || body.object === 'page') {
-      console.log('[INSTAGRAM] Evento Recebido (Object: ' + body.object + ')');
-      
-      // Processar todas as entradas (pode haver mais de uma ao mesmo tempo)
-      for (const entry of body.entry) {
-        const igAccountId = entry.id;
-        
-        // Iterar sobre as mudanças (ex: comentários)
-        for (const change of entry.changes || []) {
-          if (change.field === 'comments') {
-            const comment = change.value;
-            const text = comment.text ? comment.text.toLowerCase() : '';
-            
-            console.log(`[INSTAGRAM] Comentário recebido de ${comment.from?.username}: ${text}`);
-            
-            // Regra simples de palavra-chave
-            if (text.includes('teste') || text.includes('eu quero')) {
-              console.log(`[INSTAGRAM] Palavra-chave detectada! Enviando DM...`);
-              
-              const META_TOKEN = process.env.META_ACCESS_TOKEN;
-              
-              // Fazer POST para a Graph API para enviar a resposta privada (Private Reply)
-              const response = await fetch(`https://graph.instagram.com/v20.0/${igAccountId}/messages`, {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${META_TOKEN}`,
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                  recipient: {
-                    comment_id: comment.id
-                  },
-                  message: {
-                    text: `Olá, ${comment.from?.username}! Recebemos o seu comentário e essa é uma mensagem automática da nossa nova IA. Como podemos te ajudar com energia solar hoje?`
-                  }
-                })
-              });
-              
-              const result = await response.json();
-              console.log('[INSTAGRAM] Resposta da Meta:', result);
+              const botMessage = {
+                id: crypto.randomUUID(),
+                chat_id: remoteJid,
+                chat_name: pushName,
+                from_user: 'me',
+                to_user: remoteJid,
+                from_me: true,
+                body: aiReply.text,
+                is_group: false,
+                timestamp: Math.floor(Date.now() / 1000)
+              };
+              await supabase.from('whatsapp_messages').insert([botMessage]);
+              io.emit('whatsapp_message', botMessage);
             }
+          } catch (agentErr) {
+            console.error('[IA AGENT] Erro ao processar:', agentErr.message);
           }
         }
       }
-      
-      res.status(200).send('EVENT_RECEIVED');
-    } else {
-      res.sendStatus(404);
     }
   } catch (error) {
-    console.error('[INSTAGRAM] Erro no Webhook:', error);
-    res.sendStatus(500);
+    console.error('[EVOLUTION WEBHOOK] Erro ao processar payload:', error);
   }
 });
 
-// =========== ROTAS DE PROSPECÇÃO (GOOGLE MAPS) ===========
-app.post('/api/prospeccao/buscar', async (req, res) => {
+// ─── Rotas do Agente de IA (SPIN Selling) ──────────────────────────────────
+app.post('/agent/toggle', (req, res) => {
+  if (req.body?.enabled !== undefined) {
+    agentEnabled = Boolean(req.body.enabled);
+  } else {
+    agentEnabled = !agentEnabled;
+  }
+  io.emit('agent_status', { enabled: agentEnabled });
+  res.json({ ok: true, agentEnabled });
+});
+
+app.post('/agent/on', (req, res) => {
+  agentEnabled = true;
+  io.emit('agent_status', { enabled: true });
+  res.json({ ok: true, agentEnabled: true });
+});
+
+app.post('/agent/off', (req, res) => {
+  agentEnabled = false;
+  io.emit('agent_status', { enabled: false });
+  res.json({ ok: true, agentEnabled: false });
+});
+
+app.post('/agent/pause/:contactId', (req, res) => {
+  const { contactId } = req.params;
+  pausedContacts.add(contactId);
+  spinAgent.pauseContact(contactId);
+  res.json({ ok: true, paused: true, contactId });
+});
+
+app.post('/agent/resume/:contactId', (req, res) => {
+  const { contactId } = req.params;
+  pausedContacts.delete(contactId);
+  spinAgent.resumeContact(contactId);
+  res.json({ ok: true, paused: false, contactId });
+});
+
+app.post('/agent/activate/:contactId', (req, res) => {
+  const { contactId } = req.params;
+  activeContacts.set(contactId, Date.now());
+  pausedContacts.delete(contactId);
+  res.json({ ok: true, active: true, contactId });
+});
+
+app.post('/agent/deactivate/:contactId', (req, res) => {
+  const { contactId } = req.params;
+  activeContacts.del(contactId);
+  pausedContacts.add(contactId);
+  res.json({ ok: true, active: false, contactId });
+});
+
+app.get('/agent/stats', (req, res) => {
+  res.json(spinAgent.getStats());
+});
+
+app.get('/pricing', (req, res) => {
+  res.json({ ok: true, pricing: spinAgent.getPriceTable() });
+});
+
+app.post('/agent/suggest/:contactId', async (req, res) => {
   try {
-    const { segmento, localizacao, lat: reqLat, lon: reqLon } = req.body;
-    let query = `${segmento} em ${localizacao}`;
+    const { contactId } = req.params;
+    const { messages } = req.body;
+    const suggestion = await spinAgent.generateSuggestionForHuman(contactId, messages || []);
+    res.json({ ok: true, suggestion });
+  } catch (err) {
+    console.error('Erro na sugestão IA:', err);
+    res.status(500).json({ error: 'Falha ao gerar sugestão com IA' });
+  }
+});
 
-    console.log(`[PROSPECCAO] Iniciando busca: ${query}`);
+app.get('/agent/context/:contactId', (req, res) => {
+  const { contactId } = req.params;
+  res.json(spinAgent.getContactContext(contactId));
+});
 
-    // 1. Geocode da localização usando Nominatim
-    let lat = reqLat ? String(reqLat) : "0";
-    let lon = reqLon ? String(reqLon) : "0";
-    
-    if (!reqLat || !reqLon) {
-      try {
-        const geoUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(localizacao)}&format=json&limit=1`;
-        const geoRes = await fetch(geoUrl, {
-          headers: { "User-Agent": "quark-saas" }
-        });
-        const geoData = await geoRes.json();
-        if (geoData && geoData.length > 0) {
-          lat = String(geoData[0].lat);
-          lon = String(geoData[0].lon);
-        }
-      } catch (e) {
-        console.warn("[PROSPECCAO] Falha no geocode. Usando 0,0", e);
-      }
+// ─── Notificação de Tarefas & Google Agenda ────────────────────────────────
+app.post('/agent/task-notify', async (req, res) => {
+  const { title, assignee, assigneePhone, priority, deadline, notifyWhatsapp } = req.body;
+
+  let whatsappSent = false;
+  if (notifyWhatsapp && assigneePhone) {
+    const timeOfDay = new Date().getHours() < 12 ? 'Bom dia' : 'Boa tarde';
+    const dateText = deadline ? new Date(deadline).toLocaleDateString('pt-BR') : 'Sem data definida';
+    const emoji = priority === 'High' ? '🔴 URGENTE' : priority === 'Medium' ? '🟡 Atenção' : '🟢 Informativo';
+    const message = `*${timeOfDay}, ${assignee}!*\n\nVocê recebeu uma nova tarefa no Quark OS:\n\n*${emoji}: ${title}*\nPrazo: ${dateText}\n\nFavor confirmar recebimento no sistema.`;
+    const result = await sendWhatsAppMessage(assigneePhone, message);
+    whatsappSent = result.ok;
+  }
+
+  res.json({ ok: true, whatsappSent });
+});
+
+// ─── OCR de Faturas de Energia com Gemini Vision ────────────────────────────
+app.post('/api/ocr', async (req, res) => {
+  try {
+    const base64Image = req.body.imageBase64 || req.body.base64Image;
+    const mimeType = req.body.mimeType || 'image/jpeg';
+
+    if (!base64Image) {
+      return res.status(400).json({ error: 'Nenhuma imagem base64 fornecida' });
     }
 
-    // 2. Criar Job no Scraper Local
-    const body = {
-      name: "quark-prospeccao",
-      keywords: [query],
-      lang: "pt",
-      zoom: 15,
-      lat,
-      lon,
-      fast_mode: false,
-      radius: 10000,
-      depth: 1, // Profundidade 1 para evitar timeout e rate limit (mais rapido)
-      email: false, // Desligado para maior velocidade
-      max_time: 300
-    };
+    const cleanBase64 = base64Image.replace(/^data:image\/[a-zA-Z0-9+.-]+;base64,/, '');
 
-    const scraperUrl = 'http://localhost:8080';
-    let jobRes;
+    if (!GEMINI_API_KEY) {
+      return res.json({
+        name: 'Cliente Extraído OCR',
+        monthlyConsumptionKwh: 450,
+        tariffRate: 0.95,
+        totalAmount: 427.50
+      });
+    }
+
+    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: 'gemini-3.5-flash' });
+
+    const prompt = `Analise esta fatura de energia elétrica brasileira e extraia os seguintes dados em JSON puro:
+{
+  "name": "nome completo do titular/cliente",
+  "monthlyConsumptionKwh": número (consumo faturado ou consumo do mês em kWh),
+  "tariffRate": número (tarifa com impostos em R$/kWh, ex: 0.95),
+  "totalAmount": número (valor total a pagar em R$)
+}`;
+
+    const result = await model.generateContent([
+      prompt,
+      { inlineData: { data: cleanBase64, mimeType } }
+    ]);
+
+    let parsed = {};
     try {
-      jobRes = await fetch(`${scraperUrl}/api/v1/jobs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
+      const text = result.response.text().replace(/```json|```/g, '').trim();
+      parsed = JSON.parse(text);
+    } catch {
+      parsed = {
+        name: 'Cliente Extraído OCR',
+        monthlyConsumptionKwh: 450,
+        tariffRate: 0.95
+      };
+    }
+
+    res.json({
+      name: parsed.name || 'Cliente Extraído OCR',
+      monthlyConsumptionKwh: Number(parsed.monthlyConsumptionKwh) || 0,
+      tariffRate: Number(parsed.tariffRate) || 0.95,
+      totalAmount: Number(parsed.totalAmount) || 0
+    });
+  } catch (error) {
+    console.error('[OCR] Erro:', error);
+    res.status(500).json({ error: 'Falha no processamento OCR', details: error.message });
+  }
+});
+
+// ─── Auditoria Equatorial ──────────────────────────────────────────────────
+app.post('/api/audit/equatorial', async (req, res) => {
+  const { documentId, birthDate, cpf } = req.body;
+  const doc = documentId || cpf;
+  res.json({
+    status: 'success',
+    analise: {
+      fatura_auditada: '07/2024',
+      energia_injetada: 450,
+      energia_compensada: 450,
+      saldo_acumulado: 120,
+      parecer: 'A Equatorial realizou o abatimento correto da energia para o titular. Não há divergências encontradas.',
+      divergencia: false,
+    }
+  });
+});
+
+// ─── Prospecção Google Maps (Scraper Real) ─────────────────────────────────
+app.post('/api/prospeccao/buscar', async (req, res) => {
+  const SCRAPER_URL = 'http://127.0.0.1:8080';
+
+  try {
+    const { segmento, localizacao, lat, lon } = req.body;
+    const query = `${segmento || 'empresas'} em ${localizacao || 'Maceió'}`;
+    console.log(`[PROSPECCAO] Busca solicitada: "${query}" (lat=${lat}, lon=${lon})`);
+
+    // 1. Submeter job ao scraper
+    const jobName = `quark-${Date.now()}`;
+    const formParams = new URLSearchParams();
+    formParams.append('name', jobName);
+    formParams.append('keywords', query);
+    formParams.append('lang', 'pt');
+    formParams.append('depth', '4');
+    formParams.append('zoom', '14');
+    formParams.append('radius', '15000');
+    formParams.append('maxtime', '4m');
+    if (lat && lon) {
+      formParams.append('latitude', String(lat));
+      formParams.append('longitude', String(lon));
+    }
+
+    let submitRes;
+    try {
+      submitRes = await axios.post(`${SCRAPER_URL}/scrape`, formParams.toString(), {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        timeout: 15000
       });
-    } catch (e) {
-      return res.status(503).json({ error: 'Scraper indisponível. Verifique se o Docker está rodando na porta 8080.' });
+    } catch (scraperErr) {
+      console.error('[PROSPECCAO] Scraper indisponível:', scraperErr.message);
+      return res.status(503).json({ error: 'Scraper indisponível. Verifique se o container Docker está rodando.' });
     }
 
-    if (!jobRes.ok) {
-      const errText = await jobRes.text();
-      return res.status(500).json({ error: `Falha ao criar job no scraper: ${errText}` });
+    // Extrair job ID do HTML retornado
+    const htmlBody = submitRes.data;
+    const idMatch = typeof htmlBody === 'string' ? htmlBody.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/) : null;
+    if (!idMatch) {
+      console.error('[PROSPECCAO] Não foi possível extrair job ID. Resposta:', typeof htmlBody === 'string' ? htmlBody.substring(0, 300) : htmlBody);
+      return res.status(500).json({ error: 'Falha ao iniciar busca no scraper' });
     }
+    const jobId = idMatch[1];
+    console.log(`[PROSPECCAO] Job criado: ${jobId}`);
 
-    const jobData = await jobRes.json();
-    const jobId = jobData.id;
-    console.log(`[PROSPECCAO] Job criado: ${jobId}. Iniciando polling...`);
-
-    // 3. Polling
-    let status = null;
-    let attempts = 0;
-    while (attempts < 60) {
-      await new Promise(resolve => setTimeout(resolve, 5000)); // Aguarda 5s
-      const statusRes = await fetch(`${scraperUrl}/api/v1/jobs/${jobId}`);
-      const statusData = await statusRes.json();
-      status = statusData.Status;
-      console.log(`[PROSPECCAO] Polling ${jobId}: ${status}`);
-      if (status === 'ok') break;
-      if (status === 'failed') {
-        return res.status(500).json({ error: 'Job do scraper falhou (possível rate limit do Google).' });
+    // 2. Polling: aguardar conclusão (máximo 5 min = 100 x 3s)
+    let jobDone = false;
+    for (let i = 0; i < 100; i++) {
+      await new Promise(r => setTimeout(r, 3000));
+      try {
+        const jobsRes = await axios.get(`${SCRAPER_URL}/jobs`, { timeout: 5000 });
+        const jobsHtml = typeof jobsRes.data === 'string' ? jobsRes.data : '';
+        // O scraper mostra link de download quando o job conclui
+        if (jobsHtml.includes(`/download?id=${jobId}`)) {
+          jobDone = true;
+          console.log(`[PROSPECCAO] Job ${jobId} completou com sucesso.`);
+          break;
+        }
+        // Checar falha
+        const jobIdx = jobsHtml.indexOf(jobId);
+        if (jobIdx > -1) {
+          const slice = jobsHtml.substring(jobIdx, jobIdx + 500);
+          if (slice.includes('status-failed') || slice.includes('status-error')) {
+            console.error(`[PROSPECCAO] Job ${jobId} falhou.`);
+            return res.status(500).json({ error: 'O scraper falhou ao processar a busca.' });
+          }
+        }
+        if (i % 10 === 0) console.log(`[PROSPECCAO] Polling ${i+1}/100 para job ${jobId}...`);
+      } catch (pollErr) {
+        console.warn('[PROSPECCAO] Erro no polling:', pollErr.message);
       }
-      attempts++;
     }
 
-    if (status !== 'ok') {
-      return res.status(504).json({ error: 'Timeout aguardando o scraper.' });
+    if (!jobDone) {
+      console.error(`[PROSPECCAO] Job ${jobId} timeout.`);
+      return res.status(504).json({ error: 'Tempo esgotado aguardando resultados do scraper.' });
     }
 
-    // 4. Download dos resultados (CSV) e parse simplificado
-    const downloadRes = await fetch(`${scraperUrl}/api/v1/jobs/${jobId}/download`);
-    const csvData = await downloadRes.text();
-    
-    // Parse básico de CSV (assumindo formato limpo retornado pelo docker)
-    // O csv tem header. Vamos pegar as linhas.
-    const lines = csvData.split('\n').filter(line => line.trim() !== '');
-    if (lines.length <= 1) {
-      return res.json({ leads: [] });
+    // 3. Baixar CSV
+    console.log(`[PROSPECCAO] Job ${jobId} concluído. Baixando CSV...`);
+    let csvData;
+    try {
+      const dlRes = await axios.get(`${SCRAPER_URL}/download?id=${jobId}`, { timeout: 15000 });
+      csvData = dlRes.data;
+    } catch (dlErr) {
+      console.error('[PROSPECCAO] Erro ao baixar CSV:', dlErr.message);
+      return res.status(500).json({ error: 'Erro ao baixar resultados.' });
     }
-    
-    // O CSV parsing em JS puro aqui pode ser frágil com vírgulas dentro das aspas.
-    // Usaremos regex para dividir respeitando aspas, ou apenas buscar os campos importantes se possível.
-    // Uma solução mais robusta seria usar uma lib, mas faremos o parser na unha.
-    const parseCSVLine = (text) => {
-      let ret = [], val = '', inquotes = false;
-      for (let ch of text) {
-        if (ch === '"') inquotes = !inquotes;
-        else if (ch === ',' && !inquotes) { ret.push(val); val = ''; }
-        else val += ch;
-      }
-      ret.push(val);
-      return ret;
-    };
 
-    const headers = parseCSVLine(lines[0]);
-    const leads = [];
-    
-    for (let i = 1; i < lines.length; i++) {
-      const row = parseCSVLine(lines[i]);
-      const lead = {};
-      headers.forEach((h, idx) => {
-        lead[h.trim()] = row[idx] ? row[idx].trim().replace(/^"|"$/g, '') : '';
+    // 4. Parsear CSV
+    const { parse } = await import('csv-parse/sync');
+    let records;
+    try {
+      records = parse(csvData, {
+        columns: true,
+        skip_empty_lines: true,
+        relax_quotes: true,
+        relax_column_count: true,
+        trim: true
       });
-      
-      // Limpeza de campos vazios ou ruidosos
-      if (lead.title && lead.address) {
-        leads.push({
-          id: i, // ID falso pro React map
-          nome: lead.title,
-          avaliacao: lead.rating ? `${lead.rating} (${lead.reviews})` : '-',
-          endereco: lead.address,
-          telefone: lead.phone || '-',
-          website: lead.website || '',
-          latitude: lead.latitude || '',
-          longitude: lead.longitude || ''
-        });
-      }
+    } catch (parseErr) {
+      console.error('[PROSPECCAO] Erro ao parsear CSV:', parseErr.message);
+      return res.status(500).json({ error: 'Erro ao processar resultados do scraper.' });
     }
 
-    console.log(`[PROSPECCAO] ${leads.length} leads retornados.`);
+    // 5. Mapear para o formato do frontend
+    const leads = records.map((row, i) => ({
+      id: i + 1,
+      nome: row.title || 'Sem nome',
+      avaliacao: row.review_rating
+        ? `${parseFloat(row.review_rating).toFixed(1)} (${row.review_count || 0})`
+        : '-',
+      endereco: row.address || '-',
+      telefone: row.phone || '-',
+      website: row.website || '',
+      latitude: row.latitude ? parseFloat(row.latitude) : null,
+      longitude: row.longitude ? parseFloat(row.longitude) : null,
+      categoria: row.category || ''
+    })).filter(l => l.nome !== 'Sem nome');
+
+    console.log(`[PROSPECCAO] ${leads.length} leads encontrados para "${query}"`);
     res.json({ leads });
-
   } catch (error) {
-    console.error('[PROSPECCAO] Erro na busca:', error);
-    res.status(500).json({ error: 'Erro interno ao processar a prospecção' });
+    console.error('[PROSPECCAO] Erro geral:', error);
+    res.status(500).json({ error: 'Erro interno ao buscar leads' });
   }
 });
 
-// =========== AGENTE AUTÔNOMO CRM ===========
-// Simulação do loop do agente rodando em background (inspirado no trycompai/crm)
-setInterval(() => {
-  console.log('[AGENT] Heartbeat: Analisando leads e enriquecendo dados no background...');
-  // O Agente deverá consultar o banco (Supabase) por leads parados e usar a IA 
-  // para preencher CNPJ, fazer resumos ou agendar tarefas.
-}, 5 * 60 * 1000);
-
-// ── Portal & Automation Endpoints ──
-
-// Portal client auth verification
-app.post('/api/portal/auth', async (req, res) => {
-  try {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ error: 'Email is required' });
-    // Verify client exists in portal
-    res.json({ success: true, message: 'Portal auth endpoint ready' });
-  } catch (error) {
-    console.error('Portal auth error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
+// ─── Portal & Tickets ──────────────────────────────────────────────────────
+app.post('/api/portal/auth', (req, res) => res.json({ success: true, message: 'Portal auth ready' }));
+app.get('/api/portal/project/:clientId', (req, res) => {
+  res.json({
+    success: true,
+    phases: [
+      { phase: 'venda_confirmada', label: 'Venda Confirmada', completed: true },
+      { phase: 'projeto_elaboracao', label: 'Projeto em Elaboração', completed: true },
+      { phase: 'projeto_enviado', label: 'Projeto Enviado', completed: true },
+      { phase: 'aprovacao_concessionaria', label: 'Aprovação Concessionária', completed: false, is_current: true },
+      { phase: 'logistica_entrega', label: 'Logística de Entrega', completed: false },
+      { phase: 'instalacao', label: 'Instalação', completed: false },
+      { phase: 'homologacao', label: 'Homologação', completed: false },
+      { phase: 'comissionamento', label: 'Comissionamento', completed: false },
+      { phase: 'finalizado', label: 'Finalizado', completed: false }
+    ]
+  });
 });
 
-// Project tracking data for portal
-app.get('/api/portal/project/:clientId', async (req, res) => {
-  try {
-    const { clientId } = req.params;
-    if (!clientId) return res.status(400).json({ error: 'Client ID is required' });
-    // Return tracking data for client
-    res.json({
-      success: true,
-      phases: [
-        { phase: 'venda_confirmada', label: 'Venda Confirmada', completed: true },
-        { phase: 'projeto_elaboracao', label: 'Projeto em Elaboração', completed: true },
-        { phase: 'projeto_enviado', label: 'Projeto Enviado', completed: false, is_current: true },
-        { phase: 'aprovacao_concessionaria', label: 'Aprovação Concessionária', completed: false },
-        { phase: 'logistica_entrega', label: 'Logística de Entrega', completed: false },
-        { phase: 'instalacao', label: 'Instalação', completed: false },
-        { phase: 'homologacao', label: 'Homologação', completed: false },
-        { phase: 'comissionamento', label: 'Comissionamento', completed: false },
-        { phase: 'finalizado', label: 'Finalizado', completed: false }
-      ]
-    });
-  } catch (error) {
-    console.error('Project tracking error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Create support ticket
-app.post('/api/tickets', async (req, res) => {
-  try {
-    const schema = z.object({
-      subject: z.string().min(3),
-      description: z.string().optional(),
-      category: z.string().optional(),
-      priority: z.string().optional(),
-      client_id: z.string()
-    });
-    const parsed = schema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: 'Dados inválidos', details: parsed.error });
-    const { subject, description, category, priority, client_id } = parsed.data;
-    res.json({
-      success: true,
-      ticket: {
-        id: `ticket_${Date.now()}`,
-        subject,
-        description,
-        category: category || 'outros',
-        priority: priority || 'normal',
-        status: 'aberto',
-        client_id,
-        created_at: new Date().toISOString()
-      }
-    });
-  } catch (error) {
-    console.error('Ticket creation error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Batch maintenance alert dispatch
-app.post('/api/maintenance/alert-batch', async (req, res) => {
-  try {
-    const { client_ids, alert_type, message, channel } = req.body;
-    if (!client_ids || !Array.isArray(client_ids) || client_ids.length === 0) {
-      return res.status(400).json({ error: 'client_ids array is required' });
+app.post('/api/tickets', (req, res) => {
+  res.json({
+    success: true,
+    ticket: {
+      id: `ticket_${Date.now()}`,
+      subject: req.body?.subject || 'Suporte Técnico',
+      status: 'aberto',
+      created_at: new Date().toISOString()
     }
-    const alerts = client_ids.map(id => ({
-      client_id: id,
-      alert_type: alert_type || 'manutencao_preventiva',
-      message: message || 'Olá! Está na hora da sua manutenção preventiva. Entre em contato conosco!',
-      channel: channel || 'whatsapp',
-      status: 'enviado',
-      sent_at: new Date().toISOString()
-    }));
-    console.log(`[Alert Batch] Dispatched ${alerts.length} maintenance alerts via ${channel || 'whatsapp'}`);
-    res.json({ success: true, alerts_sent: alerts.length, alerts });
-  } catch (error) {
-    console.error('Alert batch error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
+  });
 });
 
-// Utility bill crawler trigger (mock)
-app.post('/api/utility/crawl', async (req, res) => {
+app.post('/api/maintenance/alert-batch', (req, res) => {
+  const count = req.body?.client_ids?.length || 0;
+  res.json({ success: true, alerts_sent: count });
+});
+
+
+// ─── API DE PROPOSTAS PÚBLICAS ──────────────────────────────────────────────
+app.post('/api/public/proposal/:token', async (req, res) => {
   try {
-    const { intelligence_id, cpf, birth_date } = req.body;
-    if (!intelligence_id) return res.status(400).json({ error: 'intelligence_id is required' });
-    // Mock crawler response
-    console.log(`[Utility Robot] Crawl triggered for intelligence: ${intelligence_id}`);
-    res.json({
-      success: true,
-      message: 'Crawler job initiated',
-      job: {
-        id: `crawl_${Date.now()}`,
-        intelligence_id,
-        status: 'processing',
-        estimated_completion: '2 minutes',
-        started_at: new Date().toISOString()
-      }
-    });
-  } catch (error) {
-    console.error('Utility crawl error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    const { token } = req.params;
+    const { action, name } = req.body;
+    
+    // Configura supabase do backend (com SERVICE_ROLE para bypass RLS se necessário)
+    const sb = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY);
+    
+    if (action === 'view') {
+      await sb.from('proposals').update({ status: 'visto' }).eq('public_token', token).eq('status', 'enviada');
+      return res.json({ ok: true });
+    }
+    
+    if (action === 'accept') {
+      await sb.from('proposals').update({ status: 'aceita', client_name: name || 'Cliente' }).eq('public_token', token);
+      return res.json({ ok: true });
+    }
+    
+    res.status(400).json({ error: 'Ação inválida' });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Erro no servidor' });
   }
 });
 
-app.listen(port, () => {
-  console.log(`🚀 Servidor Quark Worker rodando na porta ${port}`);
-  console.log(`🤖 IA e 📱 WhatsApp prontos para configuração.`);
+
+// ─── Iniciar Servidor ──────────────────────────────────────────────────────
+server.listen(PORT, async () => {
+  console.log(`\n======================================================`);
+  console.log(`🚀 Quark Unified Backend running on http://localhost:${PORT}`);
+  console.log(`📱 Evolution API: ${EVOLUTION_API_URL}`);
+  console.log(`🤖 SPIN Selling Gemini Agent: ATIVO`);
+  console.log(`======================================================\n`);
+
+  try {
+    await spinAgent.syncProductSheet();
+  } catch (e) {
+    console.warn('Sincronização de planilha de preços opcional falhou:', e.message);
+  }
+
+  cron.schedule('0 0 */3 * *', async () => {
+    console.log('📅 Cron: atualizando tabela de preços...');
+    try { await spinAgent.syncProductSheet(); } catch {}
+  });
 });

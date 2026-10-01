@@ -60,7 +60,6 @@ export function useCreateTicket() {
         .from('support_tickets')
         .insert({
           ...ticket,
-          user_id: userAuth.user.id,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })

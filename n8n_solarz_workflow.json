@@ -1,0 +1,155 @@
+{
+  "name": "Integração SolarZ -> Supabase (Telemetria Quark)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days"
+            }
+          ]
+        }
+      },
+      "id": "e6bd35fa-cc45-4df0-b53d-d60f58ffcc19",
+      "name": "Gatilho Diário",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.solarz.com.br/v1/usinas",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer SUA_API_KEY_AQUI"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "41fbac45-12b2-4d08-a53b-e0186c38221c",
+      "name": "Buscar Usinas SolarZ",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "data",
+        "options": {}
+      },
+      "id": "1b08c697-3ed9-4c59-bfbc-88a29a0c028a",
+      "name": "Separar Usinas (Item Lists)",
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 3,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://sumydaewtszecrvdgoku.supabase.co/rest/v1/client_intelligence?utility_account=eq.{{$json[\"codigo_uc\"]}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "sb_publishable_YSHgrXjsvOroxDokhAZavg_GBQY8Hha"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer sb_publishable_YSHgrXjsvOroxDokhAZavg_GBQY8Hha"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "monthly_generation_kwh",
+              "value": "={{$json[\"geracao_mensal_kwh\"]}}"
+            },
+            {
+              "name": "total_savings_brl",
+              "value": "={{$json[\"economia_total_rs\"]}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "76df9121-5fbb-4ec5-b1a6-ea4e176378e9",
+      "name": "Atualizar Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Gatilho Diário": {
+      "main": [
+        [
+          {
+            "node": "Buscar Usinas SolarZ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Usinas SolarZ": {
+      "main": [
+        [
+          {
+            "node": "Separar Usinas (Item Lists)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Separar Usinas (Item Lists)": {
+      "main": [
+        [
+          {
+            "node": "Atualizar Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "f7ab0a7d-b778-4384-8da9-01e4a141aabf",
+  "meta": {
+    "instanceId": "cbef90ba-01b3-46ea-9d8a-6b83f06c117b"
+  },
+  "tags": []
+}

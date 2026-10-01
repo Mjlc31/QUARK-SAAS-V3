@@ -1,0 +1,58 @@
+- generic [ref=f5e3]:
+  - complementary [ref=f5e4]:
+    - generic [ref=f5e6]:
+      - img "Quark Energia" [ref=f5e7]
+      - generic [ref=f5e8]: Offline
+    - navigation [ref=f5e11]:
+      - paragraph [ref=f5e12]: Plataforma
+      - link "Visão Geral" [ref=f5e13] [cursor=pointer]:
+        - /url: /
+      - link "Leads & CRM" [ref=f5e20] [cursor=pointer]:
+        - /url: /crm
+      - link "Prospecção" [ref=f5e27] [cursor=pointer]:
+        - /url: /prospeccao
+      - link "Propostas" [ref=f5e32] [cursor=pointer]:
+        - /url: /proposals
+      - link "Conversas" [ref=f5e39] [cursor=pointer]:
+        - /url: /conversations
+      - link "Calculadora" [ref=f5e43] [cursor=pointer]:
+        - /url: /calculator
+      - link "Engenharia" [ref=f5e47] [cursor=pointer]:
+        - /url: /engineering
+      - link "Acompanhamento" [ref=f5e50] [cursor=pointer]:
+        - /url: /follow-up
+      - link "Tarefas" [ref=f5e57] [cursor=pointer]:
+        - /url: /tasks
+      - paragraph [ref=f5e62]: Dados
+      - link "Catálogo" [ref=f5e63] [cursor=pointer]:
+        - /url: /products
+      - link "Insta Auto" [ref=f5e69] [cursor=pointer]:
+        - /url: /insta-automation
+      - link "Financeiro" [ref=f5e74] [cursor=pointer]:
+        - /url: /financeiro
+      - link "Intelligence" [ref=f5e78] [cursor=pointer]:
+        - /url: /reports
+      - link "Auditoria Fatura" [ref=f5e83] [cursor=pointer]:
+        - /url: /audit
+      - paragraph [ref=f5e88]: Serviços & Automação
+      - link "Tickets" [ref=f5e89] [cursor=pointer]:
+        - /url: /tickets
+      - link "Catálogo de Clientes" [ref=f5e93] [cursor=pointer]:
+        - /url: /clientes
+      - link "Inteligência" [ref=f5e100] [cursor=pointer]:
+        - /url: /intelligence
+      - link "Manutenção" [ref=f5e105] [cursor=pointer]:
+        - /url: /maintenance
+      - link "Alertas" [ref=f5e109] [cursor=pointer]:
+        - /url: /maintenance-alerts
+      - link "Robô Faturas" [ref=f5e114] [cursor=pointer]:
+        - /url: /utility-robot
+      - link "E-commerce" [ref=f5e119] [cursor=pointer]:
+        - /url: /ecommerce
+    - generic [ref=f5e126] [cursor=pointer]:
+      - generic [ref=f5e127]: TE
+      - generic [ref=f5e129]:
+        - paragraph [ref=f5e130]: Modo Offline
+        - paragraph [ref=f5e131]: test@test.com
+      - button [ref=f5e132]
+  - main [ref=f5e136]
