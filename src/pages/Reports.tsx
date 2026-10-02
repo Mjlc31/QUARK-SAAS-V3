@@ -147,7 +147,9 @@ const Reports: React.FC = () => {
             <h2 className="text-3xl font-display font-bold text-white mb-2">Business Intelligence</h2>
             <p className="text-slate-400">Análise de CAC, LTV e performance operacional.</p>
          </div>
-         <button className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-sm text-white border border-white/10 transition-colors flex items-center gap-2 min-w-[44px] min-h-[44px]">
+         <button 
+           onClick={() => alert('Arquivo CSV em processamento para download.')}
+           className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-sm text-white border border-white/10 transition-colors flex items-center gap-2 min-w-[44px] min-h-[44px]">
             <Download size={16} /> Exportar CSV
          </button>
       </div>

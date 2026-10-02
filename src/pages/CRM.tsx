@@ -318,7 +318,7 @@ const CRM: React.FC = () => {
               if (curr.status === 'Qualificado') weight = 0.3;
               if (curr.status === 'Proposta') weight = 0.7;
               return acc + ((curr.amount || 0) * weight);
-            }, 0).toLocaleString('pt-BR')}
+            }, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
         </div>
         <div className="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-5 shadow-sm backdrop-blur-sm">

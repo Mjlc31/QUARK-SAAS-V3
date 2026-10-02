@@ -12,6 +12,7 @@ import {
 } from 'recharts';
 import { jsPDF } from 'jspdf';
 import { FinancialProlabore } from '../components/FinancialProlabore';
+import { useApp } from '../contexts/AppContext';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 type TransactionType = 'receita' | 'custo' | 'despesa';
@@ -87,6 +88,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 const Financial: React.FC = () => {
+    const { user } = useApp();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [allYearTx, setAllYearTx] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
@@ -386,7 +388,6 @@ const Financial: React.FC = () => {
     const handleAdd = async () => {
         if (!form.description || !form.amount) return;
         setSaving(true); setSavingError(null);
-        const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setSavingError('Faça login para adicionar lançamentos.'); setSaving(false); return; }
         const payload = {
             description: form.description, type: form.type, category: form.category,

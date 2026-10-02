@@ -44,10 +44,21 @@ function Proposals() {
     async () => {
       const res = await supabase().from("proposals").select("*").order("created_at", { ascending: false }).limit(100);
       if (res.error) throw res.error;
-      return (res.data || []).map((p: any) => ({
-        ...p,
-        lead: p.lead || { name: p.client_name || p.data?.clientName || 'Sem nome', city: p.city || p.data?.city, phone: p.phone }
-      })) as Proposal[];
+      const proposals = res.data || [];
+      const leadIds = [...new Set(proposals.map((p) => p.lead_id).filter(Boolean))];
+      let leadsMap = new Map();
+      if (leadIds.length > 0) {
+        const { data: leads } = await supabase().from("opportunities").select("id, title, city, phone").in("id", leadIds);
+        leadsMap = new Map(leads?.map((l) => [l.id, l]) || []);
+      }
+      return proposals.map((p: any) => {
+        const linkedLead = leadsMap.get(p.lead_id);
+        const name = p.title || linkedLead?.title || p.client_name || p.data?.clientName || 'Sem nome';
+        return {
+          ...p,
+          lead: p.lead || { name, city: p.city || linkedLead?.city || p.data?.city, phone: p.phone || linkedLead?.phone }
+        };
+      }) as Proposal[];
     },
     [],
     ["proposals"],

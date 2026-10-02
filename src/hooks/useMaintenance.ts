@@ -62,7 +62,7 @@ export function useMaintenanceStats() {
         }
       });
 
-      const avgProfitPerService = completedThisMonth > 0 ? profitThisMonth / completedThisMonth : 0;
+      const avgProfitPerService = revenueThisMonth > 0 ? (profitThisMonth / revenueThisMonth) * 100 : 0;
 
       return {
         totalServices,

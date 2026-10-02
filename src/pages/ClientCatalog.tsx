@@ -146,7 +146,9 @@ export default function ClientCatalog() {
                 </div>
 
                 <div className="mt-6 pt-4 border-t border-white/5 flex gap-2">
-                  <button className="flex-1 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-xs font-bold transition-colors">
+                  <button 
+                    onClick={() => toast.success('Painel de detalhes do cliente em construção.')}
+                    className="flex-1 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-xs font-bold transition-colors">
                     Ver Detalhes
                   </button>
                   <button 

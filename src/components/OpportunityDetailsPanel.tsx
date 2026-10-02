@@ -158,7 +158,7 @@ export const OpportunityDetailsPanel: React.FC<OpportunityDetailsPanelProps> = (
           <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-lime-500/10 rounded-full blur-[100px] -mr-40 -mt-40 pointer-events-none"></div>
           
           <div className="flex justify-between items-start relative z-10">
-            <div className="absolute top-0 right-10 flex gap-2">
+            <div className="absolute top-0 right-10 flex gap-2 z-50">
               <button 
                 onClick={() => lastProposalId ? navigate(`/propostas/${lastProposalId}`) : navigate(`/propostas/nova`)}
                 className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30 border border-indigo-500/30 rounded-lg text-sm font-medium transition-colors mr-6"

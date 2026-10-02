@@ -20,7 +20,7 @@ type Size = "sm" | "md" | "lg" | "icon";
 const variants: Record<Variant, string> = {
   primary: "bg-gradient-to-br from-[#3a2a6b] via-ink-900 to-ink-950 text-white ring-1 ring-white/10 shadow-[0_10px_28px_-12px_rgba(28,18,52,0.75)] hover:brightness-125",
   sun: "bg-sun-gradient text-ink-950 shadow-glow hover:brightness-105",
-  secondary: "bg-zinc-900/70 text-ink-800 ring-1 ring-white/10 backdrop-blur-md hover:bg-zinc-900 shadow-xl shadow-black/20",
+  secondary: "bg-zinc-900/70 text-zinc-300 ring-1 ring-white/10 backdrop-blur-md hover:bg-zinc-900 shadow-xl shadow-black/20 hover:text-white",
   outline: "bg-zinc-900/30 text-zinc-200 ring-1 ring-white/10 backdrop-blur-md hover:bg-zinc-900/50",
   ghost: "text-zinc-300 hover:bg-lime-400/[0.06] hover:text-white",
   danger: "bg-rose-600 text-white hover:bg-rose-700",
@@ -209,7 +209,7 @@ export function Segmented<T extends string>({
           className={cx(
             "flex items-center justify-center gap-1.5 rounded-lg font-semibold whitespace-nowrap transition-all",
             size === "sm" ? "h-7 px-2.5 text-xs" : "h-8 px-3.5 text-[13px]",
-            value === o.value ? "bg-zinc-900 text-white shadow-[0_2px_10px_-2px_rgba(28,18,52,0.18)]" : "text-zinc-400 hover:text-ink-800",
+            value === o.value ? "bg-zinc-900 text-white shadow-[0_2px_10px_-2px_rgba(28,18,52,0.18)]" : "text-zinc-400 hover:text-zinc-200",
           )}
         >
           {o.label}
@@ -290,7 +290,7 @@ export function Empty({ icon, title, text, action }: { icon: ReactNode; title: s
   return (
     <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
       <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-white to-ink-100 text-zinc-500 ring-1 ring-white/5 shadow-xl shadow-black/20">{icon}</div>
-      <p className="font-display font-semibold text-ink-800">{title}</p>
+      <p className="font-display font-semibold text-zinc-100">{title}</p>
       {text && <p className="mt-1 max-w-sm text-sm text-zinc-400">{text}</p>}
       {action && <div className="mt-5">{action}</div>}
     </div>

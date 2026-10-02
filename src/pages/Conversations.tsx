@@ -192,10 +192,23 @@ const Conversations: React.FC = () => {
     };
 
     useEffect(() => {
-        checkConnectionState();
-        const interval = setInterval(checkConnectionState, 5000);
-        return () => clearInterval(interval);
-    }, []);
+        let timeoutId: NodeJS.Timeout;
+        let delay = 5000;
+        
+        const poll = async () => {
+            await checkConnectionState();
+            // If disconnected or unknown, back off up to 60s
+            if (connectionState === 'disconnected' || connectionState === 'unknown') {
+                delay = Math.min(delay * 1.5, 60000);
+            } else {
+                delay = 5000;
+            }
+            timeoutId = setTimeout(poll, delay);
+        };
+        
+        poll();
+        return () => clearTimeout(timeoutId);
+    }, [connectionState]);
 
     const fetchQrCode = async () => {
         setQrLoading(true);

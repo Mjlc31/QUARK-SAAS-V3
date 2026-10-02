@@ -460,19 +460,24 @@ app.get('/agent/context/:contactId', (req, res) => {
 
 // ─── Notificação de Tarefas & Google Agenda ────────────────────────────────
 app.post('/agent/task-notify', async (req, res) => {
-  const { title, assignee, assigneePhone, priority, deadline, notifyWhatsapp } = req.body;
+  try {
+    const { title, assignee, assigneePhone, priority, deadline, notifyWhatsapp } = req.body;
 
-  let whatsappSent = false;
-  if (notifyWhatsapp && assigneePhone) {
-    const timeOfDay = new Date().getHours() < 12 ? 'Bom dia' : 'Boa tarde';
-    const dateText = deadline ? new Date(deadline).toLocaleDateString('pt-BR') : 'Sem data definida';
-    const emoji = priority === 'High' ? '🔴 URGENTE' : priority === 'Medium' ? '🟡 Atenção' : '🟢 Informativo';
-    const message = `*${timeOfDay}, ${assignee}!*\n\nVocê recebeu uma nova tarefa no Quark OS:\n\n*${emoji}: ${title}*\nPrazo: ${dateText}\n\nFavor confirmar recebimento no sistema.`;
-    const result = await sendWhatsAppMessage(assigneePhone, message);
-    whatsappSent = result.ok;
+    let whatsappSent = false;
+    if (notifyWhatsapp && assigneePhone) {
+      const timeOfDay = new Date().getHours() < 12 ? 'Bom dia' : 'Boa tarde';
+      const dateText = deadline ? new Date(deadline).toLocaleDateString('pt-BR') : 'Sem data definida';
+      const emoji = priority === 'High' ? '🔴 URGENTE' : priority === 'Medium' ? '🟡 Atenção' : '🟢 Informativo';
+      const message = `*${timeOfDay}, ${assignee}!*\n\nVocê recebeu uma nova tarefa no Quark OS:\n\n*${emoji}: ${title}*\nPrazo: ${dateText}\n\nFavor confirmar recebimento no sistema.`;
+      const result = await sendWhatsAppMessage(assigneePhone, message);
+      whatsappSent = result.ok;
+    }
+
+    res.json({ ok: true, whatsappSent });
+  } catch (error) {
+    console.error('[TASK-NOTIFY ERROR]:', error);
+    res.status(500).json({ ok: false, error: error.message });
   }
-
-  res.json({ ok: true, whatsappSent });
 });
 
 // ─── OCR de Faturas de Energia com Gemini Vision ────────────────────────────

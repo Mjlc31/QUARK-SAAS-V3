@@ -157,7 +157,7 @@ const Maintenance: React.FC = () => {
             <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Margem Média</p>
             <Percent size={16} className="text-lime-400" />
           </div>
-          <p className="text-2xl font-bold font-mono text-lime-400 mt-1">{fmt(stats?.avgProfitPerService || 0)}</p>
+          <p className="text-2xl font-bold font-mono text-lime-400 mt-1">{(stats?.avgProfitPerService || 0).toFixed(1)}%</p>
         </div>
       </div>
 

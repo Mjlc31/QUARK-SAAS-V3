@@ -169,7 +169,7 @@ export default function Prospeccao() {
     const startTime = Date.now();
 
     try {
-      const res = await fetch('http://localhost:3001/api/prospeccao/buscar', {
+      const res = await fetch('/api/prospeccao/buscar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

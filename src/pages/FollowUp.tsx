@@ -200,7 +200,7 @@ const FollowUp: React.FC = () => {
 
                                             <div className="bg-zinc-900/50 rounded-lg p-2 border border-white/5 mb-4 flex items-center justify-between">
                                                 <span className="text-[10px] text-zinc-500 font-bold uppercase">Potência</span>
-                                                <span className="text-sm font-display font-bold text-lime-400">{project.systemSizeKw} kWp</span>
+                                                <span className="text-sm font-display font-bold text-lime-400">{Number(project.systemSizeKw).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} kWp</span>
                                             </div>
 
                                             <button

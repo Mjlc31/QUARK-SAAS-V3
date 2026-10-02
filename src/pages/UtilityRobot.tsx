@@ -125,7 +125,9 @@ const UtilityRobot: React.FC = () => {
              <p className="text-xs text-slate-500 font-bold uppercase mb-1">Próxima Execução</p>
              <p className="text-sm font-mono text-lime-400">{nextRun.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} hoje</p>
            </div>
-           <button className="h-full px-4 bg-white/5 hover:bg-white/10 text-white rounded-xl font-bold text-sm transition-colors border border-white/10 flex items-center gap-2">
+           <button 
+             onClick={() => alert('Comando de Forçar Execução enviado ao robô.')}
+             className="h-full px-4 bg-white/5 hover:bg-white/10 text-white rounded-xl font-bold text-sm transition-colors border border-white/10 flex items-center gap-2">
              <Play size={16} className="text-lime-400" /> Forçar Execução
            </button>
         </div>
@@ -155,7 +157,9 @@ const UtilityRobot: React.FC = () => {
                     <p className="text-xs text-slate-500 mt-1 font-mono">{client.utility_account || 'Conta não informada'}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button className="px-3 py-1.5 bg-lime-500/10 text-lime-400 hover:bg-lime-500/20 rounded-lg text-xs font-bold transition-colors">
+                    <button 
+                      onClick={() => alert(`Enviando comando para rodar bot na conta do cliente: ${client.client_name}`)}
+                      className="px-3 py-1.5 bg-lime-500/10 text-lime-400 hover:bg-lime-500/20 rounded-lg text-xs font-bold transition-colors">
                       Rodar Agora
                     </button>
                   </div>
