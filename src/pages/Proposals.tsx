@@ -1,9 +1,9 @@
 "use client";
 
-import { Calculator, Download, PlugZap, Copy, Eye, FileText, MoreHorizontal, Search, Trash2, Building2 } from "lucide-react";
+import { Calculator, Download, PlugZap, Copy, Eye, FileText, MoreHorizontal, Search, Trash2, Building2, TrendingUp, Wallet, Trophy, ArrowUpRight } from "lucide-react";
 import { SettingsModal } from "../components/proposal/SettingsModal";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 import { Badge, Button, Card, Empty, Input, PageHeader, Segmented, Skeleton, cx } from "@/components/ui";
 import { PRODUCTS, PROPOSAL_STATUS, productOf } from "@/lib/constants";
@@ -42,7 +42,7 @@ function Proposals() {
   }, [params]);
   const { data: rawData, loading } = useLive(
     async () => {
-      const res = await supabase().from("proposals").select("*").order("created_at", { ascending: false });
+      const res = await supabase().from("proposals").select("*").order("created_at", { ascending: false }).limit(100);
       if (res.error) throw res.error;
       return (res.data || []).map((p: any) => ({
         ...p,
@@ -95,7 +95,7 @@ function Proposals() {
   };
 
   return (
-    <div className="animate-fade-up">
+    <div className="animate-enter">
       <PageHeader
         title={product === "save" ? "Propostas S.A.V.E" : product === "solar" ? "Propostas solares" : "Propostas"}
         subtitle={product === "save" ? "Sistemas de abastecimento de veículo elétrico" : "Todos os orçamentos gerados, com status de envio e visualização"}
@@ -165,15 +165,42 @@ function Proposals() {
         ]}
       />
 
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-3">
-        <Stat label="Em aberto" value={brl(totals.open, 0)} sub={`${totals.openCount} propostas enviadas`} />
-        <Stat label="Aceitas" value={brl(totals.won, 0)} sub={`${totals.wonCount} propostas`} accent />
-        <Stat label="Lucro nas aceitas" value={brl(totals.profit, 0)} sub="Soma do lucro previsto" className="col-span-2 lg:col-span-1" />
+      {/* ─── Stats Cards ─── */}
+      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <StatCard
+          icon={<Wallet className="h-5 w-5" />}
+          label="Em aberto"
+          value={brl(totals.open, 0)}
+          sub={`${totals.openCount} proposta${totals.openCount !== 1 ? 's' : ''} enviada${totals.openCount !== 1 ? 's' : ''}`}
+          gradient="from-amber-500/10 to-orange-500/10"
+          iconColor="text-amber-500"
+          borderColor="border-amber-500/20"
+        />
+        <StatCard
+          icon={<Trophy className="h-5 w-5" />}
+          label="Aceitas"
+          value={brl(totals.won, 0)}
+          sub={`${totals.wonCount} proposta${totals.wonCount !== 1 ? 's' : ''}`}
+          gradient="from-emerald-500/10 to-green-500/10"
+          iconColor="text-emerald-500"
+          borderColor="border-emerald-500/20"
+          accent
+        />
+        <StatCard
+          icon={<TrendingUp className="h-5 w-5" />}
+          label="Lucro nas aceitas"
+          value={brl(totals.profit, 0)}
+          sub="Soma do lucro previsto"
+          gradient="from-violet-500/10 to-purple-500/10"
+          iconColor="text-violet-500"
+          borderColor="border-violet-500/20"
+        />
       </div>
 
+      {/* ─── Search + Filter ─── */}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
-          <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-ink-400" />
+          <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-zinc-500" />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por cliente, número ou cidade" className="pl-10" />
         </div>
         <div className="scrollbar-none -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
@@ -191,6 +218,7 @@ function Proposals() {
         </div>
       </div>
 
+      {/* ─── Proposals List ─── */}
       <Card className="overflow-hidden">
         {loading ? (
           <div className="grid gap-3 p-5">
@@ -212,35 +240,9 @@ function Proposals() {
             }
           />
         ) : (
-          <ul className="divide-y divide-ink-100">
-            {rows.map((p) => (
-              <li key={p.id} className="group relative flex items-center gap-4 px-5 py-4 transition hover:bg-ink-50/60">
-                <Link to={`/propostas/${p.id}`} className="absolute inset-0" aria-label={`Abrir orçamento ${p.number}`} />
-                <div className="hidden h-11 w-11 shrink-0 place-items-center rounded-xl bg-sun-50 font-display text-xs font-bold text-sun-700 ring-1 ring-sun-200/70 sm:grid">
-                  #{p.number}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate font-semibold text-ink-900">{p.lead?.name ?? "—"}</p>
-                    <Badge className={PROPOSAL_STATUS[p.status || "rascunho"]?.cls}>{PROPOSAL_STATUS[p.status || "rascunho"]?.label}</Badge>
-                    {productOf(p.inputs) === "save" && <Badge className={PRODUCTS.save?.cls}>⚡ S.A.V.E</Badge>}
-                  </div>
-                  <p className="mt-0.5 truncate text-[13px] text-ink-500">
-                    <span className="sm:hidden">#{p.number} · </span>
-                    {proposalSummary(p)} · {formatDate(p.created_at)}
-                    {p.view_count > 0 && (
-                      <span className="ml-2 inline-flex items-center gap-1 text-violet-600">
-                        <Eye className="h-3 w-3" /> {p.view_count}× · {relativeTime(p.viewed_at)}
-                      </span>
-                    )}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="tnum font-display font-semibold">{brl(p.final_price)}</p>
-                  <p className={cx("tnum text-xs", p.profit_value < 0 ? "text-rose-600" : "text-emerald-600")}>lucro {brl(p.profit_value, 0)}</p>
-                </div>
-                <RowMenu onDuplicate={() => duplicate(p)} onDelete={() => remove(p)} />
-              </li>
+          <ul className="divide-y divide-zinc-800">
+            {rows.map((p, idx) => (
+              <ProposalRow key={p.id} p={p} idx={idx} onDuplicate={() => duplicate(p)} onDelete={() => remove(p)} />
             ))}
           </ul>
         )}
@@ -251,30 +253,121 @@ function Proposals() {
   );
 }
 
-
-function Stat({ label, value, sub, accent, className }: { label: string; value: string; sub: string; accent?: boolean; className?: string }) {
+/* ─── Stat Card ─── */
+function StatCard({
+  icon,
+  label,
+  value,
+  sub,
+  gradient,
+  iconColor,
+  borderColor,
+  accent,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  sub: string;
+  gradient: string;
+  iconColor: string;
+  borderColor: string;
+  accent?: boolean;
+}) {
   return (
-    <Card className={cx("p-4 sm:p-5", accent && "glass-dark text-white ring-0", className)}>
-      <p className={cx("text-xs font-semibold", accent ? "text-ink-400" : "text-ink-500")}>{label}</p>
-      <p className={cx("tnum mt-1 font-display text-xl font-semibold tracking-tight sm:text-2xl", accent && "text-sun-gradient")}>{value}</p>
-      <p className={cx("mt-0.5 text-xs", accent ? "text-ink-500" : "text-ink-400")}>{sub}</p>
+    <Card className={cx("group relative overflow-hidden border p-5 transition-all duration-300 hover:shadow-lg", borderColor)}>
+      {/* Gradient background */}
+      <div className={cx("absolute inset-0 bg-gradient-to-br opacity-50 transition-opacity duration-300 group-hover:opacity-80", gradient)} />
+      <div className="relative">
+        <div className="flex items-center justify-between">
+          <div className={cx("grid h-9 w-9 place-items-center rounded-xl bg-zinc-800/50", iconColor)}>
+            {icon}
+          </div>
+          {accent && (
+            <div className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-600">
+              <ArrowUpRight className="h-3 w-3" />
+              Receita
+            </div>
+          )}
+        </div>
+        <p className="mt-3 text-xs font-semibold tracking-wide text-zinc-400 uppercase">{label}</p>
+        <p className={cx("tnum mt-1 font-display text-2xl font-bold tracking-tight", accent && "text-sun-gradient")}>{value}</p>
+        <p className="mt-0.5 text-xs text-zinc-500">{sub}</p>
+      </div>
     </Card>
   );
 }
 
+/* ─── Proposal Row ─── */
+function ProposalRow({ p, idx, onDuplicate, onDelete }: { p: Proposal; idx: number; onDuplicate: () => void; onDelete: () => void }) {
+  const statusColors: Record<string, string> = {
+    rascunho: "bg-zinc-500",
+    enviada: "bg-blue-500",
+    visualizada: "bg-violet-500",
+    aceita: "bg-emerald-500",
+    recusada: "bg-rose-500",
+  };
+
+  const initials = (p.lead?.name ?? "?")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
+
+  return (
+    <li
+      className="group relative flex items-center gap-4 px-5 py-4 transition-all duration-200 hover:bg-zinc-800/60"
+      style={{ animationDelay: `${Math.min(idx * 40, 300)}ms` }}
+    >
+      <Link to={`/propostas/${p.id}`} className="absolute inset-0" aria-label={`Abrir orçamento ${p.number}`} />
+      {/* Avatar com iniciais */}
+      <div className="relative hidden h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-zinc-800 to-zinc-900 font-display text-xs font-bold text-white sm:grid">
+        {initials}
+        <span className={cx("absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full ring-2 ring-zinc-900", statusColors[p.status || "rascunho"])} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="tnum mr-1 text-[11px] font-bold text-zinc-500 sm:hidden">#{p.number}</span>
+          <p className="truncate font-semibold text-white">{p.lead?.name ?? "—"}</p>
+          <Badge className={PROPOSAL_STATUS[p.status || "rascunho"]?.cls}>{PROPOSAL_STATUS[p.status || "rascunho"]?.label}</Badge>
+          {productOf(p.inputs) === "save" && <Badge className={PRODUCTS.save?.cls}>⚡ S.A.V.E</Badge>}
+        </div>
+        <p className="mt-0.5 truncate text-[13px] text-zinc-400">
+          <span className="hidden sm:inline tnum text-zinc-500 font-medium">#{p.number} · </span>
+          {proposalSummary(p)} · {formatDate(p.created_at)}
+          {p.view_count > 0 && (
+            <span className="ml-2 inline-flex items-center gap-1 text-violet-600">
+              <Eye className="h-3 w-3" /> {p.view_count}× · {relativeTime(p.viewed_at)}
+            </span>
+          )}
+        </p>
+      </div>
+      <div className="text-right">
+        <p className="tnum font-display text-base font-bold tracking-tight">{brl(p.final_price)}</p>
+        <p className={cx("tnum text-xs font-medium", Number(p.profit_value) < 0 ? "text-rose-500" : "text-emerald-500")}>
+          {Number(p.profit_value) >= 0 ? "+" : ""}{brl(p.profit_value, 0)} lucro
+        </p>
+      </div>
+      <RowMenu onDuplicate={onDuplicate} onDelete={onDelete} />
+    </li>
+  );
+}
+
+/* ─── Row Context Menu ─── */
 function RowMenu({ onDuplicate, onDelete }: { onDuplicate: () => void; onDelete: () => void }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="relative z-10">
-      <button onClick={() => setOpen((o) => !o)} onBlur={() => setTimeout(() => setOpen(false), 150)} className="grid h-8 w-8 place-items-center rounded-lg text-ink-400 hover:bg-ink-100 hover:text-ink-800" aria-label="Ações">
+      <button onClick={() => setOpen((o) => !o)} onBlur={() => setTimeout(() => setOpen(false), 150)} className="grid h-8 w-8 place-items-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-700 hover:text-zinc-200" aria-label="Ações">
         <MoreHorizontal className="h-4 w-4" />
       </button>
       {open && (
-        <div className="animate-fade-up absolute top-full right-0 z-20 mt-1 w-44 rounded-xl bg-white p-1 shadow-lift ring-1 ring-ink-200">
-          <button onMouseDown={onDuplicate} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-ink-50">
-            <Copy className="h-4 w-4 text-ink-400" /> Duplicar
+        <div className="animate-fade-scale absolute top-full right-0 z-20 mt-1 w-44 rounded-xl bg-zinc-900 p-1 shadow-2xl shadow-black/40 ring-1 ring-white/10">
+          <button onMouseDown={onDuplicate} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-200 transition-colors hover:bg-zinc-800">
+            <Copy className="h-4 w-4 text-zinc-400" /> Duplicar
           </button>
-          <button onMouseDown={onDelete} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-rose-600 hover:bg-rose-50">
+          <button onMouseDown={onDelete} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-rose-400 transition-colors hover:bg-rose-500/10">
             <Trash2 className="h-4 w-4" /> Excluir
           </button>
         </div>

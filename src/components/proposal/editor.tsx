@@ -248,8 +248,8 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
     setDirty(false);
     const saved = res.data as Proposal;
     if (!current.current) {
-      await sb.from("activities").insert({ lead_id: leadId, type: "proposta", content: `Orçamento #${saved.number} criado — ${brl(saved.final_price)}`, created_by: user!.id });
-      if (lead && lead.estimated_value == null) await sb.from("leads").update({ estimated_value: saved.final_price }).eq("id", lead.id);
+      await sb.from("activities").insert({ opportunity_id: leadId, type: "proposta", content: `Orçamento #${saved.number} criado — ${brl(saved.final_price)}`, created_by: user!.id });
+      if (lead && lead.estimated_value == null) await sb.from("opportunities").update({ amount: saved.final_price }).eq("id", lead.id);
       toast.success(`Orçamento #${saved.number} salvo`);
       navigate(`/propostas/${saved.id}`, { replace: true });
       reward("proposta", saved.id);
@@ -272,8 +272,8 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
     if (draft) {
       reward("envio", saved.id);
       const sb = supabase();
-      await sb.from("activities").insert({ lead_id: saved.lead_id, type: "proposta", content: `Proposta #${saved.number} enviada`, created_by: user!.id });
-      if (lead && ["novo", "contato", "visita"].includes(lead.status)) await sb.from("leads").update({ status: "proposta" }).eq("id", lead.id);
+      await sb.from("activities").insert({ opportunity_id: saved.lead_id, type: "proposta", content: `Proposta #${saved.number} enviada`, created_by: user!.id });
+      if (lead && ["novo", "contato", "visita"].includes(lead.status)) await sb.from("opportunities").update({ status: "Proposta" }).eq("id", lead.id);
     }
     if (kind === "copy") {
       await navigator.clipboard.writeText(url).catch(() => {});
@@ -409,7 +409,17 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
             <CardHeader icon={<User className="h-[18px] w-[18px]" />} title="1. Cliente" subtitle="Quem vai receber a proposta" />
             <div className="grid gap-4 px-5 pb-5 sm:grid-cols-2">
               <Field label="Cliente *" className="sm:col-span-2">
-                <LeadPicker leads={leads ?? []} value={leadId} onChange={(id: string) => { setLeadId(id); setDirty(true); }} onNew={() => setShowNewLead(true)} />
+                <LeadPicker leads={leads ?? []} value={leadId} onChange={(id: string) => { 
+                  setLeadId(id); 
+                  setDirty(true); 
+                  const selectedLead = leads?.find((l: any) => l.id === id);
+                  if (selectedLead && !proposal) {
+                    if (selectedLead.avg_bill > 0 && billValue === 0) {
+                      setBillValue(selectedLead.avg_bill);
+                      if (inputs.tariff > 0) set("consumptionKwh", Math.round(selectedLead.avg_bill / inputs.tariff));
+                    }
+                  }
+                }} onNew={() => setShowNewLead(true)} />
               </Field>
               <Field label="Título da proposta (opcional)" className="sm:col-span-2">
                 <Input value={title} onChange={(e) => { setTitle(e.target.value); setDirty(true); }} placeholder="Ex.: Residência — Telhado principal" />

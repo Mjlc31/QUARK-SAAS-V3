@@ -29,5 +29,13 @@ whatsapp-backend/google-credentials.json
 
 .env
 .env.local
+backend/.env
 whatsapp-backend/.env
+
+# Temporary artifacts, logs, and dumps
+.playwright-mcp/
+scratch/
+*.patch
+test.pdf
+
 

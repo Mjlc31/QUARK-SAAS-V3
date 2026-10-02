@@ -1,9 +1,14 @@
-require('dotenv').config({ path: '.env' });
 const { createClient } = require('@supabase/supabase-js');
-const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY);
+const fs = require('fs');
+
+const envFile = fs.readFileSync('.env', 'utf8');
+const supabaseUrl = envFile.match(/VITE_SUPABASE_URL=(.*)/)[1];
+const supabaseKey = envFile.match(/VITE_SUPABASE_ANON_KEY=(.*)/)[1];
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function run() {
-    const { data, error } = await supabase.from('whatsapp_messages').select('chat_id').limit(1);
-    console.log(error || "OK", data);
+  const { data, error } = await supabase.from('opportunities').select('*').limit(1);
+  console.log(Object.keys(data[0] || {}));
 }
 run();

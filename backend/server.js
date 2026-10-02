@@ -733,7 +733,8 @@ app.post('/api/public/proposal/:token', async (req, res) => {
     }
     
     if (action === 'accept') {
-      await sb.from('proposals').update({ status: 'aceita', client_name: name || 'Cliente' }).eq('public_token', token);
+      const { data, error } = await sb.rpc("accept_public_proposal", { p_token: token, p_name: name || "Cliente" });
+      if (error) throw error;
       return res.json({ ok: true });
     }
     

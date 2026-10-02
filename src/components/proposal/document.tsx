@@ -99,19 +99,36 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
   }, [token]);
 
   return (
-    <div className="min-h-dvh bg-[#F6F5FA] text-ink-900 print:bg-white">
+    <div className="min-h-dvh bg-[#F6F5FA] text-slate-900 print:bg-white">
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
           @page { margin: 0; size: A4 portrait; }
-          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          html, body {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+          }
+          * { box-shadow: none !important; }
           .avoid-break { page-break-inside: avoid; break-inside: avoid; }
           .print-break { page-break-before: always; break-before: page; }
           .no-print { display: none !important; }
+          /* Cada seção principal vira uma "página" limpa */
+          section { page-break-inside: avoid; break-inside: avoid; }
+          /* Evita título órfão no final da página */
+          h2 { page-break-after: avoid; break-after: avoid; }
+          /* Tabelas: evita cortar linhas ao meio */
+          tr { page-break-inside: avoid; break-inside: avoid; }
+          /* Gráficos e cards: mantém inteiros */
+          .rounded-xl, .rounded-2xl { page-break-inside: avoid; break-inside: avoid; }
+          /* Footer da marca no final */
+          footer { page-break-before: auto; }
+          /* Remove links underline no PDF */
+          a { text-decoration: none !important; }
         }
       ` }} />
 
-      {/* Barra de ações */}
-      <div className="no-print fixed top-4 right-4 z-40 hidden gap-2 sm:flex">
+      {/* Barra de ações flutuante com glassmorphism */}
+      <div className="no-print fixed top-4 right-4 z-40 hidden items-center gap-2 rounded-2xl border border-white/20 bg-white/90 px-3 py-2 shadow-[0_8px_32px_rgba(0,0,0,0.12)] backdrop-blur-xl sm:flex">
         <Button variant="secondary" size="sm" onClick={() => window.print()}>
           <Download className="h-4 w-4" /> Baixar PDF
         </Button>
@@ -177,23 +194,23 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
 
           {/* ======================================================= RESUMO */}
           <Section num={num()} kicker="Resumo" title={`${firstName}, este é o seu projeto em números`}>
-            <p className="max-w-3xl text-[15px] leading-relaxed text-ink-600">
-              Dimensionamos um sistema de <b className="text-ink-900">{fmtNum(kwp, 2)} kWp</b>, com {inputs.moduleQty} módulos fotovoltaicos
+            <p className="max-w-3xl text-[15px] leading-relaxed text-slate-600">
+              Dimensionamos um sistema de <b className="text-slate-900">{fmtNum(kwp, 2)} kWp</b>, com {inputs.moduleQty} módulos fotovoltaicos
               {inputs.moduleBrand && ` ${inputs.moduleBrand}`} e inversor{inputs.inverterBrand && ` ${inputs.inverterBrand}`}, capaz de gerar em média{" "}
-              <b className="text-ink-900">{fmtNum(energy.monthlyGeneration)} kWh por mês</b>
+              <b className="text-slate-900">{fmtNum(energy.monthlyGeneration)} kWh por mês</b>
               {hasBill && (
                 <>
                   {" "}
                   — cerca de {pct(Math.min(1, energy.coverage), 0)} do seu consumo. Com isso, sua fatura estimada passa de{" "}
-                  <b className="text-ink-900">{brl(energy.monthlyBillBefore, 0)}</b> para <b className="text-emerald-700">{brl(energy.monthlyBillAfter, 0)}</b> por mês
+                  <b className="text-slate-900">{brl(energy.monthlyBillBefore, 0)}</b> para <b className="text-emerald-700">{brl(energy.monthlyBillAfter, 0)}</b> por mês
                 </>
               )}
               .
             </p>
             {hasBill && (
               <div className="mt-8 grid gap-4 md:grid-cols-[1.4fr_1fr]">
-                <div className="rounded-xl border border-ink-200 p-6">
-                  <p className="text-xs font-semibold tracking-[0.14em] text-ink-500 uppercase">Fatura mensal estimada</p>
+                <div className="rounded-xl border border-slate-200 p-6">
+                  <p className="text-xs font-semibold tracking-[0.14em] text-slate-500 uppercase">Fatura mensal estimada</p>
                   <div className="mt-5 grid gap-5">
                     <Bar label="Hoje, sem energia solar" value={energy.monthlyBillBefore} max={energy.monthlyBillBefore} color="#94A3B8" />
                     <Bar label="Com o sistema fotovoltaico" value={energy.monthlyBillAfter} max={energy.monthlyBillBefore} color="#3F9C6A" />
@@ -212,7 +229,7 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
           {/* ================================================= COMO FUNCIONA */}
           {show.howItWorks && (
             <Section num={num()} kicker="Como funciona" title="Do sol à sua tomada, em quatro etapas" tone="paper">
-              <div className="overflow-x-auto rounded-xl border border-ink-200 bg-white p-4 sm:p-6">
+              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
                 <SystemDiagram brand={inputs.inverterBrand} className="min-w-[760px]" />
               </div>
               <ol className="mt-6 grid gap-4 sm:grid-cols-2 md:grid-cols-4">
@@ -223,11 +240,11 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
                   ["Créditos", "O excedente vai para a rede e vira créditos em kWh, usados à noite e em dias nublados por até 60 meses."],
                 ].map(([t, d], i) => (
                   <li key={t} className="border-t-2 pt-4" style={{ borderColor: i === 3 ? "#3F9C6A" : NAVY }}>
-                    <p className="text-xs font-semibold tracking-[0.14em] text-ink-400 uppercase">Etapa {i + 1}</p>
+                    <p className="text-xs font-semibold tracking-[0.14em] text-slate-400 uppercase">Etapa {i + 1}</p>
                     <p className="mt-1 font-display text-lg font-semibold" style={{ color: NAVY }}>
                       {t}
                     </p>
-                    <p className="mt-1.5 text-sm leading-relaxed text-ink-600">{d}</p>
+                    <p className="mt-1.5 text-sm leading-relaxed text-slate-600">{d}</p>
                   </li>
                 ))}
               </ol>
@@ -238,16 +255,16 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
           {hasBill && show.bill && (
             <Section num={num()} kicker="Sua conta de luz" title="Como fica a sua fatura, item por item">
               <div className="grid gap-6 md:grid-cols-[1.5fr_1fr]">
-                <div className="self-start overflow-x-auto rounded-xl border border-ink-200">
+                <div className="self-start overflow-x-auto rounded-xl border border-slate-200">
                   <table className="w-full text-sm">
-                    <thead className="bg-[#F6F5FA] text-left text-xs tracking-[0.1em] text-ink-500 uppercase">
+                    <thead className="bg-[#F6F5FA] text-left text-xs tracking-[0.1em] text-slate-500 uppercase">
                       <tr>
                         <th className="px-4 py-3 font-semibold">Composição mensal</th>
                         <th className="px-4 py-3 text-right font-semibold">Hoje</th>
                         <th className="px-4 py-3 text-right font-semibold">Com solar</th>
                       </tr>
                     </thead>
-                    <tbody className="tnum divide-y divide-ink-100">
+                    <tbody className="tnum divide-y divide-slate-100">
                       <BillRow label="Energia consumida da rede" hint={`${fmtNum(inputs.consumptionKwh)} kWh × ${brl(inputs.tariff, 2)}`} before={inputs.consumptionKwh * inputs.tariff} after={energy.bill.energyCharge} />
                       <BillRow label={`Fio B (${fmtNum(energy.fioBPct * 100)}% em ${startYear})`} hint={`${fmtNum(energy.bill.compensatedKwh)} kWh compensados`} before={0} after={energy.bill.fioBCharge} />
                       <BillRow label="Complemento da taxa mínima" hint={`Mínimo de ${energy.availabilityKwh} kWh`} before={0} after={energy.bill.minimumTopUp} />
@@ -308,7 +325,7 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
                   ]}
                 />
               </div>
-              <div className="mt-5 grid gap-px overflow-hidden rounded-xl border border-ink-200 bg-ink-200 sm:grid-cols-3">
+              <div className="mt-5 grid gap-px overflow-hidden rounded-xl border border-slate-200 bg-slate-200 sm:grid-cols-3">
                 <MiniSpec label="Estrutura de fixação" value={inputs.structureType} sub={`Alumínio e aço inox · ${s.warranty_structure_years} anos de garantia`} />
                 <MiniSpec label="Proteções elétricas" value="String box CC/CA" sub="Disjuntores, DPS e aterramento conforme NBR 16690" />
                 <MiniSpec label="Projeto e homologação" value="Inclusos" sub="ART do engenheiro e aprovação na distribuidora" />
@@ -320,7 +337,7 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
           {show.generation && (
             <Section num={num()} kicker="Desempenho" title="Geração estimada ao longo do ano">
               <div className="grid gap-6 md:grid-cols-[1fr_280px]">
-                <div className="self-start rounded-xl border border-ink-200 p-5 sm:p-6">
+                <div className="self-start rounded-xl border border-slate-200 p-5 sm:p-6">
                   <GenerationChart data={energy.monthly} />
                 </div>
                 <div className="grid content-start gap-3">
@@ -344,27 +361,27 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
                 <Stat label="Rentabilidade equivalente" value={tir ? `${fmtNum((Math.pow(1 + tir, 1 / 12) - 1) * 100, 2)}% a.m.` : "—"} />
               </div>
               <div className="mt-5 grid gap-5 md:grid-cols-[1.7fr_1fr]">
-                <div className="rounded-xl border border-ink-200 bg-white p-5 sm:p-6">
-                  <p className="text-xs font-semibold tracking-[0.14em] text-ink-500 uppercase">Saldo acumulado (investimento × economia)</p>
+                <div className="rounded-xl border border-slate-200 bg-white p-5 sm:p-6">
+                  <p className="text-xs font-semibold tracking-[0.14em] text-slate-500 uppercase">Saldo acumulado (investimento × economia)</p>
                   <div className="mt-4">
                     <CashflowChart data={energy.cashflow} payback={energy.paybackYears} />
                   </div>
                 </div>
-                <div className="overflow-hidden rounded-xl border border-ink-200 bg-white">
+                <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
                   <table className="w-full text-sm">
-                    <thead className="bg-[#F6F5FA] text-left text-xs tracking-[0.1em] text-ink-500 uppercase">
+                    <thead className="bg-[#F6F5FA] text-left text-xs tracking-[0.1em] text-slate-500 uppercase">
                       <tr>
                         <th className="px-4 py-3 font-semibold">Ano</th>
                         <th className="px-4 py-3 text-right font-semibold">Economia no ano</th>
                         <th className="px-4 py-3 text-right font-semibold">Saldo</th>
                       </tr>
                     </thead>
-                    <tbody className="tnum divide-y divide-ink-100">
+                    <tbody className="tnum divide-y divide-slate-100">
                       {milestones.map((c) => (
                         <tr key={c.year}>
                           <td className="px-4 py-2.5 font-medium">{c.year}º</td>
                           <td className="px-4 py-2.5 text-right">{brl(c.savings, 0)}</td>
-                          <td className={cx("px-4 py-2.5 text-right font-semibold", c.cumulative >= 0 ? "text-emerald-700" : "text-ink-500")}>{brl(c.cumulative, 0)}</td>
+                          <td className={cx("px-4 py-2.5 text-right font-semibold", c.cumulative >= 0 ? "text-emerald-700" : "text-slate-500")}>{brl(c.cumulative, 0)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -381,7 +398,7 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
           {/* ===================================================== GARANTIAS */}
           {show.warranties && (
             <Section num={num()} kicker="Garantias" title="Proteção de longo prazo, por contrato">
-              <div className="grid gap-px overflow-hidden rounded-xl border border-ink-200 bg-ink-200 sm:grid-cols-5">
+              <div className="grid gap-px overflow-hidden rounded-xl border border-slate-200 bg-slate-200 sm:grid-cols-5">
                 <Warranty years={s.warranty_modules_performance_years} title="Eficiência dos módulos" text="Produção mínima de 80% ao fim do período" />
                 <Warranty years={s.warranty_modules_years} title="Módulos" text="Contra defeitos de fabricação" />
                 <Warranty years={s.warranty_inverter_years} title="Inversor" text="Reparo ou substituição pelo fabricante" />
@@ -403,10 +420,10 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
                         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-bold text-white" style={{ background: last ? "#3F9C6A" : NAVY }}>
                           {last ? <Check className="h-4 w-4" /> : i + 1}
                         </span>
-                        <span className="tnum text-xs font-semibold tracking-[0.14em] text-ink-400 uppercase">Dia {st.day}</span>
+                        <span className="tnum text-xs font-semibold tracking-[0.14em] text-slate-400 uppercase">Dia {st.day}</span>
                       </div>
-                      <p className="mt-3 font-semibold text-ink-900">{st.title}</p>
-                      <p className="mt-1 text-[13px] leading-relaxed text-ink-600">{st.text}</p>
+                      <p className="mt-3 font-semibold text-slate-900">{st.title}</p>
+                      <p className="mt-1 text-[13px] leading-relaxed text-slate-600">{st.text}</p>
                     </li>
                   );
                 })}
@@ -419,7 +436,7 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
             <Section num={num()} kicker="Portfólio" title="Obras realizadas pela nossa equipe">
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {s.proposal.gallery.slice(0, 6).map((src, i) => (
-                  <div key={src} className={cx("overflow-hidden rounded-xl bg-ink-100", i === 0 && "col-span-2 row-span-2")}>
+                  <div key={src} className={cx("overflow-hidden rounded-xl bg-slate-100", i === 0 && "col-span-2 row-span-2")}>
                     <Photo src={src} className="aspect-[4/3] h-full w-full" />
                   </div>
                 ))}
@@ -430,7 +447,7 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
           {/* ===================================================== PLANETA */}
           {show.planet && (
             <Section num={num()} kicker="Sustentabilidade" title="Impacto ambiental positivo">
-              <div className="grid gap-px overflow-hidden rounded-xl border border-ink-200 bg-ink-200 sm:grid-cols-3">
+              <div className="grid gap-px overflow-hidden rounded-xl border border-slate-200 bg-slate-200 sm:grid-cols-3">
                 <MiniSpec label="CO₂ evitado por ano" value={`${fmtNum(energy.co2TonsPerYear, 2)} toneladas`} sub={`${fmtNum(energy.co2TonsPerYear * 25, 1)} t em 25 anos`} />
                 <MiniSpec label="Equivale ao plantio de" value={`${fmtNum(energy.treesEquivalent)} árvores`} sub="por ano de operação" />
                 <MiniSpec label="Ou deixar de rodar" value={`${fmtNum(carKm)} km`} sub="de carro por ano" />
@@ -510,9 +527,9 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
             <Section num={num()} kicker="Dúvidas frequentes" title="Respostas diretas">
               <dl className="grid gap-x-10 gap-y-6 sm:grid-cols-2">
                 {faq.map((f) => (
-                  <div key={f.q} className="border-t border-ink-200 pt-4">
-                    <dt className="font-semibold text-ink-900">{f.q}</dt>
-                    <dd className="mt-1.5 text-sm leading-relaxed text-ink-600">{f.a}</dd>
+                  <div key={f.q} className="border-t border-slate-200 pt-4">
+                    <dt className="font-semibold text-slate-900">{f.q}</dt>
+                    <dd className="mt-1.5 text-sm leading-relaxed text-slate-600">{f.a}</dd>
                   </div>
                 ))}
               </dl>
@@ -523,42 +540,42 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
           {show.about && (
             <Section num={num()} kicker="Sobre nós" title={s.company_name} tone="paper">
               <div className="grid gap-8 sm:grid-cols-[1.4fr_1fr]">
-                <p className="leading-relaxed text-ink-600">{s.about}</p>
+                <p className="leading-relaxed text-slate-600">{s.about}</p>
                 <div className="grid content-start gap-3 text-sm">
                   {data.seller?.name && (
                     <p className="flex items-center gap-2.5">
-                      <ShieldCheck className="h-4 w-4 text-ink-400" /> Consultor: <b>{data.seller.name}</b>
+                      <ShieldCheck className="h-4 w-4 text-slate-400" /> Consultor: <b>{data.seller.name}</b>
                     </p>
                   )}
                   {contactPhone && (
                     <p className="flex items-center gap-2.5">
-                      <Phone className="h-4 w-4 text-ink-400" /> {formatPhone(contactPhone)}
+                      <Phone className="h-4 w-4 text-slate-400" /> {formatPhone(contactPhone)}
                     </p>
                   )}
                   {(s.email || data.seller?.email) && (
                     <p className="flex items-center gap-2.5">
-                      <Mail className="h-4 w-4 text-ink-400" /> {s.email || data.seller?.email}
+                      <Mail className="h-4 w-4 text-slate-400" /> {s.email || data.seller?.email}
                     </p>
                   )}
                   {s.address && (
                     <p className="flex items-center gap-2.5">
-                      <MapPin className="h-4 w-4 text-ink-400" /> {s.address}
+                      <MapPin className="h-4 w-4 text-slate-400" /> {s.address}
                     </p>
                   )}
-                  {s.cnpj && <p className="text-xs text-ink-400">CNPJ {s.cnpj}</p>}
+                  {s.cnpj && <p className="text-xs text-slate-400">CNPJ {s.cnpj}</p>}
                 </div>
               </div>
             </Section>
           )}
 
           {/* ========================================================= CTA */}
-          <section className="no-print border-t border-ink-100 px-6 py-12 sm:px-14">
-            <div className="flex flex-col gap-6 rounded-2xl border border-ink-200 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
+          <section className="no-print border-t border-slate-100 px-6 py-12 sm:px-14">
+            <div className="flex flex-col gap-6 rounded-2xl border border-slate-200 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
               <div>
                 <p className="font-display text-2xl font-semibold tracking-tight" style={{ color: NAVY }}>
                   {accepted ? "Proposta aceita. Obrigado pela confiança." : "Pronto para seguir?"}
                 </p>
-                <p className="mt-1 max-w-md text-sm text-ink-500">
+                <p className="mt-1 max-w-md text-sm text-slate-500">
                   {accepted ? "Entraremos em contato para agendar a visita técnica." : "Aceite a proposta online ou fale com seu consultor para esclarecer qualquer ponto."}
                 </p>
               </div>
@@ -582,8 +599,8 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
             </div>
           </section>
 
-          <footer className="border-t border-ink-100 px-6 py-6 text-[11px] leading-relaxed text-ink-400 sm:px-14">
-            <p className="mb-1 flex items-center gap-1.5 font-semibold text-ink-500">
+          <footer className="border-t border-slate-100 px-6 py-6 text-[11px] leading-relaxed text-slate-400 sm:px-14">
+            <p className="mb-1 flex items-center gap-1.5 font-semibold text-slate-500">
               <Info className="h-3.5 w-3.5" /> Premissas de cálculo
             </p>
             Irradiação média de {fmtNum(inputs.sunHours, 2)} kWh/m²/dia e rendimento global de {fmtNum(inputs.performanceRatio * 100)}%; tarifa de {brl(inputs.tariff, 3)}/kWh com reajuste
@@ -595,10 +612,11 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
         </article>
       </div>
 
-      {/* Barra fixa no celular */}
+      {/* Barra fixa no celular - aprimorada */}
       {!accepted && !expired && token && (
-        <div className="no-print fixed inset-x-0 bottom-0 z-40 border-t border-ink-200 bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:hidden">
-          <div className="flex gap-2">
+        <div className="no-print fixed inset-x-0 bottom-0 z-40 bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_32px_rgba(0,0,0,0.08)] backdrop-blur-xl sm:hidden">
+          <div className="mb-1 h-0.5 -mt-3 mx-auto w-12 rounded-full bg-slate-200" />
+          <div className="flex gap-2 mt-2">
             {contactPhone && (
               <a href={whatsappUrl(contactPhone, waText)} target="_blank" rel="noreferrer" className="flex-1">
                 <Button variant="secondary" className="w-full">
@@ -737,7 +755,7 @@ export function Explain({ title, children, className }: { title: string; childre
       <p className="flex items-center gap-2 text-xs font-bold tracking-[0.14em] text-[#2C7A52] uppercase">
         <Info className="h-3.5 w-3.5" /> Entenda · {title}
       </p>
-      <p className="mt-2 text-sm leading-relaxed text-ink-700">{children}</p>
+      <p className="mt-2 text-sm leading-relaxed text-slate-700">{children}</p>
     </div>
   );
 }
@@ -746,12 +764,12 @@ function Bar({ label, value, max, color }: { label: string; value: number; max: 
   return (
     <div>
       <div className="mb-2 flex items-baseline justify-between gap-3">
-        <span className="text-sm text-ink-600">{label}</span>
+        <span className="text-sm text-slate-600">{label}</span>
         <span className="tnum font-display text-xl font-semibold" style={{ color: color === "#94A3B8" ? NAVY : color }}>
           {brl(value, 0)}
         </span>
       </div>
-      <div className="h-3 overflow-hidden rounded-full bg-ink-100">
+      <div className="h-3 overflow-hidden rounded-full bg-slate-100">
         <div className="h-full rounded-full" style={{ width: `${Math.max(3, (value / Math.max(1, max)) * 100)}%`, background: color }} />
       </div>
     </div>
@@ -760,9 +778,9 @@ function Bar({ label, value, max, color }: { label: string; value: number; max: 
 
 export function Stat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
-    <div className={cx("relative overflow-hidden rounded-xl border p-4", accent ? "border-transparent text-white" : "border-ink-200 bg-white")} style={accent ? { background: NAVY } : undefined}>
+    <div className={cx("relative overflow-hidden rounded-xl border p-4", accent ? "border-transparent text-white" : "border-slate-200 bg-white")} style={accent ? { background: NAVY } : undefined}>
       {accent && <BrandRule className="absolute inset-x-0 top-0 h-1" />}
-      <p className={cx("text-[11px] font-semibold tracking-[0.1em] uppercase", accent ? "text-white/60" : "text-ink-500")}>{label}</p>
+      <p className={cx("text-[11px] font-semibold tracking-[0.1em] uppercase", accent ? "text-white/60" : "text-slate-500")}>{label}</p>
       <p className="tnum mt-1.5 font-display text-xl font-semibold tracking-tight sm:text-2xl">{value}</p>
     </div>
   );
@@ -773,18 +791,18 @@ function BillRow({ label, hint, before, after }: { label: string; hint: string; 
   return (
     <tr>
       <td className="px-4 py-3">
-        <p className="font-medium text-ink-800">{label}</p>
-        <p className="text-xs text-ink-400">{hint}</p>
+        <p className="font-medium text-slate-800">{label}</p>
+        <p className="text-xs text-slate-400">{hint}</p>
       </td>
-      <td className="px-4 py-3 text-right text-ink-600">{before > 0.004 ? brl(before) : "—"}</td>
-      <td className="px-4 py-3 text-right font-medium text-ink-900">{after > 0.004 ? brl(after) : "—"}</td>
+      <td className="px-4 py-3 text-right text-slate-600">{before > 0.004 ? brl(before) : "—"}</td>
+      <td className="px-4 py-3 text-right font-medium text-slate-900">{after > 0.004 ? brl(after) : "—"}</td>
     </tr>
   );
 }
 
 export function Product({ image, render, kicker, title, specs }: { image?: string; render: ReactNode; kicker: string; title: string; specs: [string, string][] }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-ink-200 bg-white">
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
       <div className="relative grid aspect-[16/10] place-items-center overflow-hidden bg-gradient-to-b from-[#F3F2F8] to-[#E4E1EE]">
         {/* Foto de produto: inteira e centralizada, sem cortes (tamanho da imagem é desconhecido). */}
         {image ? <Photo src={image} className="absolute inset-0 h-full w-full !object-contain p-5 drop-shadow-xl sm:p-7" fallback={<div className="grid h-full place-items-center">{render}</div>} /> : render}
@@ -794,11 +812,11 @@ export function Product({ image, render, kicker, title, specs }: { image?: strin
         <p className="mt-1 font-display text-xl font-semibold" style={{ color: NAVY }}>
           {title}
         </p>
-        <dl className="mt-4 divide-y divide-ink-100 text-sm">
+        <dl className="mt-4 divide-y divide-slate-100 text-sm">
           {specs.map(([k, v]) => (
             <div key={k} className="flex justify-between gap-4 py-2">
-              <dt className="text-ink-500">{k}</dt>
-              <dd className="text-right font-medium text-ink-900">{v}</dd>
+              <dt className="text-slate-500">{k}</dt>
+              <dd className="text-right font-medium text-slate-900">{v}</dd>
             </div>
           ))}
         </dl>
@@ -810,11 +828,11 @@ export function Product({ image, render, kicker, title, specs }: { image?: strin
 export function MiniSpec({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
     <div className="bg-white p-5">
-      <p className="text-[11px] font-semibold tracking-[0.12em] text-ink-500 uppercase">{label}</p>
+      <p className="text-[11px] font-semibold tracking-[0.12em] text-slate-500 uppercase">{label}</p>
       <p className="tnum mt-1 font-display text-lg font-semibold" style={{ color: NAVY }}>
         {value}
       </p>
-      <p className="mt-0.5 text-xs text-ink-500">{sub}</p>
+      <p className="mt-0.5 text-xs text-slate-500">{sub}</p>
     </div>
   );
 }
@@ -824,10 +842,10 @@ function Warranty({ years, title, text }: { years: number; title: string; text: 
     <div className="bg-white p-5">
       <p className="tnum font-display text-4xl font-semibold tracking-tight" style={{ color: NAVY }}>
         {years}
-        <span className="ml-1 text-sm font-medium text-ink-400">{years === 1 ? "ano" : "anos"}</span>
+        <span className="ml-1 text-sm font-medium text-slate-400">{years === 1 ? "ano" : "anos"}</span>
       </p>
-      <p className="mt-2 font-semibold text-ink-900">{title}</p>
-      <p className="mt-0.5 text-xs leading-relaxed text-ink-500">{text}</p>
+      <p className="mt-2 font-semibold text-slate-900">{title}</p>
+      <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{text}</p>
     </div>
   );
 }
@@ -896,7 +914,7 @@ export function AcceptModal({
         <Field label="Nome completo">
           <Input value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
         </Field>
-        <p className="mt-3 text-xs leading-relaxed text-ink-500">
+        <p className="mt-3 text-xs leading-relaxed text-slate-500">
           {note ??
             `O aceite online não gera cobrança: ele reserva as condições desta proposta enquanto o contrato é preparado. Após a assinatura, o prazo estimado até o sistema em operação é de ${days} dias.`}
         </p>

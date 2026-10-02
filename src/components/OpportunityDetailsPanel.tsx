@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, Edit2, Save, Trash2, Sparkles, Copy, Check, Loader2, Clock, Send, Tag, Building2, User, ChevronDown, Activity, Bot, Flame, MessageCircle, Calendar, CheckCircle, Phone, MapPin, DollarSign, ExternalLink, Mail, CreditCard, Zap, Home } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import { useNavigate } from 'react-router-dom';
+import { FileText } from 'lucide-react';
 
 export interface Opportunity {
   id: string;
@@ -97,6 +99,18 @@ export const OpportunityDetailsPanel: React.FC<OpportunityDetailsPanelProps> = (
   onDelete
 }) => {
   const [agentNotes, setAgentNotes] = useState<AgentNote[]>([]);
+  const [lastProposalId, setLastProposalId] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    async function fetchProposal() {
+      const { data } = await supabase.from('proposals').select('id').eq('lead_id', opportunity.id).order('created_at', { ascending: false }).limit(1);
+      if (data && data.length > 0) {
+        setLastProposalId(data[0].id);
+      }
+    }
+    fetchProposal();
+  }, [opportunity.id]);
   const [newNote, setNewNote] = useState('');
 
   const leadScore = Math.min(100, Math.max(10, Math.floor((opportunity.amount || 0) / 1000) + 40));
@@ -144,6 +158,15 @@ export const OpportunityDetailsPanel: React.FC<OpportunityDetailsPanelProps> = (
           <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-lime-500/10 rounded-full blur-[100px] -mr-40 -mt-40 pointer-events-none"></div>
           
           <div className="flex justify-between items-start relative z-10">
+            <div className="absolute top-0 right-10 flex gap-2">
+              <button 
+                onClick={() => lastProposalId ? navigate(`/propostas/${lastProposalId}`) : navigate(`/propostas/nova`)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30 border border-indigo-500/30 rounded-lg text-sm font-medium transition-colors mr-6"
+              >
+                <FileText size={16} />
+                {lastProposalId ? 'Ver Proposta' : 'Nova Proposta'}
+              </button>
+            </div>
             <div className="flex-1 pr-6">
               
               {/* Stepper Implementation */}
