@@ -74,7 +74,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
   const financeAdminItems = [
     { id: 'financeiro', label: 'Financeiro', icon: DollarSign, path: '/financeiro' },
-    { id: 'audit', label: 'Auditoria Fatura', icon: FileText, path: '/audit' },
     { id: 'utility-robot', label: 'Robô Faturas', icon: Bot, path: '/utility-robot' },
     { id: 'reports', label: 'Intelligence', icon: PieChart, path: '/reports' },
     { id: 'intelligence', label: 'CRM Inteligência', icon: Brain, path: '/intelligence' },

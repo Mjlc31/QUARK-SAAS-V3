@@ -238,7 +238,7 @@ export const storageService = {
         return row;
       }) as Lead[];
 
-      console.log(`✅ Leads sincronizados da nuvem: ${cloudLeads.length}`);
+      // console.log(`✅ Leads sincronizados da nuvem: ${cloudLeads.length}`);
 
       const localStr = safeLocalStorage.getItem('quark_leads');
       const localData: Lead[] = localStr ? JSON.parse(localStr) : [];

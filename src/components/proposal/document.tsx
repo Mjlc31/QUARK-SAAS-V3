@@ -672,13 +672,14 @@ function CoverFallback() {
   );
 }
 
-export function Brand({ settings }: { settings: CompanySettings }) {
-  if (settings.logo_url) {
+export function Brand({ settings, invertLogo = true }: { settings: CompanySettings; invertLogo?: boolean }) {
+  const invertClass = invertLogo ? "brightness-0 invert" : "";
+  if (settings.logo_url && !settings.logo_url.includes("drive.google.com")) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={settings.logo_url} alt={settings.company_name} className="h-11 w-auto max-w-[200px] object-contain brightness-0 invert" />;
+    return <img src={settings.logo_url} alt={settings.company_name} className={cx("h-11 w-auto max-w-[200px] object-contain", invertClass)} />;
   }
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src="/brand/logo-h-white.png" alt={settings.company_name || "Quark Energia"} className="h-11 w-auto sm:h-12" />;
+  return <img src="/LOGOQUARK.png" alt={settings.company_name || "Quark Energia"} className="h-11 w-auto sm:h-12 object-contain" />;
 }
 
 /** Faixa de encerramento com o logotipo. */

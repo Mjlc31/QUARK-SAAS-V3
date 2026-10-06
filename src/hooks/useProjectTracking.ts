@@ -118,11 +118,54 @@ export function useAdvancePhase() {
         .single();
 
       if (insertError) throw insertError;
+
+      // 3. Automated Follow-up (Automação de Obras)
+      try {
+        const { data: project } = await supabase.from('opportunities').select('phone, title').eq('id', projectId).single();
+        if (project && project.phone && project.phone.length > 8) {
+            const message = `Olá ${project.title || 'Cliente'}! 🏗️ Sua obra acaba de avançar!\n\nNova etapa atual: *${nextPhaseLabel}*.\n\nAcompanhe os detalhes em tempo real pelo seu Portal do Cliente.`;
+            
+            await fetch('/api/evolution/send', {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({ number: project.phone, text: message })
+            });
+            console.log(`[Automação Obras] Notificação enviada para ${project.phone}`);
+        }
+      } catch (err) {
+        console.error('Erro na automação de avanço de obra:', err);
+      }
+
       return newPhase as ProjectTrackingPhase;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['project_tracking', variables.projectId] });
       queryClient.invalidateQueries({ queryKey: ['project_tracking'] });
+    },
+  });
+}
+
+export function useActiveProjectsTracking() {
+  return useQuery({
+    queryKey: ['project_tracking', 'active'],
+    queryFn: async () => {
+      const { data: userAuth } = await supabase.auth.getUser();
+      if (!userAuth.user) throw new Error('Não autenticado');
+
+      // We join opportunities with project_tracking
+      const { data, error } = await supabase
+        .from('project_tracking')
+        .select(`
+          *,
+          opportunities (
+            id, title, value, pipeline_stage, phone, email, client_name
+          )
+        `)
+        .eq('user_id', userAuth.user.id)
+        .eq('is_current', true);
+
+      if (error) throw error;
+      return data;
     },
   });
 }

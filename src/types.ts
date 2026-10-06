@@ -219,7 +219,7 @@ export type MaintenanceServiceType = 'manutencao' | 'limpeza' | 'inspecao' | 're
 export type MaintenanceServiceStatus = 'pendente' | 'agendado' | 'em_campo' | 'concluido' | 'cancelado';
 export type AlertType = 'manutencao_preventiva' | 'limpeza' | 'inspecao' | 'garantia';
 export type AlertChannel = 'whatsapp' | 'email' | 'sms' | 'portal';
-export type AlertStatus = 'pendente' | 'enviado' | 'lido' | 'respondido';
+export type AlertStatus = 'pendente' | 'enviado' | 'lido' | 'respondido' | 'falha';
 export type ProjectPhase = 'venda_confirmada' | 'projeto_elaboracao' | 'projeto_enviado' | 'aprovacao_concessionaria' | 'logistica_entrega' | 'instalacao' | 'homologacao' | 'comissionamento' | 'finalizado';
 
 export interface ClientPortalUser {

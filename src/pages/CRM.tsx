@@ -202,6 +202,39 @@ const CRM: React.FC = () => {
       longitude: formData.longitude ? Number(formData.longitude) : null,
     };
     
+    // Feature: Merge Records
+    if (newOpp.phone || newOpp.email) {
+      let query = supabase.from('opportunities').select('*');
+      if (newOpp.phone && newOpp.email) {
+        query = query.or(`phone.eq.${newOpp.phone},email.eq.${newOpp.email}`);
+      } else if (newOpp.phone) {
+        query = query.eq('phone', newOpp.phone);
+      } else if (newOpp.email) {
+        query = query.eq('email', newOpp.email);
+      }
+      
+      const { data: existingData } = await query;
+      if (existingData && existingData.length > 0) {
+        const existing = existingData[0];
+        
+        // Remove null fields from newOpp so we don't overwrite good data with nulls
+        const updatePayload = Object.fromEntries(Object.entries(newOpp).filter(([_, v]) => v != null && v !== ''));
+        delete updatePayload.status; // don't regress status
+        
+        const { data: updateData, error: updateError } = await supabase.from('opportunities').update(updatePayload).eq('id', existing.id).select();
+        
+        if (!updateError && updateData) {
+           alert(`⚠️ Lead Duplicado Detectado! Dados mesclados automaticamente com o lead "${existing.title}" na etapa "${existing.status}".`);
+           setOpportunities(prev => prev.map(o => o.id === existing.id ? updateData[0] : o));
+           setIsFormOpen(false);
+           setFormData({ title: '', phone: '', amount: '', city: '', email: '', cpf_cnpj: '', birth_date: '', system_power: '', installation_date: '', address: '', latitude: '', longitude: '' });
+        } else {
+           alert('Erro ao mesclar dados do lead.');
+        }
+        return;
+      }
+    }
+
     const { data, error } = await supabase.from('opportunities').insert([newOpp]).select();
     if (error) {
       console.error('Error creating opp', error);

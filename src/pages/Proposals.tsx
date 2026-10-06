@@ -370,18 +370,21 @@ function RowMenu({ onDuplicate, onDelete }: { onDuplicate: () => void; onDelete:
   const [open, setOpen] = useState(false);
   return (
     <div className="relative z-10">
-      <button onClick={() => setOpen((o) => !o)} onBlur={() => setTimeout(() => setOpen(false), 150)} className="grid h-8 w-8 place-items-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-700 hover:text-zinc-200" aria-label="Ações">
+      <button onClick={() => setOpen((o) => !o)} className="grid h-8 w-8 place-items-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-700 hover:text-zinc-200" aria-label="Ações">
         <MoreHorizontal className="h-4 w-4" />
       </button>
       {open && (
-        <div className="animate-fade-scale absolute top-full right-0 z-20 mt-1 w-44 rounded-xl bg-zinc-900 p-1 shadow-2xl shadow-black/40 ring-1 ring-white/10">
-          <button onMouseDown={onDuplicate} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-200 transition-colors hover:bg-zinc-800">
-            <Copy className="h-4 w-4 text-zinc-400" /> Duplicar
-          </button>
-          <button onMouseDown={onDelete} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-rose-400 transition-colors hover:bg-rose-500/10">
-            <Trash2 className="h-4 w-4" /> Excluir
-          </button>
-        </div>
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="animate-fade-scale absolute top-full right-0 z-20 mt-1 w-44 rounded-xl bg-zinc-900 p-1 shadow-2xl shadow-black/40 ring-1 ring-white/10">
+            <button onClick={() => { setOpen(false); onDuplicate(); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-200 transition-colors hover:bg-zinc-800">
+              <Copy className="h-4 w-4 text-zinc-400" /> Duplicar
+            </button>
+            <button onClick={() => { setOpen(false); onDelete(); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-rose-400 transition-colors hover:bg-rose-500/10">
+              <Trash2 className="h-4 w-4" /> Excluir
+            </button>
+          </div>
+        </>
       )}
     </div>
   );

@@ -19,7 +19,6 @@ const PublicCapture = React.lazy(() => import('./pages/PublicCapture'));
 const Engineering = React.lazy(() => import('./pages/Engineering'));
 const FollowUp = React.lazy(() => import('./pages/FollowUp'));
 const Financial = React.lazy(() => import('./pages/Financial'));
-const InvoiceAudit = React.lazy(() => import('./pages/InvoiceAudit'));
 const Prospeccao = React.lazy(() => import('./pages/Prospeccao'));
 const ClientCatalog = React.lazy(() => import('./pages/ClientCatalog'));
 const TicketAdmin = React.lazy(() => import('./pages/TicketAdmin'));
@@ -93,7 +92,6 @@ const MainLayout: React.FC = () => {
             <Route path="/follow-up" element={<PageWrapper><FollowUp /></PageWrapper>} />
             <Route path="/reports" element={<PageWrapper><Reports /></PageWrapper>} />
             <Route path="/financeiro" element={<PageWrapper><Financial /></PageWrapper>} />
-            <Route path="/audit" element={<PageWrapper><InvoiceAudit /></PageWrapper>} />
             <Route path="/prospeccao" element={<PageWrapper><Prospeccao /></PageWrapper>} />
             <Route path="/clientes" element={<PageWrapper><ClientCatalog /></PageWrapper>} />
 

@@ -210,6 +210,28 @@ export default function Prospeccao() {
       user_id: user?.id
     };
 
+    // Feature: Merge Records
+    if (newOpp.phone && newOpp.phone !== '-') {
+      const { data: existingData } = await supabase.from('opportunities').select('*').eq('phone', newOpp.phone);
+      if (existingData && existingData.length > 0) {
+        const existing = existingData[0];
+        
+        // Append notes to existing lead instead of creating a new one
+        await supabase.from('agent_notes').insert([{
+          entity_type: 'opportunity',
+          entity_id: existing.id,
+          note: `[MERGE AUTOMÁTICO] Lead importado novamente via Maps.\nSegmento: ${segmento}\nLocalização: ${localizacao}\nAvaliação: ${prospect.avaliacao}`,
+          created_by_ai: false,
+          user_id: user?.id
+        }]);
+        
+        if (!skipAlert) toast.success(`Lead já existia no CRM (Etapa: ${existing.status}). Anotação adicionada!`);
+        setExistingOpps(prev => [...prev, { title: prospect.nome, phone: prospect.telefone || '-' }]);
+        resolve();
+        return;
+      }
+    }
+
     const { data, error } = await supabase.from('opportunities').insert([newOpp]).select();
     
     if (error) {

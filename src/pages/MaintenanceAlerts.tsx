@@ -33,6 +33,7 @@ const MaintenanceAlerts: React.FC = () => {
       case 'enviado': return 'bg-blue-500/10 text-blue-400';
       case 'lido': return 'bg-green-500/10 text-green-400';
       case 'respondido': return 'bg-lime-500/10 text-lime-400';
+      case 'falha': return 'bg-red-500/10 text-red-400';
       default: return 'bg-zinc-500/10 text-zinc-400';
     }
   };
@@ -43,6 +44,7 @@ const MaintenanceAlerts: React.FC = () => {
       case 'enviado': return 'Enviado';
       case 'lido': return 'Lido';
       case 'respondido': return 'Respondido';
+      case 'falha': return 'Falha no Envio';
       default: return status;
     }
   };

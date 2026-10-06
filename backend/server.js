@@ -722,6 +722,41 @@ app.post('/api/maintenance/alert-batch', (req, res) => {
   res.json({ success: true, alerts_sent: count });
 });
 
+// Webhook Reverso para o N8N ou Evolution confirmar entrega de Alertas
+app.post('/api/maintenance/webhook-delivery', async (req, res) => {
+  try {
+    const { alert_id, status, error_reason } = req.body;
+    if (!alert_id || !status) {
+      return res.status(400).json({ error: 'alert_id and status are required' });
+    }
+    
+    // status expected: 'enviado', 'lido', 'respondido', 'falha'
+    const updatePayload = {
+      status,
+      sent_at: new Date().toISOString()
+    };
+    
+    if (status === 'falha' && error_reason) {
+      // Append reason to message or note if possible, here we assume there's a way to store it, 
+      // or we just rely on status = 'falha'
+      console.log(`[Webhook Reverso] Alerta ${alert_id} falhou: ${error_reason}`);
+    }
+    
+    const { error } = await supabase
+      .from('maintenance_alerts')
+      .update(updatePayload)
+      .eq('id', alert_id);
+      
+    if (error) throw error;
+    
+    console.log(`[Webhook Reverso] Alerta ${alert_id} atualizado para ${status}`);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[Webhook Reverso] Error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 
 // ─── API DE PROPOSTAS PÚBLICAS ──────────────────────────────────────────────
 app.post('/api/public/proposal/:token', async (req, res) => {

@@ -104,7 +104,6 @@ const Financial: React.FC = () => {
     // Form
     const [showForm, setShowForm] = useState(false);
     const [saving, setSaving] = useState(false);
-    const [attachment, setAttachment] = useState<File | null>(null);
     const [form, setForm] = useState({
         description: '',
         type: 'receita' as TransactionType,
@@ -388,31 +387,11 @@ const Financial: React.FC = () => {
     // ─── Add ─────────────────────────────────────────────────────────────────
     const handleAdd = async () => {
         if (!form.description || !form.amount) return;
-        
-        if ((form.type === 'despesa' || form.type === 'custo') && !attachment) {
-            setSavingError('Ofensor Contábil: É obrigatório anexar nota fiscal ou comprovante para saídas de dinheiro.');
-            return;
-        }
-
         setSaving(true); setSavingError(null);
         if (!user) { setSavingError('Faça login para adicionar lançamentos.'); setSaving(false); return; }
-        
-        let attachmentUrl = '';
-        if (attachment) {
-            const ext = attachment.name.split('.').pop();
-            const filePath = `financial/${Date.now()}.${ext}`;
-            const { error: uploadError } = await supabase.storage.from('attachments').upload(filePath, attachment);
-            if (!uploadError) {
-                const { data: { publicUrl } } = supabase.storage.from('attachments').getPublicUrl(filePath);
-                attachmentUrl = publicUrl;
-            }
-        }
-        
-        const finalNote = attachmentUrl ? `${form.note || ''} | Comprovante: ${attachmentUrl}` : (form.note || null);
-
         const payload = {
             description: form.description, type: form.type, category: form.category,
-            amount: parseFloat(form.amount), date: form.date, note: finalNote, user_id: user.id,
+            amount: parseFloat(form.amount), date: form.date, note: form.note || null, user_id: user.id,
         };
         const { data, error } = await supabase.from('financial_transactions').insert([payload]).select().single();
         if (error) { setSavingError('Erro ao salvar. Tente novamente.'); }
@@ -424,7 +403,6 @@ const Financial: React.FC = () => {
             }
             setAllYearTx(prev => [t, ...prev]);
             setForm({ description: '', type: 'receita', category: 'instalacao_residencial', amount: '', date: new Date().toISOString().split('T')[0], note: '' });
-            setAttachment(null);
             setShowForm(false);
         }
         setSaving(false);
@@ -637,12 +615,14 @@ const Financial: React.FC = () => {
                                         <div className="h-[220px] flex items-center justify-center text-slate-600 text-sm">Sem custos no período</div>
                                     ) : (
                                         <div className="flex items-center gap-4">
-                                            <RechartsPie width={180} height={200}>
-                                                <Pie data={pieData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={3} dataKey="value">
-                                                    {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                                                </Pie>
-                                                <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ backgroundColor: '#0d1117', borderColor: '#ffffff1a', borderRadius: '12px' }} />
-                                            </RechartsPie>
+                                            <ResponsiveContainer width={180} height={200}>
+                                                <RechartsPie>
+                                                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={3} dataKey="value">
+                                                        {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                                                    </Pie>
+                                                    <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ backgroundColor: '#0d1117', borderColor: '#ffffff1a', borderRadius: '12px' }} />
+                                                </RechartsPie>
+                                            </ResponsiveContainer>
                                             <div className="flex-1 space-y-2">
                                                 {pieData.map((d, i) => (
                                                     <div key={d.name} className="flex items-center justify-between">
@@ -906,13 +886,6 @@ const Financial: React.FC = () => {
                                     <input type="text" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
                                         placeholder="Ex: Financiado 24x"
                                         className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-lime-500 transition-colors shadow-inner" />
-                                </div>
-                                <div className="md:col-span-2">
-                                    <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">
-                                        {form.type !== 'receita' ? 'Comprovante / NF (Obrigatório)' : 'Comprovante / NF (Opcional)'}
-                                    </label>
-                                    <input type="file" onChange={e => setAttachment(e.target.files?.[0] || null)}
-                                        className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-400 file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-lime-500/10 file:text-lime-400 hover:file:bg-lime-500/20 focus:outline-none focus:border-lime-500 transition-colors shadow-inner" />
                                 </div>
                             </div>
                         </div>
