@@ -166,7 +166,7 @@ export function CaptureFunnel({ company }: { company: PublicCompany }) {
     paymentTitle: company.capture?.paymentTitle || DEFAULT_CAPTURE.paymentTitle,
     payments: Array.isArray(company.capture?.payments) && company.capture.payments.length ? company.capture.payments : DEFAULT_CAPTURE.payments,
   };
-  const tariff = Number(company.tariff) || 0.95;
+  const tariff = Number(company.tariff) || 1.1;
 
   const [segment, setSegment] = useState<Segment | null>(initial && FLOWS[initial] ? initial : null);
   const [step, setStep] = useState<StepId>(initial && FLOWS[initial] ? FLOWS[initial][1] : "interesse");

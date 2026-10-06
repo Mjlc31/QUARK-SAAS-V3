@@ -18,7 +18,7 @@ type Variant = "primary" | "sun" | "secondary" | "ghost" | "danger" | "outline";
 type Size = "sm" | "md" | "lg" | "icon";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-gradient-to-br from-[#3a2a6b] via-ink-900 to-ink-950 text-white ring-1 ring-white/10 shadow-[0_10px_28px_-12px_rgba(28,18,52,0.75)] hover:brightness-125",
+  primary: "bg-lime-400 text-zinc-950 shadow-[0_10px_28px_-12px_rgba(163,230,53,0.55)] hover:bg-lime-300",
   sun: "bg-sun-gradient text-ink-950 shadow-glow hover:brightness-105",
   secondary: "bg-zinc-900/70 text-zinc-300 ring-1 ring-white/10 backdrop-blur-md hover:bg-zinc-900 shadow-xl shadow-black/20 hover:text-white",
   outline: "bg-zinc-900/30 text-zinc-200 ring-1 ring-white/10 backdrop-blur-md hover:bg-zinc-900/50",
@@ -47,7 +47,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       ref={ref}
       disabled={disabled || loading}
       className={cx(
-        "inline-flex shrink-0 items-center justify-center font-semibold whitespace-nowrap transition-all duration-150 select-none active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sun-500",
+        "inline-flex shrink-0 items-center justify-center font-semibold whitespace-nowrap transition-all duration-150 select-none active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-400",
         variants[variant],
         sizes[size],
         className,
@@ -198,7 +198,7 @@ export function Segmented<T extends string>({
   className?: string;
 }) {
   return (
-    <div className={cx("inline-flex rounded-xl bg-lime-400/[0.05] p-1 ring-1 ring-ink-900/[0.04] backdrop-blur-md", className)} role="tablist">
+    <div className={cx("inline-flex rounded-xl bg-black/30 p-1 ring-1 ring-white/10 backdrop-blur-md", className)} role="tablist">
       {options.map((o) => (
         <button
           key={o.value}
@@ -209,7 +209,7 @@ export function Segmented<T extends string>({
           className={cx(
             "flex items-center justify-center gap-1.5 rounded-lg font-semibold whitespace-nowrap transition-all",
             size === "sm" ? "h-7 px-2.5 text-xs" : "h-8 px-3.5 text-[13px]",
-            value === o.value ? "bg-zinc-900 text-white shadow-[0_2px_10px_-2px_rgba(28,18,52,0.18)]" : "text-zinc-400 hover:text-zinc-200",
+            value === o.value ? "bg-zinc-800 text-white shadow-[0_2px_10px_-2px_rgba(0,0,0,0.5)] ring-1 ring-white/10" : "text-zinc-400 hover:text-zinc-200",
           )}
         >
           {o.label}
@@ -233,7 +233,7 @@ export function CardHeader({ title, subtitle, action, icon }: { title: ReactNode
   return (
     <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-4">
       <div className="flex min-w-0 items-start gap-3">
-        {icon && <div className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-sun-100 to-white text-lime-400 ring-1 ring-sun-200/70 shadow-[0_4px_12px_-4px_rgba(127,203,134,0.5)]">{icon}</div>}
+        {icon && <div className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-lime-400/10 text-lime-300 ring-1 ring-lime-400/20">{icon}</div>}
         <div className="min-w-0">
           <h3 className="font-display text-[15px] font-semibold tracking-tight text-white">{title}</h3>
           {subtitle && <p className="mt-0.5 text-[13px] text-zinc-400">{subtitle}</p>}
@@ -248,7 +248,7 @@ export function PageHeader({ title, subtitle, actions }: { title: ReactNode; sub
   return (
     <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
-        <h1 className="bg-gradient-to-br from-ink-950 via-ink-900 to-[#4a3590] bg-clip-text pb-0.5 font-display text-2xl font-semibold tracking-tight text-transparent sm:text-[28px]">{title}</h1>
+        <h1 className="pb-0.5 font-display text-2xl font-semibold tracking-tight text-white sm:text-[28px]">{title}</h1>
         {subtitle && <p className="mt-1 text-sm text-zinc-400">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
@@ -289,7 +289,7 @@ export function Avatar({ name, className, src }: { name: string | null | undefin
 export function Empty({ icon, title, text, action }: { icon: ReactNode; title: string; text?: string; action?: ReactNode }) {
   return (
     <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
-      <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-white to-ink-100 text-zinc-500 ring-1 ring-white/5 shadow-xl shadow-black/20">{icon}</div>
+      <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-zinc-900 text-zinc-500 ring-1 ring-white/10 shadow-xl shadow-black/20">{icon}</div>
       <p className="font-display font-semibold text-zinc-100">{title}</p>
       {text && <p className="mt-1 max-w-sm text-sm text-zinc-400">{text}</p>}
       {action && <div className="mt-5">{action}</div>}
@@ -336,17 +336,17 @@ export function Modal({
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-labelledby={id}>
-      <div className="absolute inset-0 bg-ink-950/45 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div
         className={cx(
-          "animate-sheet-up sm:animate-fade-up relative flex max-h-[92dvh] w-full flex-col rounded-t-3xl bg-zinc-900/90 shadow-2xl shadow-black/40 ring-1 ring-white/70 backdrop-blur-2xl sm:rounded-3xl",
+          "animate-sheet-up sm:animate-fade-up relative flex max-h-[92dvh] w-full flex-col rounded-t-3xl bg-zinc-900/95 shadow-2xl shadow-black/40 ring-1 ring-white/10 backdrop-blur-2xl sm:rounded-3xl",
           size === "lg" ? "sm:max-w-2xl" : "sm:max-w-lg",
         )}
       >
-        <div className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-ink-200 sm:hidden" />
+        <div className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-white/20 sm:hidden" />
         <div className="flex items-start justify-between gap-4 px-6 pt-5 pb-3">
           <div>
-            <h2 id={id} className="font-display text-lg font-semibold tracking-tight">
+            <h2 id={id} className="font-display text-lg font-semibold tracking-tight text-white">
               {title}
             </h2>
             {subtitle && <p className="mt-0.5 text-sm text-zinc-400">{subtitle}</p>}
@@ -357,7 +357,7 @@ export function Modal({
         </div>
         <div className="overflow-y-auto px-6 pb-6">{children}</div>
         {footer && (
-          <div className="flex items-center justify-end gap-2 border-t border-ink-900/[0.06] px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">{footer}</div>
+          <div className="flex items-center justify-end gap-2 border-t border-white/5 px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">{footer}</div>
         )}
       </div>
     </div>
@@ -378,9 +378,9 @@ export function Switch({ checked, onChange, label }: { checked: boolean; onChang
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
-        className={cx("relative h-6 w-10 rounded-full transition", checked ? "bg-sun-gradient" : "bg-ink-300")}
+        className={cx("relative h-6 w-10 rounded-full transition", checked ? "bg-lime-400" : "bg-zinc-700")}
       >
-        <span className={cx("absolute top-0.5 h-5 w-5 rounded-full bg-zinc-900 shadow transition-all", checked ? "left-[18px]" : "left-0.5")} />
+        <span className={cx("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all", checked ? "left-[18px]" : "left-0.5")} />
       </button>
       {label}
     </label>

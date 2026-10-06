@@ -32,7 +32,7 @@ export const DISTRIBUTORS: Distributor[] = [
     shortName: 'Equatorial AL',
     uf: 'AL',
     fiobTotal: 0.22626,
-    tariffB1: 0.8823,    // Tarifa B1 após redução mai/2025 (Res. 3.450/2025)
+    tariffB1: 1.10,      // Tarifa B1 efetiva em Maceió com tributos (ICMS/PIS/COFINS) + bandeira média
     custoDispo: { mono: 30, bi: 50, tri: 100 }, cip: 35,
   },
   {

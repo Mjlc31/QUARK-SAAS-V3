@@ -1,80 +1,106 @@
-import React, { useState } from 'react';
-import { X, UserPlus, Save } from 'lucide-react';
-import { Button, Input, Field } from '@/components/ui';
-import { supabase } from '@/lib/supabase/client';
-import { toast } from 'react-hot-toast';
+import { useState } from "react";
+import { UserPlus } from "lucide-react";
+import { toast } from "react-hot-toast";
+import { Button, Field, Input, Modal, MoneyInput, cx } from "@/components/ui";
+import { formatPhone, onlyDigits } from "@/lib/format";
+import { SERVICES, type ServiceId } from "@/lib/services";
+import { supabase } from "@/lib/supabase/client";
 
-export function NewLeadModal({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
-  const [formData, setFormData] = useState({ title: '', phone: '', city: '' });
+/** Cadastro rápido de cliente no CRM sem sair do orçamento. */
+export function NewLeadModal({
+  onClose,
+  onCreated,
+  service = "solar",
+}: {
+  onClose: () => void;
+  onCreated: (id: string) => void;
+  service?: ServiceId;
+}) {
+  const [form, setForm] = useState({ title: "", phone: "", city: "Maceió", avg_bill: 0 });
+  const [segment, setSegment] = useState<ServiceId>(service);
   const [loading, setLoading] = useState(false);
+  const phoneOk = !form.phone || onlyDigits(form.phone).length >= 10;
 
-  async function handleSave() {
-    if (!formData.title) {
-      toast.error("O nome do cliente é obrigatório");
-      return;
-    }
+  async function handleSave(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (!form.title.trim()) return toast.error("Informe o nome do cliente");
+    if (!phoneOk) return toast.error("WhatsApp incompleto — use DDD + número");
     setLoading(true);
-    try {
-      const newOpp = {
-        title: formData.title,
-        phone: formData.phone,
-        city: formData.city,
-        status: 'Proposta', // goes to Proposta column
-        amount: 0,
-      };
-      const { data, error } = await supabase().from('opportunities').insert([newOpp]).select();
-      if (error) throw error;
-      if (data && data[0]) {
-        toast.success("Cliente criado com sucesso!");
-        onCreated(data[0].id);
-        onClose();
-      }
-    } catch (e) {
-      console.error(e);
-      toast.error("Erro ao criar cliente.");
-    } finally {
-      setLoading(false);
-    }
+    const base = { title: form.title.trim(), phone: form.phone, city: form.city, status: "Lead", amount: 0 };
+    const full = { ...base, segment, services: [segment], avg_bill: form.avg_bill || null, source: "Orçamento" };
+    let res = await supabase().from("opportunities").insert([full]).select("id").single();
+    // Banco sem a migração de serviços: cadastra só o básico para não travar o orçamento.
+    if (res.error && /column/i.test(res.error.message)) res = await supabase().from("opportunities").insert([base]).select("id").single();
+    setLoading(false);
+    if (res.error || !res.data) return toast.error(res.error?.message ?? "Erro ao cadastrar cliente");
+    toast.success("Cliente cadastrado no CRM");
+    onCreated(res.data.id);
+    onClose();
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between p-5 border-b border-white/10 bg-zinc-900/50">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-lime-400/10 text-lime-400">
-              <UserPlus className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-white">Novo Cliente (CRM)</h2>
-            </div>
-          </div>
-          <button onClick={onClose} className="rounded-lg p-2 hover:bg-white/5 text-zinc-400 hover:text-white transition-colors">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="p-6 grid gap-5">
-          <Field label="Nome do Cliente / Projeto *">
-            <Input autoFocus value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} placeholder="Ex: João da Silva" />
-          </Field>
-          <Field label="Telefone / WhatsApp">
-            <Input value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} placeholder="(00) 00000-0000" />
-          </Field>
-          <Field label="Cidade">
-            <Input value={formData.city} onChange={e => setFormData({ ...formData, city: e.target.value })} placeholder="Ex: São Paulo" />
-          </Field>
-        </div>
-
-        <div className="flex items-center justify-end gap-3 p-5 border-t border-white/10 bg-zinc-900/50">
-          <Button variant="secondary" onClick={onClose} className="bg-transparent hover:bg-white/5 text-zinc-300">
+    <Modal
+      open
+      onClose={onClose}
+      title={
+        <span className="flex items-center gap-2">
+          <UserPlus className="h-5 w-5 text-lime-300" /> Novo cliente
+        </span>
+      }
+      subtitle="Já entra no CRM, na etapa Lead"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={handleSave} loading={loading} className="bg-lime-400 text-zinc-900 hover:bg-lime-500">
-            <Save className="h-4 w-4" /> Cadastrar Cliente
+          <Button form="new-lead-form" type="submit" loading={loading}>
+            Cadastrar e usar no orçamento
           </Button>
+        </>
+      }
+    >
+      <form id="new-lead-form" onSubmit={handleSave} className="grid gap-4">
+        <Field label="Nome do cliente *">
+          <Input autoFocus value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Ex.: João da Silva" />
+        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="WhatsApp" hint={!phoneOk ? <span className="text-rose-400">Inclua DDD + número</span> : undefined}>
+            <Input
+              inputMode="tel"
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              onBlur={() => setForm((f) => ({ ...f, phone: formatPhone(f.phone) }))}
+              placeholder="(82) 99999-9999"
+            />
+          </Field>
+          <Field label="Cidade">
+            <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Maceió" />
+          </Field>
         </div>
-      </div>
-    </div>
+        <Field label="Serviço">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {SERVICES.map((s) => (
+              <button
+                type="button"
+                key={s.id}
+                onClick={() => setSegment(s.id)}
+                className={cx(
+                  "flex items-center gap-2 rounded-xl px-3 py-2 text-left text-[13px] font-semibold ring-1 transition",
+                  segment === s.id ? "bg-white/10 text-white ring-white/30" : "bg-black/20 text-zinc-400 ring-white/5 hover:text-zinc-200",
+                )}
+              >
+                <s.icon className="h-4 w-4 shrink-0" style={{ color: s.color }} />
+                <span className="truncate">{s.short}</span>
+              </button>
+            ))}
+          </div>
+        </Field>
+        {(segment === "solar" || segment === "gestao" || segment === "projeto") && (
+          <Field label="Conta de luz média" hint="Usada para calcular o consumo no orçamento">
+            <MoneyInput value={form.avg_bill || null} digits={0} placeholder="Ex.: 450" onChange={(v) => setForm({ ...form, avg_bill: v })} />
+          </Field>
+        )}
+      </form>
+    </Modal>
   );
 }

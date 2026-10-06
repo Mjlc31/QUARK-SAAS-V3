@@ -1,6 +1,8 @@
 "use client";
 
 import { Check, CheckCircle2, Clock, Download, Info, Mail, MapPin, MessageCircle, Phone, ShieldCheck } from "lucide-react";
+import { trackProposalView } from "@/lib/proposal-tracking";
+import { supabase } from "@/lib/supabase/client";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "react-hot-toast";
 import { mergeInputs, mergeSettings, type CompanySettings } from "@/lib/defaults";
@@ -88,15 +90,8 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
   let n = 0;
   const num = () => String(++n).padStart(2, "0");
 
-  useEffect(() => {
-    if (!token) return;
-    const key = `viewed-${token}`;
-    try {
-      if (sessionStorage.getItem(key)) return;
-      sessionStorage.setItem(key, "1");
-    } catch {}
-    fetch(`/api/public/proposal/${token}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "view" }) }).catch(() => {});
-  }, [token]);
+  // Histórico de visualizações (quando, quantas vezes e por quanto tempo).
+  useEffect(() => (token ? trackProposalView(token) : undefined), [token]);
 
   return (
     <div className="min-h-dvh bg-[#F6F5FA] text-slate-900 print:bg-white">
@@ -885,14 +880,11 @@ export function AcceptModal({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const res = await fetch(`/api/public/proposal/${token}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "accept", name }),
-    }).catch(() => null);
+    const { data: json } = await supabase()
+      .rpc("accept_public_proposal", { p_token: token, p_name: name })
+      .then((r) => r, () => ({ data: null }));
     setLoading(false);
-    const json = res ? await res.json().catch(() => null) : null;
-    if (!json?.ok) return toast.error("Não foi possível registrar o aceite. Fale com seu consultor pelo WhatsApp.");
+    if (!(json as { ok?: boolean } | null)?.ok) return toast.error("Não foi possível registrar o aceite. Fale com seu consultor pelo WhatsApp.");
     toast.success("Proposta aceita. Em breve entraremos em contato.");
     onAccepted(name);
   };
