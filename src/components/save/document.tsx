@@ -220,14 +220,14 @@ export function SaveDocument({ data, token }: { data: PublicProposal; token: str
           </Section>
 
           {/* ================================================= INVESTIMENTO */}
-          <section className="print-break relative overflow-hidden px-6 py-14 text-white sm:px-14 sm:py-16" style={{ background: NAVY }}>
+          <section className="print-break relative overflow-hidden px-6 py-14 text-white sm:px-14 sm:py-16 print:min-h-[297mm]" style={{ background: NAVY }}>
             <LeafMark className="right-[-8%] bottom-[-12%] w-[420px] opacity-[0.07]" />
             <BrandRule className="absolute inset-x-0 top-0" />
             <SectionTitle num={num()} kicker="Investimento" title="Condições comerciais" dark />
             <div className="relative mt-8 grid gap-8 md:grid-cols-[1fr_1.2fr] md:items-start">
               <div>
                 <p className="text-sm text-white/60">Valor total, com equipamentos e instalação</p>
-                <p className="tnum mt-1 bg-gradient-to-r from-[#F3EA3B] via-[#C9E97A] to-[#9BD373] bg-clip-text font-display text-5xl font-semibold tracking-tight text-transparent sm:text-6xl">
+                <p className="tnum mt-1 font-display text-5xl font-semibold tracking-tight text-[#F3EA3B] sm:text-6xl">
                   {brl(price)}
                 </p>
                 <ul className="mt-6 grid gap-2 text-sm text-white/80">
@@ -355,7 +355,9 @@ export function SaveDocument({ data, token }: { data: PublicProposal; token: str
             Tempos de recarga estimados para uma bateria de {fmtNum(REF_BATTERY_KWH)} kWh, de 20% a 80%, com 90% de eficiência; variam conforme o veículo e a temperatura. Proposta nº{" "}
             {data.proposal.number}.
           </footer>
-          <BrandFooter settings={s} number={data.proposal.number} phone={contactPhone} />
+          <div className="print:hidden">
+            <BrandFooter settings={s} number={data.proposal.number} phone={contactPhone} />
+          </div>
         </article>
       </div>
 

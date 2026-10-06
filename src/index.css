@@ -58,6 +58,15 @@
     z-index: -1;
   }
 
+  @media print {
+    body {
+      background-color: white !important;
+    }
+    body::before {
+      display: none !important;
+    }
+  }
+
   /* ── CURSOR-POINTER on all clickable elements (UI/UX Pro Max rule) ── */
   button,
   a,

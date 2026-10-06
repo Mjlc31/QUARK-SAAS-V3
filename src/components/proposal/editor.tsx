@@ -475,13 +475,13 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
                       onClick={() => set("selfConsumption", o.value)}
                       className={cx(
                         "rounded-xl px-3 py-2.5 text-left ring-1 transition",
-                        inputs.selfConsumption === o.value ? "bg-lime-400 text-white ring-ink-900" : "bg-zinc-900 text-zinc-200 ring-white/10 hover:ring-white/20",
+                        inputs.selfConsumption === o.value ? "bg-lime-400 text-zinc-950 ring-lime-400" : "bg-zinc-900 text-zinc-200 ring-white/10 hover:ring-white/20",
                       )}
                     >
                       <p className="text-sm font-semibold">
                         {o.emoji} {o.value}%
                       </p>
-                      <p className={cx("text-[11px]", inputs.selfConsumption === o.value ? "text-ink-300" : "text-zinc-400")}>{o.label}</p>
+                      <p className={cx("text-[11px]", inputs.selfConsumption === o.value ? "text-zinc-800" : "text-zinc-400")}>{o.label}</p>
                     </button>
                   ))}
                 </div>

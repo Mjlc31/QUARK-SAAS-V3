@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Table, Search, Settings2, Package, Check, ArrowRight, TrendingUp, SunMedium, Zap, Calculator, Plus, Share2, FileText, ChevronDown, ChevronUp, X, Save } from "lucide-react";
+import { Table, Search, Settings2, Package, Check, ArrowRight, TrendingUp, SunMedium, Zap, Calculator, Plus, Share2, FileText, ChevronDown, ChevronUp, X, Save, Edit, History } from "lucide-react";
 import { useApp } from "@/components/app/app-context";
 import { Badge, Button, Card, CardHeader, Input, MoneyInput, NumberInput, Segmented, cx, Field } from "@/components/ui";
 import { brl, calcPricing, calcFinancing, type ProposalInputs } from "@/lib/pricing";
@@ -26,6 +26,8 @@ export default function PriceList() {
 
   // Modal State
   const [showNewKit, setShowNewKit] = useState(false);
+  const [editingKit, setEditingKit] = useState<KitPreset | null>(null);
+  const [historyKit, setHistoryKit] = useState<KitPreset | null>(null);
 
   React.useEffect(() => {
     if (settingsLoaded) {
@@ -77,6 +79,7 @@ export default function PriceList() {
         tax: { mode: "percent", value: tax },
         discount: 0,
         roundTo: 0,
+        pricingModel: "markup",
         consumptionKwh: 500,
         tariff: 0.95,
         financingRate: 1.49,
@@ -213,7 +216,13 @@ export default function PriceList() {
           </thead>
           <tbody className="divide-y divide-zinc-800/60 block md:table-row-group">
             {simulatedKits.map((row) => (
-              <KitRow key={row.kit.id} row={row} onShare={() => handleShare(row)} />
+              <KitRow 
+                key={row.kit.id} 
+                row={row} 
+                onShare={() => handleShare(row)} 
+                onEdit={() => setEditingKit(row.kit)}
+                onHistory={() => setHistoryKit(row.kit)}
+              />
             ))}
             
             {simulatedKits.length === 0 && (
@@ -227,12 +236,14 @@ export default function PriceList() {
         </table>
       </div>
       
-      {showNewKit && <NewKitModal onClose={() => setShowNewKit(false)} />}
+      {showNewKit && <KitFormModal onClose={() => setShowNewKit(false)} />}
+      {editingKit && <KitFormModal initialData={editingKit} onClose={() => setEditingKit(null)} />}
+      {historyKit && <HistoryModal kit={historyKit} onClose={() => setHistoryKit(null)} />}
     </div>
   );
 }
 
-function KitRow({ row, onShare }: { row: any; onShare: () => void }) {
+function KitRow({ row, onShare, onEdit, onHistory }: { row: any; onShare: () => void; onEdit: () => void; onHistory: () => void; }) {
   const { kit, pricing, financing, powerKw } = row;
   const [expanded, setExpanded] = useState(false);
 
@@ -291,11 +302,12 @@ function KitRow({ row, onShare }: { row: any; onShare: () => void }) {
             <Button size="sm" variant="secondary" onClick={onShare} title="Compartilhar WhatsApp">
               <Share2 className="h-4 w-4" />
             </Button>
-            <Link to={`/propostas/nova`}>
-              <Button size="sm" variant="outline" title="Criar Proposta">
-                <FileText className="h-4 w-4" />
-              </Button>
-            </Link>
+            <Button size="sm" variant="secondary" onClick={onHistory} title="Histórico de Preços" className="bg-zinc-800 text-zinc-400 hover:text-white">
+              <History className="h-4 w-4" />
+            </Button>
+            <Button size="sm" variant="secondary" onClick={onEdit} title="Editar Kit" className="bg-zinc-800 text-zinc-400 hover:text-white">
+              <Edit className="h-4 w-4" />
+            </Button>
           </div>
         </td>
       </tr>
@@ -322,21 +334,22 @@ function KitRow({ row, onShare }: { row: any; onShare: () => void }) {
   );
 }
 
-// ── New Kit Modal ──
-function NewKitModal({ onClose }: { onClose: () => void }) {
+// ── Kit Form Modal (Create / Edit) ──
+function KitFormModal({ initialData, onClose }: { initialData?: KitPreset, onClose: () => void }) {
   const { settings } = useApp();
   const [saving, setSaving] = useState(false);
+  const isEdit = !!initialData;
   
   const [formData, setFormData] = useState<Partial<KitPreset>>({
-    name: "",
-    kitPrice: 0,
-    moduleBrand: "",
-    modulePowerW: 0,
-    moduleQty: 0,
-    inverterBrand: "",
-    inverterPowerKw: 0,
-    inverterQty: 1,
-    structureType: "Telhado cerâmico",
+    name: initialData?.name || "",
+    kitPrice: initialData?.kitPrice || 0,
+    moduleBrand: initialData?.moduleBrand || "",
+    modulePowerW: initialData?.modulePowerW || 0,
+    moduleQty: initialData?.moduleQty || 0,
+    inverterBrand: initialData?.inverterBrand || "",
+    inverterPowerKw: initialData?.inverterPowerKw || 0,
+    inverterQty: initialData?.inverterQty || 1,
+    structureType: initialData?.structureType || "Telhado cerâmico",
   });
 
   const set = (k: keyof KitPreset, v: any) => setFormData(p => ({ ...p, [k]: v }));
@@ -350,28 +363,67 @@ function NewKitModal({ onClose }: { onClose: () => void }) {
 
     setSaving(true);
     try {
-      const kit: KitPreset = {
-        id: crypto.randomUUID(),
-        name: formData.name,
-        kitPrice: Number(formData.kitPrice),
-        moduleBrand: formData.moduleBrand || "",
-        moduleModel: "",
-        modulePowerW: Number(formData.modulePowerW),
-        moduleQty: Number(formData.moduleQty),
-        inverterBrand: formData.inverterBrand || "",
-        inverterModel: "",
-        inverterPowerKw: Number(formData.inverterPowerKw),
-        inverterQty: Number(formData.inverterQty),
-        structureType: formData.structureType || "Telhado cerâmico",
+      const existingKits = settings.kits || [];
+      let newKits = [...existingKits];
+      
+      const newHistoryEntry = {
+        date: new Date().toISOString(),
+        price: Number(formData.kitPrice)
       };
+
+      if (isEdit && initialData) {
+        // Edit existing kit
+        newKits = newKits.map(k => {
+          if (k.id === initialData.id) {
+            // Did price change?
+            const priceChanged = Number(formData.kitPrice) !== k.kitPrice;
+            const updatedHistory = priceChanged 
+              ? [...(k.priceHistory || []), newHistoryEntry]
+              : (k.priceHistory || []);
+
+            return {
+              ...k,
+              name: formData.name || k.name,
+              kitPrice: Number(formData.kitPrice),
+              moduleBrand: formData.moduleBrand || "",
+              modulePowerW: Number(formData.modulePowerW),
+              moduleQty: Number(formData.moduleQty),
+              inverterBrand: formData.inverterBrand || "",
+              inverterPowerKw: Number(formData.inverterPowerKw),
+              inverterQty: Number(formData.inverterQty),
+              structureType: formData.structureType || k.structureType,
+              priceHistory: updatedHistory
+            };
+          }
+          return k;
+        });
+      } else {
+        // Create new kit
+        const kit: KitPreset = {
+          id: crypto.randomUUID(),
+          name: formData.name,
+          kitPrice: Number(formData.kitPrice),
+          moduleBrand: formData.moduleBrand || "",
+          moduleModel: "",
+          modulePowerW: Number(formData.modulePowerW),
+          moduleQty: Number(formData.moduleQty),
+          inverterBrand: formData.inverterBrand || "",
+          inverterModel: "",
+          inverterPowerKw: Number(formData.inverterPowerKw),
+          inverterQty: Number(formData.inverterQty),
+          structureType: formData.structureType || "Telhado cerâmico",
+          priceHistory: [newHistoryEntry]
+        };
+        newKits = [kit, ...newKits];
+      }
 
       const { error } = await supabase().from("settings").upsert({ 
         id: 1, 
-        data: toStoredSettings({ ...settings, kits: [kit, ...(settings.kits || [])] }) 
+        data: toStoredSettings({ ...settings, kits: newKits }) 
       });
       
       if (error) throw error;
-      toast.success("Kit salvo com sucesso!");
+      toast.success(isEdit ? "Kit atualizado com sucesso!" : "Kit salvo com sucesso!");
       window.location.reload(); // Quick refresh to update context
     } catch (err: any) {
       toast.error(err.message || "Erro ao salvar kit");
@@ -386,8 +438,8 @@ function NewKitModal({ onClose }: { onClose: () => void }) {
       <Card className="relative w-full max-w-2xl bg-zinc-950 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between border-b border-zinc-800 p-4">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <Package className="h-5 w-5 text-lime-500" />
-            Cadastrar Novo Kit
+            {isEdit ? <Edit className="h-5 w-5 text-lime-500" /> : <Package className="h-5 w-5 text-lime-500" />}
+            {isEdit ? "Editar Kit" : "Cadastrar Novo Kit"}
           </h2>
           <button onClick={onClose} className="text-zinc-400 hover:text-white">
             <X className="h-5 w-5" />
@@ -441,10 +493,60 @@ function NewKitModal({ onClose }: { onClose: () => void }) {
           <div className="pt-4 border-t border-zinc-800 flex items-center justify-end gap-3">
             <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
             <Button type="submit" variant="sun" disabled={saving}>
-              {saving ? 'Salvando...' : <><Save className="h-4 w-4 mr-2" /> Salvar Kit</>}
+              {saving ? 'Salvando...' : <><Save className="h-4 w-4 mr-2" /> Salvar</>}
             </Button>
           </div>
         </form>
+      </Card>
+    </div>
+  );
+}
+
+// ── History Modal ──
+function HistoryModal({ kit, onClose }: { kit: KitPreset, onClose: () => void }) {
+  const history = kit.priceHistory || [];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <Card className="relative w-full max-w-md bg-zinc-950 shadow-2xl overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between border-b border-zinc-800 p-4">
+          <h2 className="text-lg font-bold text-white flex items-center gap-2">
+            <History className="h-5 w-5 text-lime-500" />
+            Histórico de Preço
+          </h2>
+          <button onClick={onClose} className="text-zinc-400 hover:text-white">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        
+        <div className="p-4 sm:p-6 max-h-[60vh] overflow-y-auto">
+          <h3 className="text-sm font-semibold text-white mb-4">{kit.name}</h3>
+          
+          {history.length === 0 ? (
+            <p className="text-zinc-500 text-sm italic">Nenhum histórico de preço registrado ainda. Altere o preço do kit para gerar o histórico.</p>
+          ) : (
+            <div className="space-y-4">
+              {history.slice().reverse().map((entry, i) => (
+                <div key={i} className="flex items-center justify-between border-b border-zinc-800/50 pb-3 last:border-0 last:pb-0">
+                  <div className="flex items-center gap-3">
+                    <div className="h-2 w-2 rounded-full bg-lime-500 shadow-[0_0_8px_rgba(132,204,22,0.6)]"></div>
+                    <div>
+                      <p className="text-sm font-medium text-white">{new Date(entry.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-display font-semibold text-lime-400">{brl(entry.price)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        <div className="p-4 border-t border-zinc-800 flex justify-end">
+          <Button variant="outline" onClick={onClose}>Fechar</Button>
+        </div>
       </Card>
     </div>
   );

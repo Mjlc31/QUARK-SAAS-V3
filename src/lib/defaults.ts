@@ -75,6 +75,11 @@ export const DEFAULT_CAPTURE: CapturePrefs = {
   ],
 };
 
+export interface KitPriceHistory {
+  date: string;
+  price: number;
+}
+
 export interface KitPreset {
   id: string;
   name: string;
@@ -90,6 +95,7 @@ export interface KitPreset {
   structureType: string;
   moduleImage?: string;
   inverterImage?: string;
+  priceHistory?: KitPriceHistory[];
 }
 
 export type SplashMode = "always" | "daily" | "off";

@@ -26,6 +26,8 @@ export interface ExtraCost {
 export type ConnectionType = "mono" | "bi" | "tri";
 
 export interface ProposalInputs {
+  pricingModel?: "margin" | "markup"; // margin = lucro sobre o preço final, markup = lucro sobre o custo direto
+  
   // Equipamentos
   kitPrice: number;
   inverterBrand: string;
@@ -180,7 +182,7 @@ export function calcPricing(i: ProposalInputs): PricingResult {
   };
 }
 
-export type PricingTerms = Pick<ProposalInputs, "commission" | "tax" | "profit" | "discount" | "roundTo">;
+export type PricingTerms = Pick<ProposalInputs, "commission" | "tax" | "profit" | "discount" | "roundTo" | "pricingModel">;
 
 /**
  * Formação de preço comum a todos os produtos (solar e S.A.V.E):
@@ -207,6 +209,57 @@ export function applyPricing(directCost: number, i: PricingTerms, taxDeduction =
     return { ...empty, valid: false, error: "A soma dos percentuais (comissão + imposto + lucro) precisa ser menor que 100%." };
   }
 
+  if (i.pricingModel !== 'margin') {
+    // ── Lógica de Markup (Conforme Planilha Original) ──
+    // Lucro = (Custo Direto) * Markup%
+    const profitPct = i.profit.mode === "percent" ? n(i.profit.value) / 100 : 0;
+    const rawProfitValue = i.profit.mode === "percent" 
+      ? directCost * profitPct 
+      : n(i.profit.value);
+      
+    // Imposto = (Custo Direto - Kit + Lucro) * Imposto%
+    const taxPct = i.tax.mode === "percent" ? n(i.tax.value) / 100 : 0;
+    const rawTaxValue = i.tax.mode === "percent"
+      ? (directCost - taxDeduction + rawProfitValue) * taxPct
+      : n(i.tax.value);
+      
+    // Total (sem comissão)
+    let totalBase = directCost + rawProfitValue + rawTaxValue;
+    
+    // Comissão incide sobre o Total. Se C% for a comissão:
+    // TotalFinal = TotalBase / (1 - C%)
+    const commPct = i.commission.mode === "percent" ? n(i.commission.value) / 100 : 0;
+    let grossPrice = totalBase;
+    if (commPct > 0 && commPct < 1) {
+      grossPrice = totalBase / (1 - commPct);
+    } else if (i.commission.mode === "fixed") {
+      grossPrice += n(i.commission.value);
+    }
+    
+    const discount = Math.max(0, n(i.discount));
+    const finalPrice = grossPrice - discount;
+    const roundingAdjust = 0;
+    
+    const commissionValue = componentValue(i.commission, finalPrice);
+    const taxValue = rawTaxValue;
+    // O lucro absorve o desconto concedido no final
+    const profitValue = rawProfitValue - discount;
+
+    return {
+      ...empty,
+      commissionValue: round2(commissionValue),
+      taxValue: round2(taxValue),
+      profitValue: round2(profitValue),
+      discountValue: discount,
+      roundingAdjust: round2(roundingAdjust),
+      finalPrice: round2(finalPrice),
+      netMargin: finalPrice > 0 ? profitValue / finalPrice : 0,
+      markup: directCost > 0 ? finalPrice / directCost : 0,
+      valid: finalPrice > 0 || directCost === 0,
+    };
+  }
+
+  // ── Lógica Original (Margem sobre o Preço Final) ──
   // O imposto só incide sobre (preço_final - valor_do_kit).
   // S = D + F + S*C% + (S - K)*T% + S*P%
   // S*(1 - C% - T% - P%) = D + F - K*T%

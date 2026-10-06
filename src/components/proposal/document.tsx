@@ -232,7 +232,7 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
               <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
                 <SystemDiagram brand={inputs.inverterBrand} className="min-w-[760px]" />
               </div>
-              <ol className="mt-6 grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+              <ol className="mt-6 grid grid-cols-4 gap-3">
                 {[
                   ["Captação", "Os módulos no telhado convertem a luz do sol em energia elétrica em corrente contínua."],
                   ["Conversão", "O inversor transforma essa energia em corrente alternada, igual à da rede, e monitora tudo em tempo real."],
@@ -456,14 +456,14 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
           )}
 
           {/* ================================================= INVESTIMENTO */}
-          <section className="print-break relative overflow-hidden px-6 py-14 text-white sm:px-14 sm:py-16" style={{ background: NAVY }}>
+          <section className="print-break relative overflow-hidden px-6 py-14 text-white sm:px-14 sm:py-16 print:min-h-[297mm]" style={{ background: NAVY }}>
             <LeafMark className="right-[-8%] bottom-[-12%] w-[420px] opacity-[0.07]" />
             <BrandRule className="absolute inset-x-0 top-0" />
             <SectionTitle num={num()} kicker="Investimento" title="Condições comerciais" dark />
             <div className="relative mt-8 grid gap-8 md:grid-cols-[1fr_1.2fr] md:items-start">
               <div>
                 <p className="text-sm text-white/60">Valor total do sistema, à vista</p>
-                <p className="tnum mt-1 bg-gradient-to-r from-[#F3EA3B] via-[#C9E97A] to-[#9BD373] bg-clip-text font-display text-5xl font-semibold tracking-tight text-transparent sm:text-6xl">
+                <p className="tnum mt-1 font-display text-5xl font-semibold tracking-tight text-[#F3EA3B] sm:text-6xl">
                   {brl(price)}
                 </p>
                 <p className="tnum mt-2 text-sm text-white/60">{brl(price / Math.max(1, kwp * 1000))} por Wp instalado</p>
@@ -608,7 +608,9 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
             simultâneo; iluminação pública de {brl(inputs.publicLighting)}; degradação dos módulos de {fmtNum(inputs.degradation, 1)}% a.a. Valores estimados: a geração real depende de clima,
             sombreamento e orientação do telhado. Proposta nº {data.proposal.number}.
           </footer>
-          <BrandFooter settings={s} number={data.proposal.number} phone={contactPhone} />
+          <div className="print:hidden">
+            <BrandFooter settings={s} number={data.proposal.number} phone={contactPhone} />
+          </div>
         </article>
       </div>
 
