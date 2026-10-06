@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bot, Play, Search, Download, FileText, AlertTriangle, Settings } from 'lucide-react';
+import { Bot, Play, Search, Download, FileText, AlertTriangle, Settings, CheckCircle, XCircle } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useClientIntelligence } from '../hooks/useClientIntelligence';
 import { ClientIntelligenceRecord, UtilityInvoice } from '../types';
@@ -47,6 +47,17 @@ const UtilityRobot: React.FC = () => {
 
   const handleDragLeave = () => {
     setIsDragging(false);
+  };
+
+  const handleUpdateStatus = async (id: string, newStatus: 'aprovado' | 'rejeitado') => {
+    try {
+      const { error } = await supabase.from('utility_invoices').update({ status: newStatus }).eq('id', id);
+      if (!error) {
+        setInvoices(invoices.map(inv => inv.id === id ? { ...inv, status: newStatus } : inv));
+      }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const handleDrop = async (e: React.DragEvent) => {
@@ -205,17 +216,18 @@ const UtilityRobot: React.FC = () => {
                   <th className="px-4 py-3">Cliente / Mês</th>
                   <th className="px-4 py-3 text-right">Consumo</th>
                   <th className="px-4 py-3 text-right">Valor</th>
-                  <th className="px-4 py-3 text-center">PDF</th>
+                  <th className="px-4 py-3 text-center">Status</th>
+                  <th className="px-4 py-3 text-center">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
                 {loadingInvoices ? (
                   <tr>
-                    <td colSpan={4} className="px-4 py-8 text-center text-slate-500">Buscando faturas...</td>
+                    <td colSpan={6} className="px-4 py-8 text-center text-slate-500">Buscando faturas...</td>
                   </tr>
                 ) : invoices.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-4 py-8 text-center text-slate-500">Nenhuma fatura capturada ainda.</td>
+                    <td colSpan={6} className="px-4 py-8 text-center text-slate-500">Nenhuma fatura capturada ainda.</td>
                   </tr>
                 ) : (
                   invoices.map((inv) => (
@@ -233,13 +245,34 @@ const UtilityRobot: React.FC = () => {
                         {inv.savings_brl && <p className="text-[10px] text-green-400">Econ: {inv.savings_brl.toFixed(2)}</p>}
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <button 
-                          disabled={!inv.pdf_url}
-                          className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed mx-auto block"
-                          title={inv.pdf_url ? "Baixar PDF" : "PDF não disponível"}
-                        >
-                          <Download size={16} />
-                        </button>
+                        {inv.status === 'aprovado' ? (
+                          <span className="text-[10px] font-bold uppercase px-2 py-1 bg-green-500/10 text-green-400 rounded">Aprovado</span>
+                        ) : inv.status === 'rejeitado' ? (
+                          <span className="text-[10px] font-bold uppercase px-2 py-1 bg-red-500/10 text-red-400 rounded">Rejeitado</span>
+                        ) : (
+                          <span className="text-[10px] font-bold uppercase px-2 py-1 bg-yellow-500/10 text-yellow-400 rounded">Revisão</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-center gap-2">
+                          <button 
+                            disabled={!inv.pdf_url}
+                            className="p-1.5 rounded-md bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                            title={inv.pdf_url ? "Baixar PDF" : "PDF não disponível"}
+                          >
+                            <Download size={14} />
+                          </button>
+                          {(!inv.status || inv.status === 'pendente') && (
+                            <>
+                              <button onClick={() => handleUpdateStatus(inv.id, 'aprovado')} className="p-1.5 rounded-md hover:bg-green-500/20 text-slate-400 hover:text-green-400 transition-colors" title="Aprovar leitura OCR">
+                                <CheckCircle size={14} />
+                              </button>
+                              <button onClick={() => handleUpdateStatus(inv.id, 'rejeitado')} className="p-1.5 rounded-md hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors" title="Rejeitar leitura OCR">
+                                <XCircle size={14} />
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))

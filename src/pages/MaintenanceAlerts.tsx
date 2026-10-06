@@ -200,9 +200,16 @@ const MaintenanceAlerts: React.FC = () => {
                       {alert.sent_at ? new Date(alert.sent_at).toLocaleDateString('pt-BR') : '-'}
                     </td>
                     <td className="p-4">
-                      <span className={`text-[10px] px-2 py-1 rounded-md uppercase font-bold ${getStatusBadge(alert.status)}`}>
-                        {getStatusLabel(alert.status)}
-                      </span>
+                      <div className="flex flex-col gap-1 items-start">
+                        <span className={`text-[10px] px-2 py-1 rounded-md uppercase font-bold ${getStatusBadge(alert.status)}`}>
+                          {getStatusLabel(alert.status)}
+                        </span>
+                        {alert.status === 'falha' && alert.error_reason && (
+                          <span className="text-[10px] text-red-400 max-w-[150px] truncate" title={alert.error_reason}>
+                            {alert.error_reason}
+                          </span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))

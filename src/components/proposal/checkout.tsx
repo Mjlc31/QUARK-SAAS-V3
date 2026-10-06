@@ -61,8 +61,11 @@ export function Checkout({ inputs, pricing, energy }: { inputs: ProposalInputs; 
         <Row label={compLabel("Comissão", inputs.commission)} value={pricing.commissionValue} />
         <Row label={compLabel("Impostos", inputs.tax)} value={pricing.taxValue} />
         <Row label={compLabel("Lucro", inputs.profit)} detail={`Margem líquida ${pct(pricing.netMargin)}`} value={pricing.profitValue} />
-        {pricing.discountValue > 0 && <Row label="Desconto concedido" value={pricing.discountValue} negative muted />}
-        {pricing.roundingAdjust > 0 && <Row label="Arredondamento" value={pricing.roundingAdjust} muted />}
+        {pricing.discountValue > 0 && (
+          <div className="mt-3 rounded border border-white/5 bg-white/5 px-3 py-2 text-[11px] leading-relaxed text-zinc-400">
+            Ajustes absorvidos pelo lucro: desconto de {brl(pricing.discountValue)}.
+          </div>
+        )}
       </div>
 
       <div className="relative mt-4 bg-white/5 px-6 py-5">

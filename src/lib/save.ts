@@ -91,7 +91,7 @@ export const DEFAULT_SAVE: SaveInputs = {
   tax: { mode: "percent", value: 6 },
   profit: { mode: "percent", value: 12 },
   discount: 0,
-  roundTo: 10,
+  roundTo: 0,
   notes: "",
   executionDays: 5,
   validityDays: 7,
@@ -123,7 +123,8 @@ export function calcSave(i: SaveInputs) {
     return { key: it.id, label: it.label || "Item", detail: qty !== 1 ? `${qty} × ${fmtBRL(n(it.unit))}` : undefined, value: qty * n(it.unit) };
   });
   const directCost = lines.reduce((s, l) => s + l.value, 0);
-  return { lines, ...applyPricing(directCost, i) };
+  const chargerValue = lines.find(l => l.key === "charger")?.value || 0;
+  return { lines, ...applyPricing(directCost, i, chargerValue) };
 }
 
 /** Bateria de referência (carro elétrico médio) usada na comparação didática da proposta. */

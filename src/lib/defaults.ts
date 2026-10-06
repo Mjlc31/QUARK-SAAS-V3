@@ -151,7 +151,7 @@ export const DEFAULT_INPUTS: ProposalInputs = {
   tax: { mode: "percent", value: 6 },
   profit: { mode: "percent", value: 20 },
   discount: 0,
-  roundTo: 10,
+  roundTo: 0,
   consumptionKwh: 0,
   tariff: 0.95,
   connectionType: "bi",

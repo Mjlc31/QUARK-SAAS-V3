@@ -392,19 +392,6 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
                 <Field label="Desconto ao cliente" hint="Sai do lucro">
                   <MoneyInput value={inputs.discount} onChange={(v) => set("discount", v)} />
                 </Field>
-                <Field label="Arredondar preço final para cima">
-                  <Segmented
-                    className="w-full [&>button]:flex-1"
-                    value={String(inputs.roundTo)}
-                    onChange={(v) => set("roundTo", Number(v))}
-                    options={[
-                      { value: "0", label: "Não" },
-                      { value: "10", label: "R$ 10" },
-                      { value: "50", label: "R$ 50" },
-                      { value: "100", label: "R$ 100" },
-                    ]}
-                  />
-                </Field>
               </div>
             </div>
           </Card>
@@ -532,8 +519,11 @@ function SaveCheckout({ inputs, result }: { inputs: SaveInputs; result: ReturnTy
         <Row label={comp("Comissão", inputs.commission)} value={result.commissionValue} />
         <Row label={comp("Impostos", inputs.tax)} value={result.taxValue} />
         <Row label={comp("Lucro", inputs.profit)} detail={`Margem líquida ${pct(result.netMargin)}`} value={result.profitValue} />
-        {result.discountValue > 0 && <Row label="Desconto" value={-result.discountValue} />}
-        {result.roundingAdjust > 0 && <Row label="Arredondamento" value={result.roundingAdjust} />}
+        {result.discountValue > 0 && (
+          <div className="mt-3 rounded border border-white/5 bg-white/5 px-3 py-2 text-[11px] leading-relaxed text-zinc-400">
+            Ajustes absorvidos pelo lucro: desconto de {brl(result.discountValue)}.
+          </div>
+        )}
       </div>
       <div className="relative mt-4 bg-white/[0.03] px-6 py-5">
         {result.error ? (

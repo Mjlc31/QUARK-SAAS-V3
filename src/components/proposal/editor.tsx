@@ -708,19 +708,6 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
                 <Field label="Desconto ao cliente" hint="Sai do lucro">
                   <MoneyInput value={inputs.discount} onChange={(v) => set("discount", v)} />
                 </Field>
-                <Field label="Arredondar preço final para cima">
-                  <Segmented
-                    className="w-full [&>button]:flex-1"
-                    value={String(inputs.roundTo)}
-                    onChange={(v) => set("roundTo", Number(v))}
-                    options={[
-                      { value: "0", label: "Não" },
-                      { value: "10", label: "R$ 10" },
-                      { value: "50", label: "R$ 50" },
-                      { value: "100", label: "R$ 100" },
-                    ]}
-                  />
-                </Field>
               </div>
             </div>
           </Card>

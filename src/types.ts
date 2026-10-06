@@ -330,6 +330,7 @@ export interface UtilityInvoice {
   amount_brl?: number;
   savings_brl?: number;
   pdf_url?: string;
+  status?: 'pendente' | 'aprovado' | 'rejeitado';
   captured_at: string;
 }
 
@@ -360,6 +361,7 @@ export interface MaintenanceAlert {
   channel: AlertChannel;
   status: AlertStatus;
   created_at: string;
+  error_reason?: string;
   // Joined
   client_name?: string;
 }

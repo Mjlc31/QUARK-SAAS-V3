@@ -544,7 +544,7 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
                 <div className="grid content-start gap-3 text-sm">
                   {data.seller?.name && (
                     <p className="flex items-center gap-2.5">
-                      <ShieldCheck className="h-4 w-4 text-slate-400" /> Consultor: <b>{data.seller.name}</b>
+                      <ShieldCheck className="h-4 w-4 text-slate-400" /> Consultor: <b>{data.seller.name.split(" ")[0]}</b>
                     </p>
                   )}
                   {contactPhone && (

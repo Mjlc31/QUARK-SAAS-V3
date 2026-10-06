@@ -10,6 +10,7 @@ import cron from 'node-cron';
 import { createClient } from '@supabase/supabase-js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { z } from 'zod';
+import { insertTaskIntoCalendar } from './googleCalendar.js';
 import spinAgent from './spinAgent.js';
 
 dotenv.config();
@@ -461,7 +462,7 @@ app.get('/agent/context/:contactId', (req, res) => {
 // ─── Notificação de Tarefas & Google Agenda ────────────────────────────────
 app.post('/agent/task-notify', async (req, res) => {
   try {
-    const { title, assignee, assigneePhone, priority, deadline, notifyWhatsapp } = req.body;
+    const { title, assignee, assigneePhone, priority, deadline, notifyWhatsapp, insertCalendar } = req.body;
 
     let whatsappSent = false;
     if (notifyWhatsapp && assigneePhone) {
@@ -473,7 +474,12 @@ app.post('/agent/task-notify', async (req, res) => {
       whatsappSent = result.ok;
     }
 
-    res.json({ ok: true, whatsappSent });
+    let calendarInserted = false;
+    if (insertCalendar) {
+      calendarInserted = await insertTaskIntoCalendar({ title, assignee, priority, deadline });
+    }
+
+    res.json({ ok: true, whatsappSent, calendarInserted });
   } catch (error) {
     console.error('[TASK-NOTIFY ERROR]:', error);
     res.status(500).json({ ok: false, error: error.message });
@@ -737,8 +743,7 @@ app.post('/api/maintenance/webhook-delivery', async (req, res) => {
     };
     
     if (status === 'falha' && error_reason) {
-      // Append reason to message or note if possible, here we assume there's a way to store it, 
-      // or we just rely on status = 'falha'
+      updatePayload.error_reason = error_reason;
       console.log(`[Webhook Reverso] Alerta ${alert_id} falhou: ${error_reason}`);
     }
     

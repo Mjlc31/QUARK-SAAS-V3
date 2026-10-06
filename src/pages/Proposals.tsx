@@ -209,10 +209,15 @@ function Proposals() {
       </div>
 
       {/* ─── Search + Filter ─── */}
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-zinc-500" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por cliente, número ou cidade" className="pl-10" />
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
+        <div className="group relative flex-1">
+          <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-zinc-500 transition-colors group-focus-within:text-white" />
+          <Input 
+            value={q} 
+            onChange={(e) => setQ(e.target.value)} 
+            placeholder="Buscar por cliente, número ou cidade" 
+            className="pl-10 bg-zinc-900 border-zinc-800 transition-colors focus:border-zinc-700 focus:ring-1 focus:ring-zinc-700" 
+          />
         </div>
         <div className="scrollbar-none -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
           <Segmented<Filter>
@@ -230,7 +235,7 @@ function Proposals() {
       </div>
 
       {/* ─── Proposals List ─── */}
-      <Card className="overflow-hidden">
+      <Card>
         {loading ? (
           <div className="grid gap-3 p-5">
             {[0, 1, 2, 3].map((i) => (
@@ -285,7 +290,7 @@ function StatCard({
   accent?: boolean;
 }) {
   return (
-    <Card className={cx("group relative overflow-hidden border p-5 transition-all duration-300 hover:shadow-lg", borderColor)}>
+    <Card className={cx("group relative overflow-hidden border p-5 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5", borderColor)}>
       {/* Gradient background */}
       <div className={cx("absolute inset-0 bg-gradient-to-br opacity-50 transition-opacity duration-300 group-hover:opacity-80", gradient)} />
       <div className="relative">
@@ -328,7 +333,7 @@ function ProposalRow({ p, idx, onDuplicate, onDelete }: { p: Proposal; idx: numb
 
   return (
     <li
-      className="group relative flex items-center gap-4 px-5 py-4 transition-all duration-200 hover:bg-zinc-800/60"
+      className="group relative flex items-center gap-4 px-5 py-4 transition-all duration-200 hover:bg-zinc-800/60 first:rounded-t-2xl last:rounded-b-2xl before:absolute before:inset-y-0 before:left-0 before:w-1 before:bg-violet-500 before:opacity-0 hover:before:opacity-100 before:transition-all"
       style={{ animationDelay: `${Math.min(idx * 40, 300)}ms` }}
     >
       <Link to={`/propostas/${p.id}`} className="absolute inset-0" aria-label={`Abrir orçamento ${p.number}`} />
@@ -377,10 +382,10 @@ function RowMenu({ onDuplicate, onDelete }: { onDuplicate: () => void; onDelete:
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
           <div className="animate-fade-scale absolute top-full right-0 z-20 mt-1 w-44 rounded-xl bg-zinc-900 p-1 shadow-2xl shadow-black/40 ring-1 ring-white/10">
-            <button onClick={() => { setOpen(false); onDuplicate(); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-200 transition-colors hover:bg-zinc-800">
+            <button onClick={() => { setOpen(false); onDuplicate(); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-200 transition-colors hover:bg-zinc-800 hover:text-white">
               <Copy className="h-4 w-4 text-zinc-400" /> Duplicar
             </button>
-            <button onClick={() => { setOpen(false); onDelete(); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-rose-400 transition-colors hover:bg-rose-500/10">
+            <button onClick={() => { setOpen(false); onDelete(); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-rose-400 transition-colors hover:bg-rose-500/10 hover:text-rose-300">
               <Trash2 className="h-4 w-4" /> Excluir
             </button>
           </div>

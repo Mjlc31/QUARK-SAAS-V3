@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { 
   Headphones, Clock, CheckCircle, Search, Filter, 
-  X, Send, User, ChevronRight, AlertCircle
+  X, Send, User, ChevronRight, AlertCircle, AlertTriangle
 } from 'lucide-react';
 import { useTickets, useTicketMessages, useUpdateTicketStatus, useAddTicketMessage } from '../hooks/useTickets';
 import { SupportTicket, TicketMessage, TicketStatus, TicketPriority, TicketCategory } from '../types';
@@ -20,6 +20,19 @@ const STATUS_STYLES: Record<TicketStatus, string> = {
   resolvido: 'bg-green-500/10 text-green-400 border border-green-500/20',
   fechado: 'bg-zinc-700/50 text-zinc-500 border border-zinc-500/20',
   aguardando_cliente: 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'
+};
+
+const getSlaStatus = (createdAt: string, priority: TicketPriority, status: TicketStatus) => {
+  if (status === 'resolvido' || status === 'fechado') return null;
+  const created = new Date(createdAt).getTime();
+  const now = Date.now();
+  const hoursPassed = (now - created) / (1000 * 60 * 60);
+  let maxHours = 48;
+  if (priority === 'alta') maxHours = 4;
+  if (priority === 'normal') maxHours = 24;
+  if (hoursPassed > maxHours) return 'vencido';
+  if (hoursPassed > maxHours * 0.75) return 'atencao';
+  return 'ok';
 };
 
 const TicketAdmin: React.FC = () => {
@@ -227,10 +240,16 @@ const TicketAdmin: React.FC = () => {
                         {ticket.priority}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 flex items-center gap-2">
                       <span className={`px-2 py-1 text-[10px] rounded uppercase font-bold tracking-wider ${STATUS_STYLES[ticket.status]}`}>
                         {ticket.status.replace('_', ' ')}
                       </span>
+                      {(() => {
+                        const sla = getSlaStatus(ticket.created_at, ticket.priority, ticket.status);
+                        if (sla === 'vencido') return <AlertTriangle size={14} className="text-red-500" />;
+                        if (sla === 'atencao') return <AlertTriangle size={14} className="text-yellow-500" />;
+                        return null;
+                      })()}
                     </td>
                     <td className="px-6 py-4 text-xs text-slate-400">
                       {new Date(ticket.created_at).toLocaleDateString('pt-BR')}

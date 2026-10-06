@@ -169,7 +169,7 @@ export function calcPricing(i: ProposalInputs): PricingResult {
   ];
 
   const directCost = lines.reduce((s, l) => s + l.value, 0);
-  const p = applyPricing(directCost, i);
+  const p = applyPricing(directCost, i, n(i.kitPrice));
   return {
     powerKwp,
     inverterTotalKw,
@@ -186,7 +186,7 @@ export type PricingTerms = Pick<ProposalInputs, "commission" | "tax" | "profit" 
  * Formação de preço comum a todos os produtos (solar e S.A.V.E):
  * preço = (custo direto + valores fixos) ÷ (1 − Σ percentuais), com desconto e arredondamento saindo do lucro.
  */
-export function applyPricing(directCost: number, i: PricingTerms) {
+export function applyPricing(directCost: number, i: PricingTerms, taxDeduction = 0) {
   const comps = [i.commission, i.tax, i.profit];
   const pctSum = comps.filter((c) => c.mode === "percent").reduce((s, c) => s + n(c.value), 0);
   const fixedSum = comps.filter((c) => c.mode === "fixed").reduce((s, c) => s + n(c.value), 0);
@@ -207,19 +207,21 @@ export function applyPricing(directCost: number, i: PricingTerms) {
     return { ...empty, valid: false, error: "A soma dos percentuais (comissão + imposto + lucro) precisa ser menor que 100%." };
   }
 
-  const grossPrice = (directCost + fixedSum) / (1 - pctSum / 100);
+  // O imposto só incide sobre (preço_final - valor_do_kit).
+  // S = D + F + S*C% + (S - K)*T% + S*P%
+  // S*(1 - C% - T% - P%) = D + F - K*T%
+  // grossPrice = (D + F - K*T%) / (1 - pctSum)
+  const taxPct = i.tax.mode === "percent" ? n(i.tax.value) / 100 : 0;
+  const grossPrice = (directCost + fixedSum - taxDeduction * taxPct) / (1 - pctSum / 100);
   const discount = Math.max(0, n(i.discount));
-  let finalPrice = grossPrice - discount;
-  let roundingAdjust = 0;
-  if (n(i.roundTo) > 0 && finalPrice > 0) {
-    const rounded = Math.ceil(finalPrice / i.roundTo) * i.roundTo;
-    roundingAdjust = rounded - finalPrice;
-    finalPrice = rounded;
-  }
+  const finalPrice = grossPrice - discount;
+  const roundingAdjust = 0;
 
   // Comissão e imposto acompanham o preço final efetivo; o lucro absorve desconto e arredondamento.
   const commissionValue = componentValue(i.commission, finalPrice);
-  const taxValue = componentValue(i.tax, finalPrice);
+  const taxValue = i.tax.mode === "percent" 
+    ? Math.max(0, (finalPrice - taxDeduction) * taxPct) 
+    : Math.max(0, n(i.tax.value));
   const profitValue = finalPrice - directCost - commissionValue - taxValue;
 
   return {

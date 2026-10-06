@@ -26,6 +26,7 @@ const ClientIntelligence = React.lazy(() => import('./pages/ClientIntelligence')
 const Maintenance = React.lazy(() => import('./pages/Maintenance'));
 const MaintenanceAlerts = React.lazy(() => import('./pages/MaintenanceAlerts'));
 const UtilityRobot = React.lazy(() => import('./pages/UtilityRobot'));
+const PriceList = React.lazy(() => import('./pages/PriceList'));
 const PortalDashboard = React.lazy(() => import('./pages/portal/PortalDashboard'));
 const PortalTickets = React.lazy(() => import('./pages/portal/PortalTickets'));
 const PortalTracking = React.lazy(() => import('./pages/portal/PortalTracking'));
@@ -81,6 +82,7 @@ const MainLayout: React.FC = () => {
             <Route path="/crm" element={<PageWrapper><CRM /></PageWrapper>} />
             <Route path="/conversations" element={<PageWrapper><Conversations /></PageWrapper>} />
             <Route path="/calculator" element={<PageWrapper><Calculator /></PageWrapper>} />
+            <Route path="/price-list" element={<PageWrapper><PriceList /></PageWrapper>} />
             <Route path="/propostas" element={<PageWrapper><Proposals /></PageWrapper>} />
             <Route path="/propostas/nova" element={<PageWrapper><ProposalEditorPage /></PageWrapper>} />
             <Route path="/propostas/:id" element={<PageWrapper><ProposalEditorPage /></PageWrapper>} />
