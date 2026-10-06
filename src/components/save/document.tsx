@@ -1,6 +1,7 @@
 "use client";
 
 import { AtSign, BatteryCharging, Check, Clock, Download, Info, Mail, MapPin, MessageCircle, Phone, ShieldCheck, Zap } from "lucide-react";
+import { trackProposalView } from "@/lib/proposal-tracking";
 import { useEffect, useState } from "react";
 import { mergeSettings } from "@/lib/defaults";
 import { formatDate, formatPhone, whatsappUrl } from "@/lib/format";
@@ -54,15 +55,8 @@ export function SaveDocument({ data, token }: { data: PublicProposal; token: str
   let n = 0;
   const num = () => String(++n).padStart(2, "0");
 
-  useEffect(() => {
-    if (!token) return;
-    const key = `viewed-${token}`;
-    try {
-      if (sessionStorage.getItem(key)) return;
-      sessionStorage.setItem(key, "1");
-    } catch {}
-    fetch(`/api/public/proposal/${token}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "view" }) }).catch(() => {});
-  }, [token]);
+  // Histórico de visualizações (quando, quantas vezes e por quanto tempo).
+  useEffect(() => (token ? trackProposalView(token) : undefined), [token]);
 
   return (
     <div className="min-h-dvh bg-[#F6F5FA] text-ink-900 print:bg-white">

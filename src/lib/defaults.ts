@@ -137,6 +137,15 @@ export interface ProposalPrefs {
   faq: { q: string; a: string }[];
 }
 
+/**
+ * Tarifa residencial B1 da Equatorial Alagoas (Maceió) com tributos (ICMS, PIS/COFINS) e
+ * bandeira média: na prática ~R$ 1,10/kWh. A iluminação pública (CIP) é somada à parte.
+ */
+export const MACEIO_TARIFF = 1.1;
+
+/** Tarifas salvas antes da correção (ex.: R$ 0,95) estão defasadas para a Equatorial AL. */
+export const effectiveTariff = (t: number | null | undefined) => (t && t >= 1 ? t : MACEIO_TARIFF);
+
 export const DEFAULT_INPUTS: ProposalInputs = {
   kitPrice: 0,
   inverterBrand: "",
@@ -159,7 +168,7 @@ export const DEFAULT_INPUTS: ProposalInputs = {
   discount: 0,
   roundTo: 0,
   consumptionKwh: 0,
-  tariff: 0.95,
+  tariff: MACEIO_TARIFF,
   connectionType: "bi",
   generationFactor: 125,
   sunHours: 5.0,

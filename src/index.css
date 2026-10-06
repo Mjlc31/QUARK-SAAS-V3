@@ -118,6 +118,12 @@
     box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2), 0 8px 20px -6px rgba(0, 0, 0, 0.4);
   }
 
+  /* ── Card padrão (Card do ui.tsx) ── */
+  .glass {
+    @apply bg-zinc-900/55 backdrop-blur-xl;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06), 0 12px 32px -16px rgba(0, 0, 0, 0.6);
+  }
+
   /* ── Primary CTA button ── */
   .btn-primary {
     @apply bg-quark-brand text-black font-bold transition-all duration-200 ease-out hover:bg-quark-brandHover;
@@ -153,6 +159,19 @@
   /* Slide in from right (drawers) */
   .animate-slide-in-right {
     animation: slideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  /* Fade up (popovers, editores) e sheet mobile */
+  .animate-fade-up {
+    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .animate-sheet-up {
+    animation: sheetUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  /* Números tabulares (valores alinhados) */
+  .tnum {
+    font-variant-numeric: tabular-nums;
   }
 
   /* Shimmer skeleton loading */
@@ -200,6 +219,14 @@
     display: none;
   }
 
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -244,6 +271,11 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes sheetUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
 @keyframes fadeScale {
   from { opacity: 0; transform: scale(0.95); }
   to   { opacity: 1; transform: scale(1); }
@@ -285,3 +317,22 @@
 :root {
   --app-height: 100dvh;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   FERRAMENTAS — impressão só do documento (procuração, contrato, recibo, nota)
+   ═══════════════════════════════════════════════════════════════════ */
+#tool-print-root { display: none; }
+@media print {
+  body.printing-tool > *:not(#tool-print-root) { display: none !important; }
+  body.printing-tool #tool-print-root { display: block; }
+  body.printing-tool .tool-paper {
+    box-shadow: none !important;
+    min-height: auto !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  body.printing-tool .tool-avoid-break { break-inside: avoid; }
+  body.printing-tool .tool-page-break { break-before: page; }
+}
+@page { size: A4; margin: 14mm 16mm; }

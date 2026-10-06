@@ -17,12 +17,14 @@ import { brl, fmtNum, pct } from "@/lib/pricing";
 import { CHARGER_OPTIONS, calcSave, mergeSave, type SaveCostItem, type SaveInputs } from "@/lib/save";
 import { duplicateProposal } from "@/lib/proposal-actions";
 import { supabase } from "@/lib/supabase/client";
+import { logCrmNote, useCrmLeads } from "@/lib/crm-leads";
+import { NewLeadModal } from "@/components/proposal/NewLeadModal";
+import { ViewsPill } from "@/components/ProposalViews";
 import type { Lead, Proposal } from "@/lib/types";
 
 export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; initialLeadId?: string | null }) {
   const navigate = useNavigate();
   const { settings, settingsLoaded, user } = useApp();
-  const { openLead } = useQuick();
   const { reward } = useReward();
 
   const [inputs, setInputs] = useState<SaveInputs | null>(proposal ? mergeSave(proposal.inputs as Partial<SaveInputs>) : null);
@@ -34,7 +36,8 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
   const current = useRef(proposal);
   current.current = proposal;
 
-  const { data: leads } = useLive(async () => must(await supabase().from("leads").select("*").order("created_at", { ascending: false }).limit(1000)) as Lead[], [], ["leads"]);
+  const { data: leads } = useCrmLeads();
+  const [showNewLead, setShowNewLead] = useState(false);
   const lead = leads?.find((l) => l.id === leadId) ?? null;
 
   useEffect(() => {
@@ -64,7 +67,7 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
 
   if (!inputs || !result) {
     return (
-      <div className="grid h-[60vh] place-items-center text-ink-400">
+      <div className="grid h-[60vh] place-items-center text-zinc-500">
         <Loader2 className="h-6 w-6 animate-spin" />
       </div>
     );
@@ -109,8 +112,10 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
     setDirty(false);
     const saved = res.data as Proposal;
     if (!current.current) {
-      await sb.from("activities").insert({ lead_id: leadId, type: "proposta", content: `Orçamento S.A.V.E #${saved.number} criado — ${brl(saved.final_price)}`, created_by: user!.id });
-      if (lead && lead.segment === "solar") await sb.from("leads").update({ segment: "ambos" }).eq("id", lead.id);
+      await logCrmNote(leadId, `📝 Orçamento S.A.V.E #${saved.number} criado — ${brl(saved.final_price)}`);
+      // Cliente de solar que também quer carregador: marca os dois serviços no CRM.
+      if (lead && !lead.services.includes("save"))
+        await sb.from("opportunities").update({ services: [...new Set([...lead.services, lead.segment || "save", "save"].filter(Boolean))], segment: lead.segment || "save" }).eq("id", lead.id).then(() => {}, () => {});
       toast.success(`Orçamento S.A.V.E #${saved.number} salvo`);
       navigate(`/propostas/${saved.id}`, { replace: true });
       reward("proposta", saved.id);
@@ -132,8 +137,8 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
     if (draft) {
       reward("envio", saved.id);
       const sb = supabase();
-      await sb.from("activities").insert({ lead_id: saved.lead_id, type: "proposta", content: `Proposta S.A.V.E #${saved.number} enviada`, created_by: user!.id });
-      if (lead && ["novo", "contato", "visita"].includes(lead.status)) await sb.from("leads").update({ status: "proposta" }).eq("id", lead.id);
+      await logCrmNote(saved.lead_id, `📤 Proposta S.A.V.E #${saved.number} enviada ao cliente (${kind === "whatsapp" ? "WhatsApp" : kind === "copy" ? "link copiado" : "link aberto"}).`);
+      if (lead && ["Lead", "Qualificado"].includes(lead.status)) await sb.from("opportunities").update({ status: "Proposta" }).eq("id", lead.id);
     }
     if (kind === "copy") {
       await navigator.clipboard.writeText(url).catch(() => {});
@@ -153,18 +158,19 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
     <div className="animate-fade-up">
       <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 items-center gap-3">
-          <Link to="/propostas?tipo=save" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-ink-500 shadow-soft ring-1 ring-ink-200 hover:text-ink-900">
+          <Link to="/propostas?tipo=save" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-zinc-900 text-zinc-400 shadow-xl shadow-black/20 ring-1 ring-white/10 hover:text-white">
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="grid h-7 w-7 place-items-center rounded-lg bg-sun-gradient text-ink-900">
+              <span className="grid h-7 w-7 place-items-center rounded-lg bg-sun-gradient text-zinc-950">
                 <PlugZap className="h-4 w-4" />
               </span>
               <h1 className="truncate font-display text-xl font-semibold tracking-tight sm:text-2xl">{proposal ? `S.A.V.E #${proposal.number}` : "Novo orçamento S.A.V.E"}</h1>
               {status && <Badge className={status.cls}>{status.label}</Badge>}
+              {proposal && proposal.status !== "rascunho" && <ViewsPill proposalId={proposal.id} align="left" />}
             </div>
-            <p className="mt-0.5 flex items-center gap-1.5 text-[13px] text-ink-500">
+            <p className="mt-0.5 flex items-center gap-1.5 text-[13px] text-zinc-400">
               {saving ? (
                 <>
                   <Loader2 className="h-3 w-3 animate-spin" /> Salvando…
@@ -206,7 +212,7 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
               >
                 <CopyPlus className="h-4 w-4" /> Duplicar
               </Button>
-              <Button variant="secondary" onClick={() => share("whatsapp")} className="text-emerald-700">
+              <Button variant="secondary" onClick={() => share("whatsapp")} className="text-emerald-300">
                 <MessageCircle className="h-4 w-4" /> WhatsApp
               </Button>
             </>
@@ -241,14 +247,7 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
                     setLeadId(id);
                     setDirty(true);
                   }}
-                  onNew={() =>
-                    openLead(null, {
-                      onCreated: (id: string) => {
-                        setLeadId(id);
-                        setDirty(true);
-                      },
-                    })
-                  }
+                  onNew={() => setShowNewLead(true)}
                 />
               </Field>
               <Field label="Título da proposta (opcional)">
@@ -271,11 +270,11 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
                     }}
                     className={cx(
                       "rounded-xl px-3 py-3 text-left ring-1 transition",
-                      inputs.chargerPowerKw === o.kw ? "bg-ink-900 text-white ring-ink-900" : "bg-white text-ink-700 ring-ink-200 hover:ring-ink-300",
+                      inputs.chargerPowerKw === o.kw ? "bg-lime-400 text-zinc-950 ring-lime-400" : "bg-zinc-900 text-zinc-200 ring-white/10 hover:ring-white/20",
                     )}
                   >
                     <p className="font-display text-lg font-semibold">{o.label}</p>
-                    <p className={cx("text-xs", inputs.chargerPowerKw === o.kw ? "text-ink-300" : "text-ink-500")}>{o.sub}</p>
+                    <p className={cx("text-xs", inputs.chargerPowerKw === o.kw ? "text-zinc-800" : "text-zinc-400")}>{o.sub}</p>
                   </button>
                 ))}
               </div>
@@ -319,14 +318,14 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
               <Field label="Distância do ponto de conexão até o wallbox" hint="Define o comprimento de cabos e eletrodutos">
                 <div className="flex items-center gap-3">
                   <Stepper value={inputs.distanceM} min={1} onChange={(v) => set("distanceM", v)} />
-                  <span className="text-sm text-ink-500">metros</span>
+                  <span className="text-sm text-zinc-400">metros</span>
                   <div className="flex flex-wrap gap-1.5">
                     {[10, 20, 30, 50, 80].map((m) => (
                       <button
                         key={m}
                         type="button"
                         onClick={() => set("distanceM", m)}
-                        className={cx("h-8 rounded-lg px-2.5 text-xs font-semibold ring-1", inputs.distanceM === m ? "bg-ink-900 text-white ring-ink-900" : "bg-white text-ink-600 ring-ink-200")}
+                        className={cx("h-8 rounded-lg px-2.5 text-xs font-semibold ring-1", inputs.distanceM === m ? "bg-lime-400 text-zinc-950 ring-lime-400" : "bg-zinc-900 text-zinc-300 ring-white/10 hover:ring-white/20")}
                       >
                         {m} m
                       </button>
@@ -345,7 +344,7 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
           <Card id="s-custos" className="scroll-mt-28">
             <CardHeader icon={<Receipt className="h-[18px] w-[18px]" />} title="4. Custos" subtitle="Quantidade × valor unitário · não aparece para o cliente" />
             <div className="grid gap-2 px-5 pb-5">
-              <div className="hidden grid-cols-[1fr_90px_140px_110px_36px] gap-2 px-1 text-[11px] font-semibold tracking-wide text-ink-400 uppercase sm:grid">
+              <div className="hidden grid-cols-[1fr_90px_140px_110px_36px] gap-2 px-1 text-[11px] font-semibold tracking-wide text-zinc-500 uppercase sm:grid">
                 <span>Item</span>
                 <span>Qtd</span>
                 <span>Valor unitário</span>
@@ -356,7 +355,7 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
                 const off = (it.key === "panel" && !inputs.includePanel) || (it.key === "emergency" && !inputs.includeEmergency) || (it.key === "socket" && !inputs.includeSocket);
                 const qty = it.key === "infra" ? inputs.distanceM : it.qty;
                 return (
-                  <div key={it.id} className={cx("grid items-center gap-2 rounded-xl bg-ink-50 p-2 ring-1 ring-ink-200/60 sm:grid-cols-[1fr_90px_140px_110px_36px]", off && "opacity-40")}>
+                  <div key={it.id} className={cx("grid items-center gap-2 rounded-xl bg-black/20 p-2 ring-1 ring-white/5 sm:grid-cols-[1fr_90px_140px_110px_36px]", off && "opacity-40")}>
                     <Input value={it.label} onChange={(e) => setItem(it.id, { label: e.target.value })} className="h-9 sm:h-9" />
                     <NumberInput value={qty} onChange={(v) => (it.key === "infra" ? set("distanceM", v) : setItem(it.id, { qty: v }))} digits={0} suffix={it.key === "infra" ? "m" : "un"} className="[&_input]:h-9" />
                     <MoneyInput value={it.unit} onChange={(v) => setItem(it.id, { unit: v })} className="[&_input]:h-9" />
@@ -388,7 +387,7 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
               <PriceComp label="Comissão" value={inputs.commission} amount={result.commissionValue} onChange={(v) => set("commission", v)} />
               <PriceComp label="Impostos" value={inputs.tax} amount={result.taxValue} onChange={(v) => set("tax", v)} />
               <PriceComp label="Lucro" value={inputs.profit} amount={result.profitValue} onChange={(v) => set("profit", v)} />
-              <div className="grid gap-4 border-t border-ink-100 pt-4 sm:grid-cols-2">
+              <div className="grid gap-4 border-t border-white/5 pt-4 sm:grid-cols-2">
                 <Field label="Desconto ao cliente" hint="Sai do lucro">
                   <MoneyInput value={inputs.discount} onChange={(v) => set("discount", v)} />
                 </Field>
@@ -434,7 +433,7 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
         <aside className="hidden lg:block">
           <div className="sticky top-20 grid gap-3">
             <SaveCheckout inputs={inputs} result={result} />
-            <p className="px-2 text-center text-xs text-ink-500">
+            <p className="px-2 text-center text-xs text-zinc-400">
               <Receipt className="mr-1 inline h-3.5 w-3.5" />
               Na proposta do cliente aparece somente o <b>preço final</b>.
             </p>
@@ -442,10 +441,10 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
         </aside>
       </div>
 
-      <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-t border-ink-200/70 bg-white/95 px-4 py-3 backdrop-blur-xl lg:hidden">
+      <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-t border-white/10 bg-zinc-900/95 px-4 py-3 backdrop-blur-xl lg:hidden">
         <div className="flex items-center gap-3">
           <button onClick={() => setSheet(true)} className="min-w-0 flex-1 text-left">
-            <p className="text-[11px] font-semibold text-ink-500">Preço final</p>
+            <p className="text-[11px] font-semibold text-zinc-400">Preço final</p>
             <p className="tnum font-display text-xl font-semibold tracking-tight">{result.valid ? brl(result.finalPrice) : "—"}</p>
           </button>
           <Button variant="secondary" onClick={() => setSheet(true)}>
@@ -456,10 +455,21 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
           </Button>
         </div>
       </div>
+      {showNewLead && (
+        <NewLeadModal
+          service="save"
+          onClose={() => setShowNewLead(false)}
+          onCreated={(id) => {
+            setLeadId(id);
+            setDirty(true);
+          }}
+        />
+      )}
+
       {sheet && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-ink-950/60 backdrop-blur-sm" onClick={() => setSheet(false)} />
-          <div className="animate-sheet-up absolute inset-x-0 bottom-0 max-h-[90dvh] overflow-y-auto rounded-t-3xl bg-ink-950 pb-[env(safe-area-inset-bottom)]">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSheet(false)} />
+          <div className="animate-sheet-up absolute inset-x-0 bottom-0 max-h-[90dvh] overflow-y-auto rounded-t-3xl bg-zinc-950 border border-white/5 pb-[env(safe-area-inset-bottom)]">
             <button onClick={() => setSheet(false)} className="absolute top-4 right-4 z-10 grid h-9 w-9 place-items-center rounded-full bg-white/10 text-white" aria-label="Fechar">
               <X className="h-4 w-4" />
             </button>
@@ -473,10 +483,10 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
 
 function ScopeToggle({ label, hint, checked, onChange }: { label: string; hint: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label className={cx("flex cursor-pointer items-center justify-between gap-3 rounded-xl px-4 py-3 ring-1 transition", checked ? "bg-sun-50 ring-sun-600/25" : "bg-ink-50 ring-ink-200/60")}>
+    <label className={cx("flex cursor-pointer items-center justify-between gap-3 rounded-xl px-4 py-3 ring-1 transition", checked ? "bg-lime-400/10 ring-lime-400/30" : "bg-black/20 ring-white/5")}>
       <div>
         <p className="text-sm font-semibold">{label}</p>
-        <p className="text-xs text-ink-500">{hint}</p>
+        <p className="text-xs text-zinc-400">{hint}</p>
       </div>
       <Switch checked={checked} onChange={onChange} />
     </label>
@@ -487,18 +497,18 @@ function SaveCheckout({ inputs, result }: { inputs: SaveInputs; result: ReturnTy
   const Row = ({ label, detail, value, strong }: { label: string; detail?: string; value: number; strong?: boolean }) => (
     <div className="flex items-start justify-between gap-4 py-1.5">
       <div className="min-w-0">
-        <p className={cx("text-[13px]", strong ? "font-semibold text-white" : "text-ink-300")}>{label}</p>
-        {detail && <p className="truncate text-[11px] text-ink-500">{detail}</p>}
+        <p className={cx("text-[13px]", strong ? "font-semibold text-white" : "text-zinc-300")}>{label}</p>
+        {detail && <p className="truncate text-[11px] text-zinc-400">{detail}</p>}
       </div>
-      <p className={cx("tnum shrink-0 text-[13px]", strong ? "font-semibold text-white" : "text-ink-200")}>{brl(value)}</p>
+      <p className={cx("tnum shrink-0 text-[13px]", strong ? "font-semibold text-white" : "text-zinc-200")}>{brl(value)}</p>
     </div>
   );
   const comp = (name: string, c: SaveInputs["commission"]) => (c.mode === "percent" ? `${name} (${fmtNum(c.value, c.value % 1 ? 1 : 0)}%)` : name);
   return (
-    <div className="relative overflow-hidden rounded-3xl bg-ink-950 text-white shadow-lift">
+    <div className="relative overflow-hidden rounded-3xl bg-zinc-950 border border-white/5 text-white shadow-lift">
       <div className="pointer-events-none absolute -top-24 -right-20 h-64 w-64 rounded-full bg-sun-500/20 blur-3xl" />
       <div className="relative px-6 pt-6">
-        <p className="text-[11px] font-bold tracking-[0.14em] text-ink-500 uppercase">Resumo S.A.V.E</p>
+        <p className="text-[11px] font-bold tracking-[0.14em] text-zinc-400 uppercase">Resumo S.A.V.E</p>
         <div className="mt-4 grid grid-cols-3 gap-2">
           <Mini label="Carregador" value={`${fmtNum(inputs.chargerPowerKw, 1)} kW`} />
           <Mini label="Distância" value={`${fmtNum(inputs.distanceM)} m`} />
@@ -506,7 +516,7 @@ function SaveCheckout({ inputs, result }: { inputs: SaveInputs; result: ReturnTy
         </div>
       </div>
       <div className="relative mt-5 border-t border-dashed border-white/10 px-6 pt-4">
-        <p className="mb-1 text-[11px] font-bold tracking-[0.14em] text-ink-500 uppercase">Custos diretos</p>
+        <p className="mb-1 text-[11px] font-bold tracking-[0.14em] text-zinc-400 uppercase">Custos diretos</p>
         {result.lines.map((l) => (
           <Row key={l.key} label={l.label} detail={l.detail} value={l.value} />
         ))}
@@ -515,7 +525,7 @@ function SaveCheckout({ inputs, result }: { inputs: SaveInputs; result: ReturnTy
         </div>
       </div>
       <div className="relative mt-3 border-t border-dashed border-white/10 px-6 pt-4">
-        <p className="mb-1 text-[11px] font-bold tracking-[0.14em] text-ink-500 uppercase">Formação de preço</p>
+        <p className="mb-1 text-[11px] font-bold tracking-[0.14em] text-zinc-400 uppercase">Formação de preço</p>
         <Row label={comp("Comissão", inputs.commission)} value={result.commissionValue} />
         <Row label={comp("Impostos", inputs.tax)} value={result.taxValue} />
         <Row label={comp("Lucro", inputs.profit)} detail={`Margem líquida ${pct(result.netMargin)}`} value={result.profitValue} />
@@ -531,7 +541,7 @@ function SaveCheckout({ inputs, result }: { inputs: SaveInputs; result: ReturnTy
         ) : (
           <>
             <div className="flex items-end justify-between gap-3">
-              <p className="pb-1 text-sm font-medium text-ink-400">Preço final</p>
+              <p className="pb-1 text-sm font-medium text-zinc-500">Preço final</p>
               <p className="tnum font-display text-[34px] leading-none font-semibold tracking-tight text-brand-lime">{brl(result.finalPrice)}</p>
             </div>
             <div className="mt-4 grid grid-cols-2 gap-2 text-center">
@@ -548,8 +558,8 @@ function SaveCheckout({ inputs, result }: { inputs: SaveInputs; result: ReturnTy
 function Mini({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="rounded-xl bg-white/[0.05] px-2 py-2 text-center ring-1 ring-white/[0.06]">
-      <p className="text-[10px] font-semibold tracking-wider text-ink-500 uppercase">{label}</p>
-      <p className="tnum mt-0.5 text-[13px] font-semibold text-ink-100">{value}</p>
+      <p className="text-[10px] font-semibold tracking-wider text-zinc-400 uppercase">{label}</p>
+      <p className="tnum mt-0.5 text-[13px] font-semibold text-white">{value}</p>
     </div>
   );
 }

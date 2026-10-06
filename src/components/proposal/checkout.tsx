@@ -2,16 +2,17 @@
 
 import { AlertTriangle, Leaf, TrendingUp, Zap } from "lucide-react";
 import { brl, fmtNum, pct, type EnergyResult, type PricingResult, type ProposalInputs } from "@/lib/pricing";
+import { useEffect, useState } from "react";
 import { cx } from "../ui";
 
 function Row({ label, detail, value, strong, muted, negative }: { label: string; detail?: string; value: number; strong?: boolean; muted?: boolean; negative?: boolean }) {
   return (
     <div className="flex items-start justify-between gap-4 py-1.5">
       <div className="min-w-0">
-        <p className={cx("text-[13px]", strong ? "font-semibold text-white" : muted ? "text-zinc-400" : "text-ink-300")}>{label}</p>
+        <p className={cx("text-[13px]", strong ? "font-semibold text-white" : muted ? "text-zinc-400" : "text-zinc-300")}>{label}</p>
         {detail && <p className="truncate text-[11px] text-zinc-500">{detail}</p>}
       </div>
-      <p className={cx("tnum shrink-0 text-[13px]", strong ? "font-semibold text-white" : negative ? "text-emerald-400" : "text-ink-200")}>
+      <p className={cx("tnum shrink-0 text-[13px]", strong ? "font-semibold text-white" : negative ? "text-emerald-400" : "text-zinc-200")}>
         {negative && value > 0 ? "− " : ""}
         {brl(value)}
       </p>
@@ -165,7 +166,7 @@ export function BillPreview({ energy, inputs }: { energy: EnergyResult; inputs: 
             <span className="text-emerald-100/70">Conta hoje</span>
             <b className="tnum text-white">{brl(energy.monthlyBillBefore)}</b>
           </div>
-          <div className="h-2.5 rounded-full bg-zinc-700" />
+          <div className="h-2.5 rounded-full bg-gradient-to-r from-rose-500/70 to-orange-400/70" />
         </div>
         <div>
           <div className="mb-1 flex justify-between text-sm">
@@ -197,32 +198,62 @@ export function BillPreview({ energy, inputs }: { energy: EnergyResult; inputs: 
   );
 }
 
-/** Navegação por etapas do orçamento (âncoras). */
+/** Navegação por etapas do orçamento: rolagem suave, etapa atual destacada e progresso. */
 export function StepNav({ steps }: { steps: { id: string; label: string; done: boolean }[] }) {
   const doneCount = steps.filter((s) => s.done).length;
+  const [active, setActive] = useState(steps[0]?.id);
+  const ids = steps.map((s) => s.id).join(",");
+
+  useEffect(() => {
+    const els = ids.split(",").map((id) => document.getElementById(id)).filter((e): e is HTMLElement => !!e);
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible[0]) setActive(visible[0].target.id);
+      },
+      { rootMargin: "-20% 0px -60% 0px" },
+    );
+    els.forEach((e) => obs.observe(e));
+    return () => obs.disconnect();
+  }, [ids]);
+
   return (
-    <div className="sticky top-14 z-20 -mx-4 mb-5 border-b border-white/5 bg-zinc-950/80 px-4 py-2.5 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:top-0 lg:-mx-10 lg:px-10">
-      <div className="flex items-center gap-3">
+    <div className="sticky top-14 z-20 -mx-4 mb-5 border-b border-white/5 bg-zinc-950/80 px-4 pt-2.5 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:top-0 lg:-mx-10 lg:px-10">
+      <div className="flex items-center gap-3 pb-2.5">
         <div className="scrollbar-none flex flex-1 gap-1.5 overflow-x-auto">
           {steps.map((s, i) => (
-            <a
+            <button
+              type="button"
               key={s.id}
-              href={`#${s.id}`}
+              onClick={() => document.getElementById(s.id)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+              aria-current={active === s.id ? "step" : undefined}
               className={cx(
                 "flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-[13px] font-semibold ring-1 transition",
-                s.done ? "bg-emerald-500/10 text-emerald-400 ring-emerald-500/20" : "bg-white/5 text-zinc-400 ring-white/10 hover:text-white hover:bg-white/10",
+                active === s.id
+                  ? "bg-white text-zinc-950 ring-white"
+                  : s.done
+                    ? "bg-emerald-500/10 text-emerald-300 ring-emerald-500/20 hover:bg-emerald-500/15"
+                    : "bg-white/5 text-zinc-400 ring-white/10 hover:bg-white/10 hover:text-white",
               )}
             >
-              <span className={cx("grid h-4.5 w-4.5 place-items-center rounded-full text-[10px]", s.done ? "bg-emerald-500 text-white" : "bg-white/10 text-zinc-400")}>
+              <span
+                className={cx(
+                  "grid h-[18px] w-[18px] place-items-center rounded-full text-[10px]",
+                  s.done ? "bg-emerald-500 text-white" : active === s.id ? "bg-zinc-950/10 text-zinc-700" : "bg-white/10 text-zinc-400",
+                )}
+              >
                 {s.done ? "✓" : i + 1}
               </span>
               {s.label}
-            </a>
+            </button>
           ))}
         </div>
         <span className="hidden shrink-0 text-xs font-semibold text-zinc-500 sm:block">
-          {doneCount}/{steps.length}
+          {doneCount}/{steps.length} etapas
         </span>
+      </div>
+      <div className="absolute inset-x-0 bottom-0 h-px bg-white/5">
+        <div className="h-full bg-gradient-to-r from-lime-400 to-emerald-400 transition-all duration-500" style={{ width: `${(doneCount / steps.length) * 100}%` }} />
       </div>
     </div>
   );

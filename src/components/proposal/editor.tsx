@@ -32,7 +32,10 @@ import { useReward } from "@/components/app/rewards";
 import { useQuick } from "@/components/app/shell";
 import { Badge, Button, Card, CardHeader, Field, ImageField, Input, MoneyInput, NumberInput, Segmented, Select, Textarea, cx } from "@/components/ui";
 import { PROPOSAL_STATUS, ROOF_TYPES } from "@/lib/constants";
-import { mergeInputs, toStoredSettings, type KitPreset } from "@/lib/defaults";
+import { useCrmLeads, logCrmNote, type CrmLead } from "@/lib/crm-leads";
+import { servicesOf } from "@/lib/services";
+import { ViewsPill } from "@/components/ProposalViews";
+import { MACEIO_TARIFF, effectiveTariff, mergeInputs, toStoredSettings, type KitPreset } from "@/lib/defaults";
 import { addDays, formatPhone, whatsappUrl } from "@/lib/format";
 import { must, useLive } from "@/lib/live";
 import { brl, calcEnergy, calcPricing, fmtNum, type AmountMode, type PriceComponent, type ProposalInputs, type PricingResult, type EnergyResult } from "@/lib/pricing";
@@ -104,10 +107,7 @@ function mapToProposalData(inputs: ProposalInputs, pricing: PricingResult, energ
 export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposal; initialLeadId?: string | null }) {
   const navigate = useNavigate();
   const { settings, settingsLoaded, user } = useApp();
-  const { data: leads } = useLive(async () => {
-    const { data } = await supabase().from("opportunities").select("*").order("created_at", { ascending: false }).limit(1000);
-    return (data || []).map(o => ({ id: o.id, name: o.title || "Sem nome", phone: o.phone, city: o.city, avg_bill: o.amount }) as any);
-  }, [], ["opportunities"]);
+  const { data: leads } = useCrmLeads();
   const { openLead } = useQuick();
   const { reward } = useReward();
 
@@ -119,7 +119,6 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
   const [dirty, setDirty] = useState(false);
   const [sheet, setSheet] = useState(false);
   const [showNewLead, setShowNewLead] = useState(false);
-  const [billValue, setBillValue] = useState(0);
   const current = useRef(proposal);
   current.current = proposal;
 
@@ -129,23 +128,27 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
   // Novo orçamento: parte dos padrões configurados + dados de consumo do lead.
   useEffect(() => {
     if (proposal || inputs || !settingsLoaded) return;
-    setInputs(mergeInputs(settings.defaults));
+    const base = mergeInputs(settings.defaults);
+    setInputs({ ...base, tariff: effectiveTariff(base.tariff) });
   }, [proposal, inputs, settingsLoaded, settings.defaults]);
 
   const leadAppliedFor = useRef<string | null>(proposal?.lead_id ?? null);
   useEffect(() => {
     if (!lead || !inputs || leadAppliedFor.current === lead.id) return;
     leadAppliedFor.current = lead.id;
-    setInputs((i) =>
-      i && {
+    setInputs((i) => {
+      if (!i) return i;
+      const tariff = lead.tariff ?? i.tariff;
+      // Consumo informado no CRM; sem ele, deriva da conta média: (conta − iluminação pública) ÷ tarifa.
+      const fromBill = lead.avg_bill && tariff > 0 ? Math.round(Math.max(0, lead.avg_bill - i.publicLighting) / tariff) : 0;
+      return {
         ...i,
-        consumptionKwh: lead.consumption_kwh ?? i.consumptionKwh,
-        tariff: lead.tariff ?? i.tariff,
+        consumptionKwh: lead.consumption_kwh ?? (fromBill || i.consumptionKwh),
+        tariff,
         connectionType: lead.connection_type ?? i.connectionType,
-        structureType: lead.roof_type ?? i.structureType,
-      },
-    );
-    if (lead.avg_bill) setBillValue(lead.avg_bill);
+        structureType: lead.roof_type && ROOF_TYPES.includes(lead.roof_type) ? lead.roof_type : i.structureType,
+      };
+    });
   }, [lead, inputs]);
 
   const pricing = useMemo(() => (inputs ? calcPricing(inputs) : null), [inputs]);
@@ -215,10 +218,12 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
     if (!inputs || !pricing || !energy) return null;
     if (!leadId) {
       toast.error("Selecione o cliente do orçamento");
+      focusSection("sec-cliente");
       return null;
     }
     if (!pricing.valid) {
       toast.error(pricing.error ?? "Revise os valores do orçamento");
+      focusSection(inputs.kitPrice > 0 && inputs.moduleQty > 0 ? "sec-preco" : "sec-kit");
       return null;
     }
     setSaving(true);
@@ -248,8 +253,9 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
     setDirty(false);
     const saved = res.data as Proposal;
     if (!current.current) {
-      await sb.from("activities").insert({ opportunity_id: leadId, type: "proposta", content: `Orçamento #${saved.number} criado — ${brl(saved.final_price)}`, created_by: user!.id });
-      if (lead && lead.estimated_value == null) await sb.from("opportunities").update({ amount: saved.final_price }).eq("id", lead.id);
+      await sb.from("activities").insert({ opportunity_id: leadId, type: "proposta", content: `Orçamento #${saved.number} criado — ${brl(saved.final_price)}`, created_by: user!.id }).then(() => {}, () => {});
+      await logCrmNote(leadId, `📝 Orçamento solar #${saved.number} criado — ${fmtNum(saved.power_kwp, 2)} kWp · ${brl(saved.final_price)}`);
+      if (lead && !lead.amount) await sb.from("opportunities").update({ amount: saved.final_price }).eq("id", lead.id);
       toast.success(`Orçamento #${saved.number} salvo`);
       navigate(`/propostas/${saved.id}`, { replace: true });
       reward("proposta", saved.id);
@@ -272,8 +278,9 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
     if (draft) {
       reward("envio", saved.id);
       const sb = supabase();
-      await sb.from("activities").insert({ opportunity_id: saved.lead_id, type: "proposta", content: `Proposta #${saved.number} enviada`, created_by: user!.id });
-      if (lead && ["novo", "contato", "visita"].includes(lead.status)) await sb.from("opportunities").update({ status: "Proposta" }).eq("id", lead.id);
+      await sb.from("activities").insert({ opportunity_id: saved.lead_id, type: "proposta", content: `Proposta #${saved.number} enviada`, created_by: user!.id }).then(() => {}, () => {});
+      await logCrmNote(saved.lead_id, `📤 Proposta solar #${saved.number} enviada ao cliente (${kind === "whatsapp" ? "WhatsApp" : kind === "copy" ? "link copiado" : "link aberto"}).`);
+      if (lead && ["Lead", "Qualificado"].includes(lead.status)) await sb.from("opportunities").update({ status: "Proposta" }).eq("id", lead.id);
     }
     if (kind === "copy") {
       await navigator.clipboard.writeText(url).catch(() => {});
@@ -313,6 +320,8 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
     else toast.success("Kit salvo! Ele aparece em “Usar um kit salvo”.");
   }
 
+  // A conta é sempre derivada do consumo: consumo × tarifa + iluminação pública (fonte única da verdade).
+  const billValue = inputs.consumptionKwh > 0 && inputs.tariff > 0 ? Math.round(inputs.consumptionKwh * inputs.tariff + inputs.publicLighting) : 0;
   const status = proposal ? PROPOSAL_STATUS[proposal.status] : null;
   const suggested = energy.requiredModulesForConsumption;
   const inverterHint =
@@ -332,6 +341,7 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
             <div className="flex items-center gap-2">
               <h1 className="truncate font-display text-xl font-semibold tracking-tight sm:text-2xl">{proposal ? `Orçamento #${proposal.number}` : "Novo orçamento"}</h1>
               {status && <Badge className={status.cls}>{status.label}</Badge>}
+              {proposal && proposal.status !== "rascunho" && <ViewsPill proposalId={proposal.id} align="left" />}
             </div>
             <p className="mt-0.5 flex items-center gap-1.5 text-[13px] text-zinc-400">
               {saving ? (
@@ -342,7 +352,7 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
                 "Alterações não salvas"
               ) : proposal ? (
                 <>
-                  <Check className="h-3 w-3 text-emerald-600" /> Salvo automaticamente
+                  <Check className="h-3 w-3 text-emerald-400" /> Salvo automaticamente
                 </>
               ) : (
                 "Preencha os dados e salve para gerar a proposta"
@@ -375,13 +385,13 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
               >
                 <CopyPlus className="h-4 w-4" /> Duplicar
               </Button>
-              <Button variant="secondary" onClick={() => share("whatsapp")} className="text-emerald-700">
+              <Button variant="secondary" onClick={() => share("whatsapp")} className="text-emerald-300">
                 <MessageCircle className="h-4 w-4" /> WhatsApp
               </Button>
             </>
           )}
           
-          <Button variant="secondary" onClick={exportPdf} loading={exporting} className="hidden lg:inline-flex text-zinc-900 bg-white hover:bg-zinc-200">
+          <Button variant="secondary" onClick={exportPdf} loading={exporting} className="hidden lg:inline-flex">
             <FileText className="h-4 w-4" /> Exportar PDF
           </Button>
 
@@ -409,18 +419,19 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
             <CardHeader icon={<User className="h-[18px] w-[18px]" />} title="1. Cliente" subtitle="Quem vai receber a proposta" />
             <div className="grid gap-4 px-5 pb-5 sm:grid-cols-2">
               <Field label="Cliente *" className="sm:col-span-2">
-                <LeadPicker leads={leads ?? []} value={leadId} onChange={(id: string) => { 
-                  setLeadId(id); 
-                  setDirty(true); 
-                  const selectedLead = leads?.find((l: any) => l.id === id);
-                  if (selectedLead && !proposal) {
-                    if (selectedLead.avg_bill > 0 && billValue === 0) {
-                      setBillValue(selectedLead.avg_bill);
-                      if (inputs.tariff > 0) set("consumptionKwh", Math.round(selectedLead.avg_bill / inputs.tariff));
-                    }
-                  }
-                }} onNew={() => setShowNewLead(true)} />
+                <LeadPicker
+                  leads={leads ?? []}
+                  value={leadId}
+                  onChange={(id: string) => {
+                    // Em orçamento novo, os dados de consumo do novo cliente substituem os anteriores.
+                    if (!proposal) leadAppliedFor.current = null;
+                    setLeadId(id);
+                    setDirty(true);
+                  }}
+                  onNew={() => setShowNewLead(true)}
+                />
               </Field>
+              {lead && <LeadFacts lead={lead} />}
               <Field label="Título da proposta (opcional)" className="sm:col-span-2">
                 <Input value={title} onChange={(e) => { setTitle(e.target.value); setDirty(true); }} placeholder="Ex.: Residência — Telhado principal" />
               </Field>
@@ -431,28 +442,42 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
           <Card id="sec-conta" className="scroll-mt-28">
             <CardHeader icon={<Receipt className="h-[18px] w-[18px]" />} title="2. Conta de luz" subtitle="Base da economia real — já considera fio B (Lei 14.300), taxa mínima e iluminação pública" />
             <div className="grid gap-4 px-5 pb-5 sm:grid-cols-2">
-              <Field label="Valor médio da conta" hint="Digite o valor e o consumo é calculado pela tarifa">
+              <Field
+                label="Valor médio da conta de luz"
+                hint={lead?.avg_bill ? <>Conta informada no CRM: <b className="text-zinc-200">{brl(lead.avg_bill)}</b></> : "Total da fatura, já com iluminação pública"}
+              >
                 <MoneyInput
                   value={billValue || null}
                   digits={0}
-                  placeholder={energy.monthlyBillBefore ? fmtNum(energy.monthlyBillBefore) : "0"}
+                  placeholder="Ex.: 450"
                   onChange={(v) => {
-                    setBillValue(v);
-                    if (inputs.tariff > 0 && v > 0) set("consumptionKwh", Math.round(Math.max(0, v - inputs.publicLighting) / inputs.tariff));
+                    if (inputs.tariff > 0) set("consumptionKwh", Math.round(Math.max(0, v - inputs.publicLighting) / inputs.tariff));
                   }}
                 />
               </Field>
-              <Field label="Consumo médio mensal" hint={lead?.avg_bill ? `Conta informada no cadastro: ${brl(lead.avg_bill)}` : "Média dos últimos 12 meses da fatura"}>
+              <Field label="Consumo médio mensal" hint="Média dos últimos 12 meses da fatura">
                 <NumberInput value={inputs.consumptionKwh} onChange={(v) => set("consumptionKwh", v)} suffix="kWh" digits={0} />
               </Field>
-              <Field label="Tarifa cheia (com impostos)" hint="Total da fatura ÷ kWh consumidos">
-                <NumberInput value={inputs.tariff} onChange={(v) => set("tariff", v)} prefix="R$" suffix="/kWh" digits={3} />
+              <Field
+                label="Tarifa cheia (com impostos)"
+                hint={
+                  Math.abs(inputs.tariff - MACEIO_TARIFF) > 0.005 ? (
+                    <button type="button" onClick={() => set("tariff", MACEIO_TARIFF)} className="font-semibold text-lime-300 hover:text-lime-200">
+                      Usar Equatorial AL (Maceió): {brl(MACEIO_TARIFF)}/kWh
+                    </button>
+                  ) : (
+                    "Equatorial Alagoas · Maceió (TE + TUSD + impostos)"
+                  )
+                }
+              >
+                <NumberInput value={inputs.tariff} onChange={(v) => set("tariff", v)} prefix="R$" suffix="/kWh" digits={2} />
               </Field>
+              <Field label="Iluminação pública (CIP)" hint="Valor da CIP na fatura — continua na conta mesmo com solar">
+                <MoneyInput value={inputs.publicLighting} onChange={(v) => set("publicLighting", v)} />
+              </Field>
+              <BillMath consumption={inputs.consumptionKwh} tariff={inputs.tariff} lighting={inputs.publicLighting} />
               <Field label="Fio B da distribuidora" hint={`Em ${new Date().getFullYear()} o cliente paga ${fmtNum(energy.fioBPct * 100)}% do fio B sobre a energia compensada`}>
                 <NumberInput value={inputs.fioBTariff} onChange={(v) => set("fioBTariff", v)} prefix="R$" suffix="/kWh" digits={3} />
-              </Field>
-              <Field label="Iluminação pública (CIP)" hint="Continua na conta mesmo com energia solar">
-                <MoneyInput value={inputs.publicLighting} onChange={(v) => set("publicLighting", v)} />
               </Field>
               <Field label="Tipo de ligação" hint={`Taxa mínima: ${energy.availabilityKwh} kWh (${brl(energy.availabilityKwh * inputs.tariff)})`}>
                 <Segmented
@@ -544,7 +569,7 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
                 <MoneyInput value={inputs.kitPrice} onChange={(v) => set("kitPrice", v)} className="[&_input]:h-12 [&_input]:text-lg [&_input]:font-semibold" />
               </Field>
 
-              <div className="rounded-2xl bg-zinc-800 p-4 ring-1 ring-white/10/60">
+              <div className="rounded-2xl bg-black/20 p-4 ring-1 ring-white/5">
                 <p className="mb-3 text-xs font-bold tracking-wider text-zinc-400 uppercase">Módulos (placas)</p>
                 <div className="grid gap-3 sm:grid-cols-4">
                   <Field label="Marca" className="sm:col-span-2">
@@ -565,7 +590,7 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
                         onClick={() => set("modulePowerW", w)}
                         className={cx(
                           "h-7 rounded-lg px-2.5 text-xs font-semibold ring-1 transition",
-                          inputs.modulePowerW === w ? "bg-lime-400 text-white ring-ink-900" : "bg-zinc-900 text-zinc-300 ring-white/10 hover:ring-white/20",
+                          inputs.modulePowerW === w ? "bg-lime-400 text-zinc-950 ring-lime-400" : "bg-zinc-900 text-zinc-300 ring-white/10 hover:ring-white/20",
                         )}
                       >
                         {w} W
@@ -582,7 +607,7 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
                     onClick={() => set("moduleQty", suggested)}
                     className="mt-3 flex w-full items-center gap-2 rounded-xl bg-zinc-900 px-3 py-2.5 text-left text-[13px] text-zinc-300 ring-1 ring-lime-400/30 transition hover:ring-lime-400/50"
                   >
-                    <Sparkles className="h-4 w-4 shrink-0 text-sun-500" />
+                    <Sparkles className="h-4 w-4 shrink-0 text-lime-300" />
                     <span>
                       Para compensar {fmtNum(inputs.consumptionKwh)} kWh/mês, o ideal são <b className="text-white">{suggested} placas</b> (
                       {fmtNum((suggested * inputs.modulePowerW) / 1000, 2)} kWp).
@@ -592,7 +617,7 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
                 )}
               </div>
 
-              <div className="rounded-2xl bg-zinc-800 p-4 ring-1 ring-white/10/60">
+              <div className="rounded-2xl bg-black/20 p-4 ring-1 ring-white/5">
                 <p className="mb-3 text-xs font-bold tracking-wider text-zinc-400 uppercase">Inversor</p>
                 <div className="grid gap-3 sm:grid-cols-4">
                   <Field label="Marca" className="sm:col-span-2">
@@ -612,7 +637,7 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
                   </Field>
                   {inverterHint && (
                     <p className="flex items-center gap-1.5 text-xs text-zinc-400 sm:col-span-4">
-                      <Sparkles className="h-3.5 w-3.5 text-sun-500" /> {inverterHint}
+                      <Sparkles className="h-3.5 w-3.5 text-lime-300" /> {inverterHint}
                     </p>
                   )}
                   <Field label="Estrutura / telhado" className="sm:col-span-2">
@@ -625,7 +650,7 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
                 </div>
               </div>
 
-              <div className="rounded-2xl bg-zinc-800 p-4 ring-1 ring-white/10/60">
+              <div className="rounded-2xl bg-black/20 p-4 ring-1 ring-white/5">
                 <p className="mb-1 text-xs font-bold tracking-wider text-zinc-400 uppercase">Fotos reais dos equipamentos</p>
                 <p className="mb-3 text-xs text-zinc-400">Aparecem na proposta. Sem foto, usamos uma imagem ilustrativa do produto.</p>
                 <div className="grid grid-cols-2 gap-3">
@@ -740,7 +765,7 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
                         type="button"
                         key={t}
                         onClick={() => set("financingTerms", on ? inputs.financingTerms.filter((x) => x !== t) : [...inputs.financingTerms, t].sort((a, b) => a - b))}
-                        className={cx("h-8 rounded-lg px-3 text-[13px] font-semibold ring-1 transition", on ? "bg-lime-400 text-white ring-ink-900" : "bg-zinc-900 text-zinc-400 ring-white/10 hover:ring-white/20")}
+                        className={cx("h-8 rounded-lg px-3 text-[13px] font-semibold ring-1 transition", on ? "bg-lime-400 text-zinc-950 ring-lime-400" : "bg-zinc-900 text-zinc-400 ring-white/10 hover:ring-white/20")}
                       >
                         {t}x
                       </button>
@@ -796,7 +821,7 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
             <p className="tnum font-display text-xl font-semibold tracking-tight">{pricing.valid ? brl(pricing.finalPrice) : "—"}</p>
           </button>
           
-          <Button variant="secondary" onClick={exportPdf} loading={exporting} className="bg-white text-zinc-900">
+          <Button variant="secondary" onClick={exportPdf} loading={exporting}>
             PDF
           </Button>
 
@@ -809,11 +834,22 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
         </div>
       </div>
 
+      {showNewLead && (
+        <NewLeadModal
+          onClose={() => setShowNewLead(false)}
+          onCreated={(id) => {
+            leadAppliedFor.current = null;
+            setLeadId(id);
+            setDirty(true);
+          }}
+        />
+      )}
+
       {sheet && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-zinc-950/60 backdrop-blur-sm" onClick={() => setSheet(false)} />
           <div className="animate-sheet-up absolute inset-x-0 bottom-0 max-h-[90dvh] overflow-y-auto rounded-t-3xl bg-zinc-950 pb-[env(safe-area-inset-bottom)]">
-            <button onClick={() => setSheet(false)} className="absolute top-4 right-4 z-10 grid h-9 w-9 place-items-center rounded-full bg-zinc-900/10 text-white" aria-label="Fechar">
+            <button onClick={() => setSheet(false)} className="absolute top-4 right-4 z-10 grid h-9 w-9 place-items-center rounded-full bg-white/10 text-white" aria-label="Fechar">
               <X className="h-4 w-4" />
             </button>
             <Checkout inputs={inputs} pricing={pricing} energy={energy} />
@@ -832,8 +868,8 @@ function Calc({ children }: { children: ReactNode }) {
 
 function Pill({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-lime-400/10 px-3 py-2.5 ring-1 ring-sun-200/70">
-      <p className="text-[11px] font-medium text-sun-800/80">{label}</p>
+    <div className="rounded-xl bg-lime-400/[0.07] px-3 py-2.5 ring-1 ring-lime-400/20">
+      <p className="text-[11px] font-medium text-lime-200/70">{label}</p>
       <p className="tnum mt-0.5 text-sm font-semibold text-white">{value}</p>
     </div>
   );
@@ -879,7 +915,7 @@ export function PriceComp({ label, value, amount, onChange }: { label: string; v
           { value: "fixed", label: "R$" },
         ]}
       />
-      <div className="flex h-10 items-center justify-between rounded-xl bg-zinc-800 px-3.5 ring-1 ring-white/10/60">
+      <div className="flex h-10 items-center justify-between rounded-xl bg-zinc-800 px-3.5 ring-1 ring-white/5">
         <span className="text-xs text-zinc-400">Valor</span>
         <span className={cx("tnum text-sm font-semibold", amount < 0 ? "text-rose-600" : "text-white")}>{brl(amount)}</span>
       </div>
@@ -922,7 +958,7 @@ export function LeadPicker({ leads, value, onChange, onNew }: { leads: any[]; va
       >
         {selected ? (
           <>
-            <div className="grid h-8 w-8 place-items-center rounded-full bg-lime-400 text-xs font-bold text-white">{selected.name[0]?.toUpperCase()}</div>
+            <div className="grid h-8 w-8 place-items-center rounded-full bg-lime-400 text-xs font-bold text-zinc-950">{selected.name[0]?.toUpperCase()}</div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold">{selected.name}</p>
               <p className="truncate text-xs text-zinc-400">{[selected.city, formatPhone(selected.phone)].filter(Boolean).join(" · ") || "Sem contato"}</p>
@@ -972,6 +1008,51 @@ export function LeadPicker({ leads, value, onChange, onNew }: { leads: any[]; va
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+function focusSection(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+/** Mostra a conta reconstruída a partir do consumo, para o vendedor conferir com a fatura. */
+function BillMath({ consumption, tariff, lighting }: { consumption: number; tariff: number; lighting: number }) {
+  if (!consumption || !tariff) return null;
+  return (
+    <div className="tnum flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl bg-white/[0.03] px-3.5 py-2.5 text-[13px] text-zinc-400 ring-1 ring-white/5 sm:col-span-2">
+      <Receipt className="h-3.5 w-3.5 text-lime-300" />
+      <span>
+        {fmtNum(consumption)} kWh × {brl(tariff)} = <b className="text-zinc-200">{brl(consumption * tariff)}</b>
+      </span>
+      <span>+ iluminação pública {brl(lighting)}</span>
+      <span className="ml-auto font-semibold text-white">= {brl(consumption * tariff + lighting)}/mês</span>
+    </div>
+  );
+}
+
+/** Resumo do cliente selecionado (dados que vieram do CRM). */
+function LeadFacts({ lead }: { lead: CrmLead }) {
+  const services = servicesOf(lead);
+  const facts = [
+    lead.avg_bill ? `Conta ${brl(lead.avg_bill, 0)}` : null,
+    lead.consumption_kwh ? `${fmtNum(lead.consumption_kwh)} kWh/mês` : null,
+    lead.roof_type,
+    lead.city,
+  ].filter(Boolean);
+  if (!services.length && !facts.length) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 sm:col-span-2">
+      {services.map((sv) => (
+        <Badge key={sv.id} className={sv.badge}>
+          <sv.icon className="h-3 w-3" /> {sv.short}
+        </Badge>
+      ))}
+      {facts.map((f) => (
+        <span key={f as string} className="rounded-full bg-white/5 px-2.5 py-0.5 text-xs text-zinc-300 ring-1 ring-white/10">
+          {f}
+        </span>
+      ))}
     </div>
   );
 }

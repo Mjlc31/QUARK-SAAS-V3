@@ -50,23 +50,23 @@ export const PIPELINE_CONSTANTS = {
 import type { LeadStatus, Priority, Product, ProposalStatus, Segment, TaskType } from "./types";
 
 export const STAGES: { id: LeadStatus; label: string; dot: string; soft: string }[] = [
-  { id: "novo", label: "Novo lead", dot: "bg-sky-500", soft: "bg-sky-50 text-sky-700 ring-sky-600/15" },
-  { id: "contato", label: "Em contato", dot: "bg-indigo-500", soft: "bg-indigo-50 text-indigo-700 ring-indigo-600/15" },
-  { id: "visita", label: "Visita técnica", dot: "bg-violet-500", soft: "bg-violet-50 text-violet-700 ring-violet-600/15" },
-  { id: "proposta", label: "Proposta enviada", dot: "bg-amber-500", soft: "bg-amber-50 text-amber-800 ring-amber-600/20" },
-  { id: "negociacao", label: "Negociação", dot: "bg-orange-500", soft: "bg-orange-50 text-orange-700 ring-orange-600/15" },
-  { id: "ganho", label: "Fechado", dot: "bg-emerald-500", soft: "bg-emerald-50 text-emerald-700 ring-emerald-600/15" },
-  { id: "perdido", label: "Perdido", dot: "bg-rose-500", soft: "bg-rose-50 text-rose-700 ring-rose-600/15" },
+  { id: "novo", label: "Novo lead", dot: "bg-sky-500", soft: "bg-sky-400/10 text-sky-300 ring-sky-400/25" },
+  { id: "contato", label: "Em contato", dot: "bg-indigo-500", soft: "bg-indigo-400/10 text-indigo-300 ring-indigo-400/25" },
+  { id: "visita", label: "Visita técnica", dot: "bg-violet-500", soft: "bg-violet-400/10 text-violet-300 ring-violet-400/25" },
+  { id: "proposta", label: "Proposta enviada", dot: "bg-amber-500", soft: "bg-amber-400/10 text-amber-300 ring-amber-400/25" },
+  { id: "negociacao", label: "Negociação", dot: "bg-orange-500", soft: "bg-orange-400/10 text-orange-300 ring-orange-400/25" },
+  { id: "ganho", label: "Fechado", dot: "bg-emerald-500", soft: "bg-emerald-400/10 text-emerald-300 ring-emerald-400/25" },
+  { id: "perdido", label: "Perdido", dot: "bg-rose-500", soft: "bg-rose-400/10 text-rose-300 ring-rose-400/25" },
 ];
 export const stageOf = (id: string) => STAGES.find((s) => s.id === id) ?? STAGES[0];
 export const OPEN_STAGES: LeadStatus[] = ["novo", "contato", "visita", "proposta", "negociacao"];
 
 export const PROPOSAL_STATUS: Record<ProposalStatus, { label: string; cls: string }> = {
-  rascunho: { label: "Rascunho", cls: "bg-ink-100 text-ink-600 ring-ink-500/15" },
-  enviada: { label: "Enviada", cls: "bg-sky-50 text-sky-700 ring-sky-600/15" },
-  visualizada: { label: "Visualizada", cls: "bg-violet-50 text-violet-700 ring-violet-600/15" },
-  aceita: { label: "Aceita", cls: "bg-emerald-50 text-emerald-700 ring-emerald-600/15" },
-  recusada: { label: "Recusada", cls: "bg-rose-50 text-rose-700 ring-rose-600/15" },
+  rascunho: { label: "Rascunho", cls: "bg-white/5 text-zinc-300 ring-white/10" },
+  enviada: { label: "Enviada", cls: "bg-sky-400/10 text-sky-300 ring-sky-400/25" },
+  visualizada: { label: "Visualizada", cls: "bg-violet-400/10 text-violet-300 ring-violet-400/25" },
+  aceita: { label: "Aceita", cls: "bg-emerald-400/10 text-emerald-300 ring-emerald-400/25" },
+  recusada: { label: "Recusada", cls: "bg-rose-400/10 text-rose-300 ring-rose-400/25" },
 };
 
 export const TASK_TYPES: Record<TaskType, string> = {
@@ -79,9 +79,9 @@ export const TASK_TYPES: Record<TaskType, string> = {
 };
 
 export const PRIORITIES: Record<Priority, { label: string; cls: string }> = {
-  baixa: { label: "Baixa", cls: "bg-ink-100 text-ink-600 ring-ink-500/15" },
-  media: { label: "Média", cls: "bg-amber-50 text-amber-800 ring-amber-600/20" },
-  alta: { label: "Alta", cls: "bg-rose-50 text-rose-700 ring-rose-600/15" },
+  baixa: { label: "Baixa", cls: "bg-white/5 text-zinc-300 ring-white/10" },
+  media: { label: "Média", cls: "bg-amber-400/10 text-amber-300 ring-amber-400/25" },
+  alta: { label: "Alta", cls: "bg-rose-400/10 text-rose-300 ring-rose-400/25" },
 };
 
 export const SOURCES = ["Indicação", "Instagram", "Facebook", "Google", "Site", "WhatsApp", "Porta a porta", "Prospecção ativa", "Evento", "Outro"];
@@ -89,12 +89,12 @@ export const ROOF_TYPES = ["Telhado cerâmico", "Telhado fibrocimento", "Telhado
 export const UFS = "AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO".split(" ");
 
 export const SEGMENTS: Record<Segment, { label: string; short: string; cls: string }> = {
-  solar: { label: "Energia solar", short: "Solar", cls: "bg-amber-50 text-amber-800 ring-amber-600/20" },
-  save: { label: "Carregador veicular", short: "S.A.V.E", cls: "bg-sky-50 text-sky-800 ring-sky-600/20" },
-  ambos: { label: "Solar + carregador", short: "Solar + S.A.V.E", cls: "bg-violet-50 text-violet-800 ring-violet-600/20" },
-  eletroposto: { label: "Eletroposto (investimento)", short: "Eletroposto", cls: "bg-emerald-50 text-emerald-800 ring-emerald-600/20" },
-  manutencao: { label: "Limpeza e manutenção de usina", short: "Manutenção", cls: "bg-cyan-50 text-cyan-800 ring-cyan-600/20" },
-  gestao: { label: "Gestão energética", short: "Gestão", cls: "bg-rose-50 text-rose-800 ring-rose-600/20" },
+  solar: { label: "Energia solar", short: "Solar", cls: "bg-amber-400/10 text-amber-300 ring-amber-400/25" },
+  save: { label: "Carregador veicular", short: "S.A.V.E", cls: "bg-sky-400/10 text-sky-300 ring-sky-400/25" },
+  ambos: { label: "Solar + carregador", short: "Solar + S.A.V.E", cls: "bg-violet-400/10 text-violet-300 ring-violet-400/25" },
+  eletroposto: { label: "Eletroposto (investimento)", short: "Eletroposto", cls: "bg-emerald-400/10 text-emerald-300 ring-emerald-400/25" },
+  manutencao: { label: "Limpeza e manutenção de usina", short: "Manutenção", cls: "bg-cyan-400/10 text-cyan-300 ring-cyan-400/25" },
+  gestao: { label: "Gestão energética", short: "Gestão", cls: "bg-rose-400/10 text-rose-300 ring-rose-400/25" },
 };
 
 /** Segmentos que usam os dados de conta de luz / energia solar. */
@@ -103,8 +103,8 @@ export const SOLAR_SEGMENTS: Segment[] = ["solar", "ambos", "manutencao", "gesta
 export const CHARGER_SEGMENTS: Segment[] = ["save", "ambos", "eletroposto"];
 
 export const PRODUCTS: Record<Product, { label: string; short: string; cls: string }> = {
-  solar: { label: "Energia solar", short: "Solar", cls: "bg-amber-50 text-amber-800 ring-amber-600/20" },
-  save: { label: "S.A.V.E · Recarga veicular", short: "S.A.V.E", cls: "bg-sky-50 text-sky-800 ring-sky-600/20" },
+  solar: { label: "Energia solar", short: "Solar", cls: "bg-amber-400/10 text-amber-300 ring-amber-400/25" },
+  save: { label: "S.A.V.E · Recarga veicular", short: "S.A.V.E", cls: "bg-sky-400/10 text-sky-300 ring-sky-400/25" },
 };
 
 export const productOf = (inputs: { product?: unknown } | null | undefined): Product => (inputs?.product === "save" ? "save" : "solar");

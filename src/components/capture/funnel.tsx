@@ -40,7 +40,7 @@ import { useSearchParams } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { cx } from "@/components/ui";
 import { BUSINESSES, CLEANING, MANAGEMENT, POWERS, evCompare, maintenanceSim, stationCapacity, stationSim } from "@/lib/capture-sims";
-import { DEFAULT_CAPTURE, type CapturePrefs, type RoofKey } from "@/lib/defaults";
+import { DEFAULT_CAPTURE, effectiveTariff, type CapturePrefs, type RoofKey } from "@/lib/defaults";
 import { supabase } from "@/lib/supabaseClient";
 import { whatsappUrl } from "@/lib/format";
 import { brl, fmtNum } from "@/lib/pricing";
@@ -166,7 +166,7 @@ export function CaptureFunnel({ company }: { company: PublicCompany }) {
     paymentTitle: company.capture?.paymentTitle || DEFAULT_CAPTURE.paymentTitle,
     payments: Array.isArray(company.capture?.payments) && company.capture.payments.length ? company.capture.payments : DEFAULT_CAPTURE.payments,
   };
-  const tariff = Number(company.tariff) || 0.95;
+  const tariff = effectiveTariff(Number(company.tariff));
 
   const [segment, setSegment] = useState<Segment | null>(initial && FLOWS[initial] ? initial : null);
   const [step, setStep] = useState<StepId>(initial && FLOWS[initial] ? FLOWS[initial][1] : "interesse");
@@ -249,7 +249,26 @@ export function CaptureFunnel({ company }: { company: PublicCompany }) {
       .filter(Boolean)
       .join(" · ");
     const isSolar = segment === "solar" || segment === "ambos";
-    const res = await supabase.rpc("create_public_lead", { p: {
+    // Vai direto para o CRM; bancos sem a migração nova caem na função antiga.
+    const crm = await supabase.rpc("create_crm_lead", { p: {
+        name: form.name,
+        phone: form.phone,
+        email: form.email,
+        city: form.city,
+        segment: segment === "ambos" ? "ambos" : segment,
+        services: segment === "ambos" ? ["solar", "save"] : [segment],
+        avg_bill: isSolar ? bill : "",
+        consumption_kwh: isSolar ? solar.consumption : "",
+        roof_type: roof,
+        temperature: form.urgency || "morno",
+        source: form.referred === "sim" ? "Indicação" : source === "Site" ? "Simulador" : source,
+        notes,
+        summary: summary(),
+        website: form.website,
+        answers: { simulacao: summary(), telhado: roof, prazo: URGENCY.find(([v]) => v === form.urgency)?.[1], indicacao: form.referred === "sim" ? form.referrer.trim() : "" },
+      }
+    });
+    const res = !crm.error ? crm : await supabase.rpc("create_public_lead", { p: {
         name: form.name,
         phone: form.phone,
         email: form.email,

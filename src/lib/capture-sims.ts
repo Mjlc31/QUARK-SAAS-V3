@@ -13,7 +13,7 @@ export const EV = {
   co2KgPerLiter: 2.3, // emissão da gasolina
 };
 
-export function evCompare({ kmMonth, kmPerLiter, tariff = 0.95 }: { kmMonth: number; kmPerLiter: number; tariff?: number }) {
+export function evCompare({ kmMonth, kmPerLiter, tariff = 1.1 }: { kmMonth: number; kmPerLiter: number; tariff?: number }) {
   const km = clamp(kmMonth, 100, 10000);
   const kml = clamp(kmPerLiter, 5, 25);
   const liters = km / kml;
@@ -39,7 +39,7 @@ export function evCompare({ kmMonth, kmPerLiter, tariff = 0.95 }: { kmMonth: num
 export const STATION = {
   kwhPerSession: 30, // energia média por recarga rápida
   pricePerKwh: 2.19, // preço de venda ao motorista (R$/kWh)
-  energyCost: 0.95, // custo da energia comprada (R$/kWh), sem solar
+  energyCost: 1.1, // custo da energia comprada (R$/kWh), sem solar
   feesPct: 10, // app de pagamento, manutenção e seguro (% da receita)
   operatingHours: 16,
   crossBuyRate: 0.6, // motoristas que consomem no local enquanto carregam
@@ -103,7 +103,7 @@ export const CLEANING = [
   { id: "nunca", label: "Nunca limpei", loss: 0.18 },
 ] as const;
 
-export function maintenanceSim({ kwp, last, tariff = 0.95, sunHours = 5.2 }: { kwp: number; last: string; tariff?: number; sunHours?: number }) {
+export function maintenanceSim({ kwp, last, tariff = 1.1, sunHours = 5.2 }: { kwp: number; last: string; tariff?: number; sunHours?: number }) {
   const size = clamp(kwp, 1, 5000);
   const lossPct = CLEANING.find((c) => c.id === last)?.loss ?? 0.12;
   const genMonth = size * sunHours * 30 * 0.8;

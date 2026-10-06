@@ -1,6 +1,6 @@
 "use client";
 
-import { Calculator, Download, PlugZap, Copy, Eye, FileText, MoreHorizontal, Search, Trash2, Building2, TrendingUp, Wallet, Trophy, ArrowUpRight } from "lucide-react";
+import { Calculator, Download, PlugZap, Copy, FileText, MoreHorizontal, Search, Trash2, Building2, TrendingUp, Wallet, Trophy, ArrowUpRight } from "lucide-react";
 import { SettingsModal } from "../components/proposal/SettingsModal";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
@@ -8,12 +8,14 @@ import { toast } from "react-hot-toast";
 import { Badge, Button, Card, Empty, Input, PageHeader, Segmented, Skeleton, cx } from "@/components/ui";
 import { PRODUCTS, PROPOSAL_STATUS, productOf } from "@/lib/constants";
 import { proposalSummary } from "@/lib/proposal-summary";
-import { formatDate, relativeTime } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import { must, useLive } from "@/lib/live";
 import { brl, fmtNum } from "@/lib/pricing";
 import { downloadCsv, today } from "@/lib/csv";
 import { Mantra } from "@/components/app/mantra";
 import { supabase } from "@/lib/supabase/client";
+import { ViewsPill } from "@/components/ProposalViews";
+import { fetchProposalViews, type ProposalView } from "@/lib/proposal-tracking";
 import type { Product, Proposal, ProposalStatus } from "@/lib/types";
 
 type Filter = "todas" | ProposalStatus;
@@ -51,17 +53,19 @@ function Proposals() {
         const { data: leads } = await supabase().from("opportunities").select("id, title, city, phone").in("id", leadIds);
         leadsMap = new Map(leads?.map((l) => [l.id, l]) || []);
       }
+      const views = await fetchProposalViews(proposals.map((p) => String(p.id)));
       return proposals.map((p: any) => {
         const linkedLead = leadsMap.get(p.lead_id);
         const name = p.title || linkedLead?.title || p.client_name || p.data?.clientName || 'Sem nome';
         return {
           ...p,
+          views: views.filter((v) => v.proposal_id === String(p.id)),
           lead: p.lead || { name, city: p.city || linkedLead?.city || p.data?.city, phone: p.phone || linkedLead?.phone }
         };
       }) as Proposal[];
     },
     [],
-    ["proposals"],
+    ["proposals", "proposal_views"],
   );
   const data = rawData;
   const scoped = useMemo(() => (data ?? []).filter((p) => product === "todos" || productOf(p.inputs) === product), [data, product]);
@@ -299,7 +303,7 @@ function StatCard({
             {icon}
           </div>
           {accent && (
-            <div className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-600">
+            <div className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-400">
               <ArrowUpRight className="h-3 w-3" />
               Receita
             </div>
@@ -348,15 +352,11 @@ function ProposalRow({ p, idx, onDuplicate, onDelete }: { p: Proposal; idx: numb
           <p className="truncate font-semibold text-white">{p.lead?.name ?? "—"}</p>
           <Badge className={PROPOSAL_STATUS[p.status || "rascunho"]?.cls}>{PROPOSAL_STATUS[p.status || "rascunho"]?.label}</Badge>
           {productOf(p.inputs) === "save" && <Badge className={PRODUCTS.save?.cls}>⚡ S.A.V.E</Badge>}
+          {p.status !== "rascunho" && <span className="hidden sm:inline-flex"><ViewsPill views={(p as Proposal & { views?: ProposalView[] }).views ?? []} align="left" /></span>}
         </div>
         <p className="mt-0.5 truncate text-[13px] text-zinc-400">
           <span className="hidden sm:inline tnum text-zinc-500 font-medium">#{p.number} · </span>
           {proposalSummary(p)} · {formatDate(p.created_at)}
-          {p.view_count > 0 && (
-            <span className="ml-2 inline-flex items-center gap-1 text-violet-600">
-              <Eye className="h-3 w-3" /> {p.view_count}× · {relativeTime(p.viewed_at)}
-            </span>
-          )}
         </p>
       </div>
       <div className="text-right">
