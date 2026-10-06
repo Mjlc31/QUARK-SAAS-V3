@@ -3,7 +3,7 @@
  * dimensiona o sistema e calcula a economia com o mesmo motor das propostas (fio B, taxa
  * mínima e iluminação pública inclusos). Não mostra preço: isso é papel do consultor.
  */
-import { DEFAULT_INPUTS } from "./defaults.ts";
+import { DEFAULT_INPUTS, effectiveTariff } from "./defaults.ts";
 import { calcEnergy, type ConnectionType } from "./pricing.ts";
 
 export const QUICK_MODULE_W = 610;
@@ -19,7 +19,7 @@ export interface QuickParams {
 }
 
 export function quickEstimate(p: QuickParams) {
-  const tariff = p.tariff || DEFAULT_INPUTS.tariff;
+  const tariff = effectiveTariff(p.tariff);
   const sunHours = p.sunHours || DEFAULT_INPUTS.sunHours;
   const lighting = p.publicLighting ?? DEFAULT_INPUTS.publicLighting;
   const connectionType = p.connectionType ?? "bi";

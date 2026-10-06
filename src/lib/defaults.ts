@@ -143,6 +143,9 @@ export interface ProposalPrefs {
  */
 export const MACEIO_TARIFF = 1.1;
 
+/** Tarifas salvas antes da correção (ex.: R$ 0,95) estão defasadas para a Equatorial AL. */
+export const effectiveTariff = (t: number | null | undefined) => (t && t >= 1 ? t : MACEIO_TARIFF);
+
 export const DEFAULT_INPUTS: ProposalInputs = {
   kitPrice: 0,
   inverterBrand: "",

@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Users, Calculator, CheckSquare, Package, LogOut, PieChart, X, HardHat, MessageSquare, DollarSign, FileText, Kanban, Instagram, MapPin, Headphones, Brain, Wrench, Bell, Bot, ShoppingCart, Table } from 'lucide-react';
+import { LayoutDashboard, Users, Calculator, CheckSquare, Package, LogOut, PieChart, X, HardHat, MessageSquare, DollarSign, FileText, Kanban, Instagram, MapPin, Headphones, Brain, Wrench, Bell, Bot, ShoppingCart, Table, FolderCog } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -71,6 +71,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     { id: 'tasks', label: 'Tarefas', icon: CheckSquare, path: '/tasks' },
     { id: 'clientes', label: 'Clientes', icon: Users, path: '/clientes' },
     { id: 'maintenance', label: 'Manutenção', icon: Wrench, path: '/maintenance' },
+    { id: 'ferramentas', label: 'Ferramentas', icon: FolderCog, path: '/ferramentas' },
   ];
 
   const financeAdminItems = [

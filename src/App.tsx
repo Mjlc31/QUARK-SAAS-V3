@@ -16,6 +16,9 @@ const Proposals = React.lazy(() => import('./pages/Proposals'));
 const ProposalEditorPage = React.lazy(() => import('./pages/ProposalEditorPage'));
 const PublicProposal = React.lazy(() => import('./pages/PublicProposal'));
 const PublicCapture = React.lazy(() => import('./pages/PublicCapture'));
+const BioLanding = React.lazy(() => import('./pages/BioLanding'));
+const Anamnese = React.lazy(() => import('./pages/Anamnese'));
+const Tools = React.lazy(() => import('./pages/Tools'));
 const Engineering = React.lazy(() => import('./pages/Engineering'));
 const FollowUp = React.lazy(() => import('./pages/FollowUp'));
 const Financial = React.lazy(() => import('./pages/Financial'));
@@ -96,6 +99,7 @@ const MainLayout: React.FC = () => {
             <Route path="/financeiro" element={<PageWrapper><Financial /></PageWrapper>} />
             <Route path="/prospeccao" element={<PageWrapper><Prospeccao /></PageWrapper>} />
             <Route path="/clientes" element={<PageWrapper><ClientCatalog /></PageWrapper>} />
+            <Route path="/ferramentas" element={<PageWrapper><Tools /></PageWrapper>} />
 
             {/* Admin Routes */}
             <Route path="/tickets" element={<PageWrapper><TicketAdmin /></PageWrapper>} />
@@ -170,6 +174,16 @@ const App: React.FC = () => {
         <Route path="/p/:token" element={
           <Suspense fallback={<SkeletonLoader />}>
             <PublicProposal />
+          </Suspense>
+        } />
+        <Route path="/bio" element={
+          <Suspense fallback={<div className="min-h-dvh bg-[#07060D]" />}>
+            <BioLanding />
+          </Suspense>
+        } />
+        <Route path="/anamnese" element={
+          <Suspense fallback={<div className="min-h-dvh bg-[#07060D]" />}>
+            <Anamnese />
           </Suspense>
         } />
         <Route path="/captura" element={

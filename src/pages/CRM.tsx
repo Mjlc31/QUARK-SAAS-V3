@@ -480,7 +480,7 @@ function OppCard({
             {opp.source && <span className="truncate"> · {opp.source}</span>}
           </p>
         </div>
-        <p className="tnum shrink-0 text-sm font-bold text-lime-300">{opp.amount ? formatCurrencyShort(opp.amount) : "—"}</p>
+        <p className={cx("tnum shrink-0 text-sm font-bold", opp.amount ? "text-lime-300" : "text-zinc-600")}>{opp.amount ? formatCurrencyShort(opp.amount) : "sem valor"}</p>
       </div>
 
       <ServiceBadges opp={opp} max={3} size="xs" className="mb-2" />

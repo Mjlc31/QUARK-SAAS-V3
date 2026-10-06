@@ -35,7 +35,7 @@ import { PROPOSAL_STATUS, ROOF_TYPES } from "@/lib/constants";
 import { useCrmLeads, logCrmNote, type CrmLead } from "@/lib/crm-leads";
 import { servicesOf } from "@/lib/services";
 import { ViewsPill } from "@/components/ProposalViews";
-import { MACEIO_TARIFF, mergeInputs, toStoredSettings, type KitPreset } from "@/lib/defaults";
+import { MACEIO_TARIFF, effectiveTariff, mergeInputs, toStoredSettings, type KitPreset } from "@/lib/defaults";
 import { addDays, formatPhone, whatsappUrl } from "@/lib/format";
 import { must, useLive } from "@/lib/live";
 import { brl, calcEnergy, calcPricing, fmtNum, type AmountMode, type PriceComponent, type ProposalInputs, type PricingResult, type EnergyResult } from "@/lib/pricing";
@@ -128,7 +128,8 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
   // Novo orçamento: parte dos padrões configurados + dados de consumo do lead.
   useEffect(() => {
     if (proposal || inputs || !settingsLoaded) return;
-    setInputs(mergeInputs(settings.defaults));
+    const base = mergeInputs(settings.defaults);
+    setInputs({ ...base, tariff: effectiveTariff(base.tariff) });
   }, [proposal, inputs, settingsLoaded, settings.defaults]);
 
   const leadAppliedFor = useRef<string | null>(proposal?.lead_id ?? null);

@@ -317,3 +317,22 @@
 :root {
   --app-height: 100dvh;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   FERRAMENTAS — impressão só do documento (procuração, contrato, recibo, nota)
+   ═══════════════════════════════════════════════════════════════════ */
+#tool-print-root { display: none; }
+@media print {
+  body.printing-tool > *:not(#tool-print-root) { display: none !important; }
+  body.printing-tool #tool-print-root { display: block; }
+  body.printing-tool .tool-paper {
+    box-shadow: none !important;
+    min-height: auto !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  body.printing-tool .tool-avoid-break { break-inside: avoid; }
+  body.printing-tool .tool-page-break { break-before: page; }
+}
+@page { size: A4; margin: 14mm 16mm; }
