@@ -411,7 +411,12 @@ export function Paper({ company, children, docLabel, number }: { company: Compan
       <header className="mb-8 flex items-start justify-between gap-6 border-b-2 border-[#1d1b26] pb-4 font-sans">
         <div className="flex items-center gap-3">
           <div className="grid h-11 w-11 place-items-center rounded-xl bg-[#14121c]">
-            <img src={company.logo || "/LOGOQUARK.png"} alt="" className="h-9 w-9 object-contain" />
+            <img 
+              src={company.logo || "/LOGOQUARK.png"} 
+              onError={(e) => { e.currentTarget.src = "/LOGOQUARK.png"; e.currentTarget.onerror = null; }}
+              alt="" 
+              className="h-9 w-9 object-contain" 
+            />
           </div>
           <div>
             <p className="text-[15px] font-bold tracking-tight">{company.fantasy}</p>

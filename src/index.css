@@ -336,3 +336,31 @@
   body.printing-tool .tool-page-break { break-before: page; }
 }
 @page { size: A4; margin: 14mm 16mm; }
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+  body.printing-tool .tool-paper {
+    padding: 0 !important;
+    margin: 0 !important;
+    font-size: 12.5px !important;
+    line-height: 1.4 !important;
+  }
+  body.printing-tool .pt-12 {
+    padding-top: 1.5rem !important; /* reduce signature top padding */
+  }
+  body.printing-tool .mt-10 {
+    margin-top: 1.5rem !important; /* reduce warning box top margin */
+  }
+  body.printing-tool .mb-8 {
+    margin-bottom: 1.5rem !important; /* reduce header bottom margin */
+  }
+  body.printing-tool .mb-6 {
+    margin-bottom: 1rem !important;
+  }
+  body.printing-tool .mb-3\\.5 {
+    margin-bottom: 0.5rem !important;
+  }
+}
