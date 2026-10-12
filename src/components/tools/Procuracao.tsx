@@ -242,6 +242,7 @@ export function ProcuracaoTool({ company }: { company: Company }) {
       issues={issues}
       form={form}
       paper={paper}
+      company={company}
     />
   );
 }

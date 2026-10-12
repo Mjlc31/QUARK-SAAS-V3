@@ -30,12 +30,16 @@ const Maintenance = React.lazy(() => import('./pages/Maintenance'));
 const MaintenanceAlerts = React.lazy(() => import('./pages/MaintenanceAlerts'));
 const UtilityRobot = React.lazy(() => import('./pages/UtilityRobot'));
 const PriceList = React.lazy(() => import('./pages/PriceList'));
+const Ranking = React.lazy(() => import('./pages/Ranking'));
 const PortalDashboard = React.lazy(() => import('./pages/portal/PortalDashboard'));
 const PortalTickets = React.lazy(() => import('./pages/portal/PortalTickets'));
 const PortalTracking = React.lazy(() => import('./pages/portal/PortalTracking'));
 const PortalPayments = React.lazy(() => import('./pages/portal/PortalPayments'));
 const PortalEcommerce = React.lazy(() => import('./pages/portal/PortalEcommerce'));
 const ClientLoginScreen = React.lazy(() => import('./pages/auth/ClientLoginScreen'));
+const PublicDocumentSign = React.lazy(() => import('./pages/PublicDocumentSign'));
+const QuickQuoteStudio = React.lazy(() => import('./pages/QuickQuoteStudio'));
+const TeamManagement = React.lazy(() => import('./pages/TeamManagement'));
 import { AppProvider, useApp } from './contexts/AppContext';
 import { LayoutDashboard, Menu, Zap, Users, CheckSquare, HardHat, DollarSign } from 'lucide-react';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -83,6 +87,9 @@ const MainLayout: React.FC = () => {
           <AnimatePresence mode="wait"><Routes location={location} key={location.pathname}>
             <Route path="/" element={<PageWrapper><Dashboard /></PageWrapper>} />
             <Route path="/crm" element={<PageWrapper><CRM /></PageWrapper>} />
+            <Route path="/ranking" element={<PageWrapper><Ranking /></PageWrapper>} />
+            <Route path="/orcamento-rapido" element={<PageWrapper><QuickQuoteStudio /></PageWrapper>} />
+            <Route path="/equipe" element={<PageWrapper><TeamManagement /></PageWrapper>} />
             <Route path="/conversations" element={<PageWrapper><Conversations /></PageWrapper>} />
             <Route path="/calculator" element={<PageWrapper><Calculator /></PageWrapper>} />
             <Route path="/price-list" element={<PageWrapper><PriceList /></PageWrapper>} />
@@ -174,6 +181,11 @@ const App: React.FC = () => {
         <Route path="/p/:token" element={
           <Suspense fallback={<SkeletonLoader />}>
             <PublicProposal />
+          </Suspense>
+        } />
+        <Route path="/assinar/:token" element={
+          <Suspense fallback={<SkeletonLoader />}>
+            <PublicDocumentSign />
           </Suspense>
         } />
         <Route path="/bio" element={

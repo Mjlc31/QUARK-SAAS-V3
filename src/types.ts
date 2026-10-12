@@ -144,6 +144,11 @@ export interface Task {
   deadline: string;
   completed: boolean;
   priority: 'High' | 'Medium' | 'Low';
+  copy?: string;
+  lead_id?: string;
+  lead_name?: string;
+  lead_phone?: string;
+  action?: 'procuracao' | 'aluguel' | 'proposta' | string;
 }
 
 export type ProductCategory = 'Módulo' | 'Inversor' | 'Estrutura' | 'Cabo' | 'String Box' | 'Disjuntor' | 'Outros';
@@ -172,7 +177,8 @@ export interface AppError {
 export interface ApiResult<T> {
   data?: T;
   error?: AppError | null;
-}
+}
+
 // -- Activity (feed de atividades recentes) ------
 export interface Activity {
   id: string;

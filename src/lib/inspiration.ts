@@ -1,4 +1,6 @@
-/** Frases, dicas e imagens que inspiram quem usa o app (nunca aparecem na proposta do cliente). */
+/**
+ * Frases, dicas e imagens que inspiram quem usa o app.
+ */
 
 export interface Quote {
   text: string;
@@ -41,11 +43,11 @@ export const QUOTES: Quote[] = [
   { text: "Não conte os dias. Faça os dias contarem.", author: "Muhammad Ali", tag: "esporte" },
   { text: "Quanto mais eu treino, mais sorte eu tenho.", author: "Gary Player", tag: "esporte" },
   { text: "Vencedores nunca desistem, e quem desiste nunca vence.", author: "Vince Lombardi", tag: "esporte" },
-  { text: "O sol trabalha de graça o dia inteiro. A sua parte é fazer o cliente enxergar isso.", author: "Quark CRM", tag: "solar" },
-  { text: "Você não vende placas. Vende liberdade da conta de luz pelos próximos 25 anos.", author: "Quark CRM", tag: "solar" },
-  { text: "Cada telhado vazio é uma proposta esperando por você.", author: "Quark CRM", tag: "solar" },
-  { text: "O sol nasce para todos. Mas o contrato é de quem liga primeiro.", author: "Quark CRM", tag: "solar" },
-  { text: "Quem mostra a economia em reais fecha. Quem mostra kWp explica.", author: "Quark CRM", tag: "solar" },
+  { text: "O sol trabalha de graça o dia inteiro. A sua parte é fazer o cliente enxergar isso.", author: "Quark Energia", tag: "solar" },
+  { text: "Você não vende placas. Vende liberdade da conta de luz pelos próximos 25 anos.", author: "Quark Energia", tag: "solar" },
+  { text: "Cada telhado vazio é uma proposta esperando por você.", author: "Quark Energia", tag: "solar" },
+  { text: "O sol nasce para todos. Mas o contrato é de quem liga primeiro.", author: "Quark Energia", tag: "solar" },
+  { text: "Quem mostra a economia em reais fecha. Quem mostra kWp explica.", author: "Quark Energia", tag: "solar" },
 ];
 
 export const SALES_TIPS: { title: string; text: string }[] = [
@@ -63,12 +65,7 @@ export const SALES_TIPS: { title: string; text: string }[] = [
   { title: "Follow-up é venda", text: "A maioria das vendas acontece entre o 3º e o 5º contato. Agende a próxima tarefa antes de desligar." },
 ];
 
-/**
- * Imagens padrão (Unsplash, uso livre). Se alguma não carregar, o app mostra uma arte
- * própria no lugar. Em Configurações → App você pode usar as suas próprias imagens.
- */
 export const DEFAULT_IMAGES: string[] = [
-  // Manhattan à noite, pregão, arranha-céus e escritórios — clima Wall Street, sem carros.
   "https://images.unsplash.com/photo-1514565131-fce0801e5785",
   "https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b",
   "https://images.unsplash.com/photo-1444723121867-7a241cacace9",
@@ -80,12 +77,6 @@ export const DEFAULT_IMAGES: string[] = [
   "https://images.unsplash.com/photo-1497366216548-37526070297c",
 ];
 
-export function imageUrl(src: string, width = 1920) {
-  if (src.includes("images.unsplash.com") && !src.includes("?")) return `${src}?auto=format&fit=crop&w=${width}&q=75`;
-  return src;
-}
-
-/** Índice estável por dia (muda à meia-noite). */
 export function dayIndex(date = new Date()) {
   const start = new Date(date.getFullYear(), 0, 0);
   return Math.floor((date.getTime() - start.getTime()) / 86400000) + date.getFullYear() * 400;
@@ -96,12 +87,18 @@ export function pickDaily<T>(list: T[], offset = 0, date = new Date()): T | unde
   return list[(dayIndex(date) + offset) % list.length];
 }
 
-export function quotePool(custom: Quote[], useDefaults: boolean) {
-  const mine = custom.filter((q) => q.text.trim());
-  return useDefaults || !mine.length ? [...mine, ...QUOTES] : mine;
+export function quotePool(custom?: Quote[], useDefaults = true): Quote[] {
+  const mine = (custom || []).filter((q) => q && q.text && q.text.trim());
+  if (useDefaults) {
+    return [...QUOTES, ...mine];
+  }
+  return mine.length ? mine : QUOTES;
 }
 
-export function imagePool(custom: string[]) {
-  const mine = custom.map((u) => u.trim()).filter((u) => /^https?:\/\//.test(u));
-  return mine.length ? mine : DEFAULT_IMAGES;
+export function imageUrl(src: string, width = 1920) {
+  if (src.includes("images.unsplash.com") && !src.includes("?")) {
+    return `${src}?auto=format&fit=crop&w=${width}&q=75`;
+  }
+  return src;
 }
+

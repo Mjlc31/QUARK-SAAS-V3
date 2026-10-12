@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, ReactNode, useEffect } from
 import { Project } from '../types';
 import { storageService } from '../services/storageService';
 import { useAuth } from './AuthContext';
+import { supabase } from '../lib/supabaseClient';
 
 interface ProjectContextType {
   projects: Project[];
@@ -65,6 +66,31 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     const updatedProject = { ...project, status, updatedAt: new Date().toISOString() };
     setProjects(prev => prev.map(p => p.id === id ? updatedProject : p));
     await storageService.syncProject(updatedProject);
+    
+    // Automação: Enviar WhatsApp quando o status do projeto mudar
+    if (project.clientPhone) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        
+        if (token) {
+          const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+          await fetch(`${BACKEND_URL}/api/evolution/send`, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              phone: project.clientPhone,
+              message: `*Atualização da Obra Quark!*\nOlá ${(project.clientName || 'Cliente').trim().split(' ')[0]}, seu projeto acaba de avançar para a etapa: *${status}*. Qualquer dúvida, estamos à disposição no portal!`
+            })
+          });
+        }
+      } catch (e) {
+        console.warn('Falha ao enviar notificação de projeto:', e);
+      }
+    }
   };
 
   const updateProject = async (id: string, updates: Partial<Project>) => {

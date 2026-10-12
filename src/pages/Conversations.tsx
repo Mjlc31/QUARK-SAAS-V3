@@ -216,7 +216,7 @@ const Conversations: React.FC = () => {
         try {
             const res = await fetch('/api/evolution/connect', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
                 body: JSON.stringify({ instanceName: 'quark' })
             });
 
@@ -253,7 +253,7 @@ const Conversations: React.FC = () => {
         try {
             await fetch(`${BACKEND_URL}/agent/toggle`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
                 body: JSON.stringify({ enabled: newState })
             });
         } catch (e) {
@@ -295,7 +295,7 @@ const Conversations: React.FC = () => {
         try {
             const res = await fetch(`${BACKEND_URL}/agent/suggest/${encodeURIComponent(activeChat.id)}`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
                 body: JSON.stringify({ messages: activeChat.messages.slice(-10).map(m => ({ role: m.fromMe ? 'assistant' : 'user', content: m.body })) }),
             });
             const data = await res.json();
@@ -314,7 +314,7 @@ const Conversations: React.FC = () => {
     const handleDisconnect = async () => {
         if (!window.confirm('Tem certeza que deseja desconectar o WhatsApp da empresa?')) return;
         try { 
-            await fetch('/api/evolution/logout', { method: 'POST' });
+            await fetch('/api/evolution/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` } });
             setConnectionState('disconnected');
             setQrCodeBase64(null);
         } catch (e) {
@@ -327,14 +327,14 @@ const Conversations: React.FC = () => {
         const isPaused = pausedContacts.has(contactId);
         try {
             const endpoint = isPaused ? 'resume' : 'pause';
-            await fetch(`${BACKEND_URL}/agent/${endpoint}/${encodeURIComponent(contactId)}`, { method: 'POST' });
+            await fetch(`${BACKEND_URL}/agent/${endpoint}/${encodeURIComponent(contactId)}`, { method: 'POST', headers: { 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` } });
         } catch {}
     };
 
     const handleActivateContact = async (contactId: string) => {
         const isActive = activeContacts.has(contactId);
         const endpoint = isActive ? 'deactivate' : 'activate';
-        try { await fetch(`${BACKEND_URL}/agent/${endpoint}/${encodeURIComponent(contactId)}`, { method: 'POST' }); } catch {}
+        try { await fetch(`${BACKEND_URL}/agent/${endpoint}/${encodeURIComponent(contactId)}`, { method: 'POST', headers: { 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` } }); } catch {}
     };
 
     const handleSelectChat = (chatId: string) => {
@@ -676,7 +676,7 @@ const Conversations: React.FC = () => {
                                     try {
                                         const res = await fetch('/api/evolution/send', {
                                             method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
+                                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
                                             body: JSON.stringify({
                                                 phone: activeChat.phone,
                                                 message: text,

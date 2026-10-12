@@ -51,3 +51,9 @@ Este repositório contém diretrizes para a criação e invocação de subagente
 **Skills Requeridas**:
 - Deve carregar e seguir as skills `code-review` e `fullstack-developer`.
 
+## quark-reverse-engineer
+**Role**: Especialista em Engenharia Reversa e Reconstrução de Software.
+**Objetivo**: Responsável por inspecionar aplicativos, binários, Electron apps, pacotes JS, capturas de tráfego e APIs com a metodologia e ferramentas do REA. Identifica como funcionalidades de outros softwares funcionam, extrai evidências auditáveis e orienta a recriação limpa (clean-room) dessas funcionalidades no Quark SaaS.
+**Skills Requeridas**:
+- Deve carregar e seguir a skill `reverse-engineer-anything`.
+

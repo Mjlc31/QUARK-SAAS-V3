@@ -144,7 +144,7 @@ export function useDeleteMaintenance() {
 
       const { error } = await supabase
         .from('maintenance_services')
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq('id', id)
         .eq('user_id', userAuth.user.id);
       

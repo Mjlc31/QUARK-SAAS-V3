@@ -19,8 +19,18 @@ const app = express();
 const server = http.createServer(app);
 
 // ─── CORS & Body Parsers ───────────────────────────────────────────────────
+const allowedOrigins = process.env.NODE_ENV === 'production' 
+  ? ['https://app.quarkenergia.com.br', 'https://quarkenergia.com.br'] 
+  : ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'];
+
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173', '*'],
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true
 }));
@@ -30,15 +40,17 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // Socket.IO
 const io = new Server(server, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
+    origin: allowedOrigins,
+    methods: ['GET', 'POST'],
+    credentials: true
   }
 });
 
 // ─── Environment & Config ──────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://sumydaewtszecrvdgoku.supabase.co';
-const SUPABASE_KEY = process.env.SUPABASE_KEY || 'sb_publishable_YSHgrXjsvOroxDokhAZavg_GBQY8Hha';
+// SECURITY FIX: Using Service Role Key instead of anon/publishable key to bypass RLS in backend
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || 'sb_publishable_YSHgrXjsvOroxDokhAZavg_GBQY8Hha';
 const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || 'http://localhost:8082';
 const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || 'quark_senha_secreta_123';
 const INSTANCE_NAME = 'quark';
@@ -61,6 +73,29 @@ let clientReady = false;
 let agentEnabled = true;
 const activeContacts = new NodeCache({ stdTTL: 24 * 60 * 60, checkperiod: 60 * 60 });
 const pausedContacts = new Set();
+
+// ─── Authentication Middleware ───────────────────────────────────────────────
+const requireAuth = async (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1] || req.headers['x-api-key'] || req.query.token;
+  
+  if (!token) {
+    return res.status(401).json({ error: 'Unauthorized: No token provided' });
+  }
+
+  // Se for a chave anônima, é um fallback apenas para robôs internos que tenham a chave pública (menos seguro, mas mantém compatibilidade com webhooks locais)
+  if (token === process.env.VITE_SUPABASE_ANON_KEY) {
+    return next();
+  }
+
+  // Validação real do JWT via Supabase
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+  if (error || !user) {
+    return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+  }
+  
+  req.user = user;
+  next();
+};
 
 // ─── Helper Functions ──────────────────────────────────────────────────────
 function cleanPhoneNumber(number) {
@@ -147,7 +182,7 @@ app.get(['/api/evolution/status', '/instance/connectionState', '/instance/connec
 });
 
 // 2. Conectar / Obter QR Code
-app.post(['/api/evolution/connect', '/whatsapp/connect'], async (req, res) => {
+app.post(['/api/evolution/connect', '/whatsapp/connect'], requireAuth, async (req, res) => {
   try {
     const instance = req.body?.instanceName || INSTANCE_NAME;
     console.log(`[EVOLUTION] Solicitando conexão para instância: ${instance}...`);
@@ -196,7 +231,7 @@ app.post(['/api/evolution/connect', '/whatsapp/connect'], async (req, res) => {
 });
 
 // 3. Enviar Mensagem via Evolution + Gravar no Supabase
-app.post(['/api/evolution/send', '/whatsapp/send', '/message/sendText', '/message/sendText/:instanceName'], async (req, res) => {
+app.post(['/api/evolution/send', '/whatsapp/send', '/message/sendText', '/message/sendText/:instanceName'], requireAuth, async (req, res) => {
   try {
     const phone = req.body.phone || req.body.number;
     const message = req.body.message || req.body.text || req.body.textMessage?.text;
@@ -384,7 +419,7 @@ app.post(['/api/evolution/webhook', '/webhook/evolution'], async (req, res) => {
 });
 
 // ─── Rotas do Agente de IA (SPIN Selling) ──────────────────────────────────
-app.post('/agent/toggle', (req, res) => {
+app.post('/agent/toggle', requireAuth, (req, res) => {
   if (req.body?.enabled !== undefined) {
     agentEnabled = Boolean(req.body.enabled);
   } else {
@@ -394,40 +429,40 @@ app.post('/agent/toggle', (req, res) => {
   res.json({ ok: true, agentEnabled });
 });
 
-app.post('/agent/on', (req, res) => {
+app.post('/agent/on', requireAuth, (req, res) => {
   agentEnabled = true;
   io.emit('agent_status', { enabled: true });
   res.json({ ok: true, agentEnabled: true });
 });
 
-app.post('/agent/off', (req, res) => {
+app.post('/agent/off', requireAuth, (req, res) => {
   agentEnabled = false;
   io.emit('agent_status', { enabled: false });
   res.json({ ok: true, agentEnabled: false });
 });
 
-app.post('/agent/pause/:contactId', (req, res) => {
+app.post('/agent/pause/:contactId', requireAuth, (req, res) => {
   const { contactId } = req.params;
   pausedContacts.add(contactId);
   spinAgent.pauseContact(contactId);
   res.json({ ok: true, paused: true, contactId });
 });
 
-app.post('/agent/resume/:contactId', (req, res) => {
+app.post('/agent/resume/:contactId', requireAuth, (req, res) => {
   const { contactId } = req.params;
   pausedContacts.delete(contactId);
   spinAgent.resumeContact(contactId);
   res.json({ ok: true, paused: false, contactId });
 });
 
-app.post('/agent/activate/:contactId', (req, res) => {
+app.post('/agent/activate/:contactId', requireAuth, (req, res) => {
   const { contactId } = req.params;
   activeContacts.set(contactId, Date.now());
   pausedContacts.delete(contactId);
   res.json({ ok: true, active: true, contactId });
 });
 
-app.post('/agent/deactivate/:contactId', (req, res) => {
+app.post('/agent/deactivate/:contactId', requireAuth, (req, res) => {
   const { contactId } = req.params;
   activeContacts.del(contactId);
   pausedContacts.add(contactId);
@@ -442,7 +477,7 @@ app.get('/pricing', (req, res) => {
   res.json({ ok: true, pricing: spinAgent.getPriceTable() });
 });
 
-app.post('/agent/suggest/:contactId', async (req, res) => {
+app.post('/agent/suggest/:contactId', requireAuth, async (req, res) => {
   try {
     const { contactId } = req.params;
     const { messages } = req.body;
@@ -460,7 +495,7 @@ app.get('/agent/context/:contactId', (req, res) => {
 });
 
 // ─── Notificação de Tarefas & Google Agenda ────────────────────────────────
-app.post('/agent/task-notify', async (req, res) => {
+app.post('/agent/task-notify', requireAuth, async (req, res) => {
   try {
     const { title, assignee, assigneePhone, priority, deadline, notifyWhatsapp, insertCalendar } = req.body;
 
@@ -487,7 +522,7 @@ app.post('/agent/task-notify', async (req, res) => {
 });
 
 // ─── OCR de Faturas de Energia com Gemini Vision ────────────────────────────
-app.post('/api/ocr', async (req, res) => {
+app.post('/api/ocr', requireAuth, async (req, res) => {
   try {
     const base64Image = req.body.imageBase64 || req.body.base64Image;
     const mimeType = req.body.mimeType || 'image/jpeg';
@@ -565,7 +600,7 @@ app.post('/api/audit/equatorial', async (req, res) => {
 });
 
 // ─── Prospecção Google Maps (Scraper Real) ─────────────────────────────────
-app.post('/api/prospeccao/buscar', async (req, res) => {
+app.post('/api/prospeccao/buscar', requireAuth, async (req, res) => {
   const SCRAPER_URL = 'http://127.0.0.1:8080';
 
   try {
@@ -728,6 +763,104 @@ app.post('/api/maintenance/alert-batch', (req, res) => {
   res.json({ success: true, alerts_sent: count });
 });
 
+// ─── API DE DOCUMENTOS PÚBLICOS (Assinatura Eletrônica Certificada) ──────
+const handlePublicDocument = async (req, res) => {
+  try {
+    const { token } = req.params;
+    const { action, name, cpf, signature } = req.body || {};
+    if (!token) return res.status(400).json({ ok: false, error: 'Token obrigatório' });
+
+    const sb = createClient(
+      process.env.VITE_SUPABASE_URL,
+      process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY
+    );
+
+    // 1. Ação: Visualizar documento
+    if (action === 'view') {
+      try {
+        await sb.rpc('view_public_document', { p_token: token });
+      } catch (e) {}
+
+      // Retorna os dados do documento para exibição inicial
+      const { data: doc } = await sb.rpc('get_public_document', { p_token: token });
+      if (doc) return res.json(doc);
+
+      const { data: signer } = await sb
+        .from('document_signers')
+        .select('*, document:documents(*)')
+        .eq('token', token)
+        .maybeSingle();
+
+      if (signer) return res.json({ document: signer.document, signer });
+      return res.json({ ok: true });
+    }
+
+    // 2. Ação: Assinar documento
+    if (action === 'sign') {
+      const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+      const clientIp = (Array.isArray(rawIp) ? rawIp[0] : String(rawIp).split(',')[0].trim()).slice(0, 64);
+      const userAgent = String(req.headers['user-agent'] || '').slice(0, 300);
+      const cleanName = String(name || '').trim().slice(0, 160);
+      const cleanCpf = String(cpf || '').replace(/\D/g, '');
+
+      const { data: signData, error: signErr } = await sb.rpc('sign_public_document', {
+        p_token: token,
+        p_name: cleanName,
+        p_cpf: cleanCpf,
+        p_signature: String(signature || ''),
+        p_ip: clientIp,
+        p_ua: userAgent,
+      });
+
+      if (!signErr && signData?.ok) {
+        return res.json({ ok: true, completed: !!signData.completed, document_id: signData.document_id, data: signData });
+      }
+
+      // Fallback: update direto caso RPC não esteja ativa
+      const { error: fallbackErr } = await sb
+        .from('document_signers')
+        .update({
+          signed_at: new Date().toISOString(),
+          signed_name: cleanName,
+          signature_data: signature,
+          ip: clientIp,
+          user_agent: userAgent,
+        })
+        .eq('token', token);
+
+      if (fallbackErr) {
+        return res.status(400).json({ ok: false, error: fallbackErr.message || 'Falha ao assinar' });
+      }
+
+      return res.json({ ok: true, completed: true });
+    }
+
+    // 3. Consulta / Obter documento (Default ou GET)
+    const { data: doc, error } = await sb.rpc('get_public_document', { p_token: token });
+    if (!error && doc) {
+      return res.json(doc);
+    }
+
+    const { data: signer } = await sb
+      .from('document_signers')
+      .select('*, document:documents(*)')
+      .eq('token', token)
+      .maybeSingle();
+
+    if (signer && signer.document) {
+      return res.json({ document: signer.document, signer });
+    }
+
+    return res.status(404).json({ ok: false, error: 'Documento não encontrado' });
+  } catch (error) {
+    console.error('[API Documentos] Erro:', error);
+    res.status(500).json({ ok: false, error: 'Erro no servidor', details: error.message });
+  }
+};
+
+app.get('/api/public/document/:token', handlePublicDocument);
+app.post('/api/public/document/:token', handlePublicDocument);
+
 // Webhook Reverso para o N8N ou Evolution confirmar entrega de Alertas
 app.post('/api/maintenance/webhook-delivery', async (req, res) => {
   try {
@@ -789,6 +922,8 @@ app.post('/api/public/proposal/:token', async (req, res) => {
     res.status(500).json({ error: 'Erro no servidor' });
   }
 });
+
+
 
 
 // ─── Iniciar Servidor ──────────────────────────────────────────────────────

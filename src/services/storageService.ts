@@ -315,7 +315,7 @@ export const storageService = {
         const list = JSON.parse(currentLeadsStr) as Lead[];
         safeLocalStorage.setItem('quark_leads', JSON.stringify(list.filter(l => l.id !== id)));
       }
-      await supabase.from('leads').delete().eq('id', id);
+      await supabase.from('leads').update({ deleted_at: new Date().toISOString() }).eq('id', id);
     } catch (err) {
       console.error("Delete Error:", err);
     }
@@ -366,7 +366,7 @@ export const storageService = {
         const list = JSON.parse(current) as Task[];
         safeLocalStorage.setItem('quark_tasks', JSON.stringify(list.filter(t => t.id !== id)));
       }
-      await supabase.from('tasks').delete().eq('id', id);
+      await supabase.from('tasks').update({ deleted_at: new Date().toISOString() }).eq('id', id);
     } catch (err) { console.error(err); }
   },
 
@@ -415,7 +415,7 @@ export const storageService = {
         const list = JSON.parse(current) as Product[];
         safeLocalStorage.setItem('quark_products', JSON.stringify(list.filter(p => p.id !== id)));
       }
-      await supabase.from('products').delete().eq('id', id);
+      await supabase.from('products').update({ deleted_at: new Date().toISOString() }).eq('id', id);
     } catch (err) { console.error(err); }
   },
 
@@ -501,7 +501,7 @@ export const storageService = {
         const list = JSON.parse(current) as Project[];
         safeLocalStorage.setItem('quark_projects', JSON.stringify(list.filter(p => p.id !== id)));
       }
-      await supabase.from('projects').delete().eq('id', id);
+      await supabase.from('projects').update({ deleted_at: new Date().toISOString() }).eq('id', id);
     } catch (err) { console.error(err); }
   },
 

@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend, RadialBarChart, RadialBar } from 'recharts';
 import { DollarSign, Zap, Activity, TrendingUp, Download, BarChart3, Clock, ArrowUpRight, Plus, Calculator, CheckSquare, FileText, User } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
-import { jsPDF } from 'jspdf';
 import { useNavigate } from 'react-router-dom';
 import { SkeletonPage } from '../components/SkeletonLoader';
 
@@ -208,8 +207,9 @@ const Dashboard: React.FC = () => {
     value: kpis.totalRevenue
   };
 
-  const handleGenerateReport = () => {
-    const doc = new jsPDF();
+  const handleGenerateReport = async () => {
+    const { jsPDF } = await import('jspdf');
+        const doc = new jsPDF();
     
     // Header
     doc.setFillColor(9, 9, 11);

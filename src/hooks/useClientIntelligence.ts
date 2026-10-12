@@ -90,7 +90,7 @@ export function useDeleteIntelligence() {
 
       const { error } = await supabase
         .from('client_intelligence')
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq('id', id)
         .eq('user_id', userAuth.user.id);
       

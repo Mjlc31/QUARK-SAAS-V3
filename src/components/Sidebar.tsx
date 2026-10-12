@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Users, Calculator, CheckSquare, Package, LogOut, PieChart, X, HardHat, MessageSquare, DollarSign, FileText, Kanban, Instagram, MapPin, Headphones, Brain, Wrench, Bell, Bot, ShoppingCart, Table, FolderCog } from 'lucide-react';
+import { LayoutDashboard, Users, Calculator, CheckSquare, Package, LogOut, PieChart, X, HardHat, MessageSquare, DollarSign, FileText, Kanban, Instagram, MapPin, Headphones, Brain, Wrench, Bell, Bot, ShoppingCart, Table, FolderCog, Trophy, Sparkles, UserCheck } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -59,18 +59,22 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const commercialItems = [
     { id: 'dashboard', label: 'Visão Geral', icon: LayoutDashboard, path: '/' },
     { id: 'crm', label: 'Leads & CRM', icon: Users, path: '/crm' },
+    { id: 'ranking', label: 'Ranking / Arena', icon: Trophy, path: '/ranking' },
+    { id: 'orcamento-rapido', label: 'Oferta Rápida', icon: Sparkles, path: '/orcamento-rapido' },
     { id: 'prospeccao', label: 'Prospecção', icon: MapPin, path: '/prospeccao' },
     { id: 'conversations', label: 'WhatsApp & IA', icon: MessageSquare, path: '/conversations' },
-    { id: 'proposals', label: 'Propostas', icon: FileText, path: '/propostas' },
+    { id: 'propostas', label: 'Propostas', icon: FileText, path: '/propostas' },
     { id: 'price-list', label: 'Tabela de Preços', icon: Table, path: '/price-list' },
     { id: 'calculator', label: 'Calculadora', icon: Calculator, path: '/calculator' },
   ];
 
   const operationsItems = [
+    { id: 'equipe', label: 'Equipe & Metas', icon: UserCheck, path: '/equipe' },
     { id: 'follow-up', label: 'Acompanhamento', icon: HardHat, path: '/follow-up' },
     { id: 'tasks', label: 'Tarefas', icon: CheckSquare, path: '/tasks' },
     { id: 'clientes', label: 'Clientes', icon: Users, path: '/clientes' },
     { id: 'maintenance', label: 'Manutenção', icon: Wrench, path: '/maintenance' },
+    { id: 'ecommerce', label: 'E-commerce', icon: ShoppingCart, path: '/ecommerce' },
     { id: 'ferramentas', label: 'Ferramentas', icon: FolderCog, path: '/ferramentas' },
   ];
 

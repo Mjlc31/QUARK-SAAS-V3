@@ -12,6 +12,8 @@ import { brl, fmtNum } from "../lib/pricing";
 import { fetchProposalViews, type ProposalView } from "../lib/proposal-tracking";
 import { SERVICES, servicesOf, type ServiceId } from "../lib/services";
 import { supabase } from "../lib/supabaseClient";
+import { DEFAULT_CADENCE, renderCopy } from "../lib/cadence";
+import { recordXpEvent } from "../lib/gamification";
 
 const PROPOSAL_LABEL: Record<string, string> = { rascunho: "Rascunho", enviada: "Enviada", visualizada: "Visualizada", aceita: "Aceita", recusada: "Recusada" };
 
@@ -121,7 +123,63 @@ const CRM: React.FC = () => {
       note: `Fase alterada de '${opp.status || "Lead"}' para '${status}'.${reason ? " Motivo: " + reason : ""}`,
       created_by_ai: false,
     });
-    if (status === "Ganho") toast.success(`🎉 ${opp.title} virou cliente!`);
+
+    // 1. Gamificação: Pontuar vendedor
+    const userRes = await supabase.auth.getUser();
+    const currentUserId = userRes.data.user?.id;
+    if (currentUserId) {
+      if (status === "Ganho") {
+        recordXpEvent(currentUserId, "venda", { opp_id: opp.id, title: opp.title });
+      } else {
+        recordXpEvent(currentUserId, "followup", { opp_id: opp.id, status });
+      }
+    }
+
+    if (status === "Ganho") toast.success(`🎉 ${opp.title} virou cliente! (+100 XP)`);
+
+    // 2. Cadência Automática de Vendas: Criar tarefa inteligente com copy
+    const stageMap: Record<string, import("../lib/types").LeadStatus> = {
+      Lead: "novo",
+      Contato: "contato",
+      Qualificado: "visita",
+      Proposta: "proposta",
+      Negociacao: "negociacao",
+      Ganho: "ganho",
+    };
+    const cadenceKey = stageMap[status];
+    const steps = cadenceKey ? DEFAULT_CADENCE.stages[cadenceKey] : undefined;
+    if (steps && steps.length > 0) {
+      const step = steps[0];
+      const copy = renderCopy(step.copy, {
+        name: opp.title,
+        company: "Quark Energia",
+        city: opp.city || "Maceió",
+      });
+
+      const taskDate = new Date();
+      if (step.day > 0) taskDate.setDate(taskDate.getDate() + step.day);
+      const deadline = taskDate.toISOString().split("T")[0];
+
+      const cadenceTask = {
+        id: crypto.randomUUID(),
+        title: `${step.title}: ${opp.title}`,
+        assignee: (userRes.data.user?.user_metadata?.full_name) || "Consultor Quark",
+        deadline,
+        priority: (step.priority === "alta" ? "High" : step.priority === "media" ? "Medium" : "Low") as "High" | "Medium" | "Low",
+        completed: false,
+        copy,
+        lead_id: opp.id,
+        lead_name: opp.title,
+        lead_phone: opp.phone || undefined,
+        action: step.action || undefined,
+      };
+
+      try {
+        const stored = JSON.parse(localStorage.getItem("quark_tasks") || "[]");
+        localStorage.setItem("quark_tasks", JSON.stringify([...stored, cadenceTask]));
+        window.dispatchEvent(new Event("quark_tasks_updated"));
+      } catch (err) {}
+    }
 
     let text = "";
     if (status === "Qualificado") text = `Olá ${opp.title}! Um dos nossos engenheiros da Quark Energia vai analisar o seu perfil de consumo.`;
@@ -166,7 +224,7 @@ const CRM: React.FC = () => {
     if (!confirm("Excluir esta oportunidade? Esta ação não pode ser desfeita.")) return;
     setOpps((prev) => prev.filter((o) => o.id !== id));
     setSelectedId(null);
-    const { error } = await supabase.from("opportunities").delete().eq("id", id);
+    const { error } = await supabase.from("opportunities").update({ deleted_at: new Date().toISOString() }).eq("id", id);
     if (error) {
       toast.error(error.message);
       reload();

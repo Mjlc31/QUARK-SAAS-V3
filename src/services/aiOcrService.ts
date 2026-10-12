@@ -9,9 +9,7 @@ export async function extractInvoiceData(imageBase64: string, mimeType: string):
 
   const response = await fetch('/api/ocr', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
     body: JSON.stringify({ imageBase64: base64Data, mimeType })
   });
 

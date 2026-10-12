@@ -244,6 +244,7 @@ export function AluguelTool({ company }: { company: Company }) {
       issues={issues}
       form={form}
       paper={paper}
+      company={company}
     />
   );
 }

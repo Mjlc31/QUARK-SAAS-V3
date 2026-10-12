@@ -1,3 +1,4 @@
+import { useFinancialDreSummary } from '../hooks/useFinancial';
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import {
@@ -10,7 +11,6 @@ import {
     AreaChart, Area, BarChart, Bar, PieChart as RechartsPie, Pie, Cell,
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
-import { jsPDF } from 'jspdf';
 import { FinancialProlabore } from '../components/FinancialProlabore';
 import { useApp } from '../contexts/AppContext';
 
@@ -130,6 +130,7 @@ const Financial: React.FC = () => {
             const { data, error } = await supabase
                 .from('financial_transactions')
                 .select('id, description, type, category, amount, date, note')
+                .is('deleted_at', null)
                 .gte('date', firstDay).lte('date', lastDay)
                 .order('date', { ascending: false });
             if (error) { setSavingError('Erro ao carregar. Verifique conexão com Supabase.'); }
@@ -145,6 +146,7 @@ const Financial: React.FC = () => {
             const { data } = await supabase
                 .from('financial_transactions')
                 .select('id, description, type, category, amount, date, note')
+                .is('deleted_at', null)
                 .gte('date', `${filterYear}-01-01`)
                 .lte('date', `${filterYear}-12-31`)
                 .order('date', { ascending: true });
@@ -161,7 +163,33 @@ const Financial: React.FC = () => {
     const filtered = viewMode === 'monthly' ? transactions : allYearTx;
 
     // ─── DRE Calculations ─────────────────────────────────────────────────────
+    const { data: dreDataRpc } = useFinancialDreSummary({
+        startDate: viewMode === 'monthly' ? `${filterYear}-${String(filterMonth).padStart(2, '0')}-01` : `${filterYear}-01-01`,
+        endDate: viewMode === 'monthly' ? new Date(filterYear, filterMonth, 0).toISOString().split('T')[0] : `${filterYear}-12-31`
+    });
+
     const dre = useMemo(() => {
+        // Usa o RPC direto do banco se a migration já foi rodada
+        if (dreDataRpc) {
+            return {
+                recRes: dreDataRpc.receita_bruta, recCom: 0, recMan: 0, recOut: 0, // agrupados pelo RPC
+                receitaBruta: dreDataRpc.receita_bruta,
+                cpvEq: dreDataRpc.cpv_equipamentos, cpvMO: dreDataRpc.cpv_mao_obra, cpvFr: dreDataRpc.cpv_frete, cpvOut: dreDataRpc.cpv_outros, 
+                cpv: dreDataRpc.cpv_equipamentos + dreDataRpc.cpv_mao_obra + dreDataRpc.cpv_frete + dreDataRpc.cpv_outros,
+                lucroBruto: dreDataRpc.receita_bruta - (dreDataRpc.cpv_equipamentos + dreDataRpc.cpv_mao_obra + dreDataRpc.cpv_frete + dreDataRpc.cpv_outros),
+                margemBruta: dreDataRpc.receita_bruta === 0 ? 0 : ((dreDataRpc.receita_bruta - (dreDataRpc.cpv_equipamentos + dreDataRpc.cpv_mao_obra + dreDataRpc.cpv_frete + dreDataRpc.cpv_outros)) / dreDataRpc.receita_bruta) * 100,
+                depSal: dreDataRpc.desp_salarios, depMkt: dreDataRpc.desp_marketing, depAlq: dreDataRpc.desp_aluguel, depCom: dreDataRpc.desp_combustivel, depSof: dreDataRpc.desp_software, depOut: dreDataRpc.desp_outras, 
+                despOp: dreDataRpc.desp_salarios + dreDataRpc.desp_marketing + dreDataRpc.desp_aluguel + dreDataRpc.desp_combustivel + dreDataRpc.desp_software + dreDataRpc.desp_outras,
+                ebit: (dreDataRpc.receita_bruta - (dreDataRpc.cpv_equipamentos + dreDataRpc.cpv_mao_obra + dreDataRpc.cpv_frete + dreDataRpc.cpv_outros)) - (dreDataRpc.desp_salarios + dreDataRpc.desp_marketing + dreDataRpc.desp_aluguel + dreDataRpc.desp_combustivel + dreDataRpc.desp_software + dreDataRpc.desp_outras), 
+                impostos: dreDataRpc.impostos + (dreDataRpc.receita_bruta * (taxRate / 100)), 
+                lucroLiquido: ((dreDataRpc.receita_bruta - (dreDataRpc.cpv_equipamentos + dreDataRpc.cpv_mao_obra + dreDataRpc.cpv_frete + dreDataRpc.cpv_outros)) - (dreDataRpc.desp_salarios + dreDataRpc.desp_marketing + dreDataRpc.desp_aluguel + dreDataRpc.desp_combustivel + dreDataRpc.desp_software + dreDataRpc.desp_outras)) - (dreDataRpc.impostos + (dreDataRpc.receita_bruta * (taxRate / 100))), 
+                margemLiquida: dreDataRpc.receita_bruta === 0 ? 0 : (((dreDataRpc.receita_bruta - (dreDataRpc.cpv_equipamentos + dreDataRpc.cpv_mao_obra + dreDataRpc.cpv_frete + dreDataRpc.cpv_outros)) - (dreDataRpc.desp_salarios + dreDataRpc.desp_marketing + dreDataRpc.desp_aluguel + dreDataRpc.desp_combustivel + dreDataRpc.desp_software + dreDataRpc.desp_outras)) - (dreDataRpc.impostos + (dreDataRpc.receita_bruta * (taxRate / 100)))) / dreDataRpc.receita_bruta * 100, 
+                transacoesImposto: dreDataRpc.impostos, 
+                provisaoImposto: dreDataRpc.receita_bruta * (taxRate / 100)
+            };
+        }
+
+        // Fallback para cálculo Client-Side (Legacy) caso o RPC não tenha sido rodado no banco ainda
         const sum = (type: TransactionType, cats?: Category[]) =>
             filtered.filter(t => t.type === type && (cats ? cats.includes(t.category) : true))
                 .reduce((acc, t) => acc + t.amount, 0);
@@ -206,7 +234,7 @@ const Financial: React.FC = () => {
             depSal, depMkt, depAlq, depCom, depSof, depOut, despOp,
             ebit, impostos, lucroLiquido, margemLiquida, transacoesImposto, provisaoImposto
         };
-    }, [filtered, taxRate]);
+    }, [filtered, taxRate, dreDataRpc]);
 
     // ─── Monthly chart data (last 6 months of year) ───────────────────────────
     const monthlyChartData = useMemo(() => {
@@ -247,7 +275,8 @@ const Financial: React.FC = () => {
     }, [filtered]);
 
     // ─── PDF Report Generation ───────────────────────────────────────────────
-    const generatePDFReport = () => {
+    const generatePDFReport = async () => {
+        const { jsPDF } = await import('jspdf');
         const doc = new jsPDF();
         
         // Background and Header Bar
@@ -434,8 +463,11 @@ const Financial: React.FC = () => {
     const handleDelete = async (id: string) => {
         setTransactions(prev => prev.filter(t => t.id !== id));
         setAllYearTx(prev => prev.filter(t => t.id !== id));
-        const { error } = await supabase.from('financial_transactions').delete().eq('id', id);
-        if (error) setSavingError('Erro ao excluir. Verifique a conexão.');
+        const { error } = await supabase.from('financial_transactions').update({ deleted_at: new Date().toISOString() }).eq('id', id);
+        if (error) {
+            const { error: hardErr } = await supabase.from('financial_transactions').delete().eq('id', id);
+            if (hardErr) setSavingError('Erro ao excluir. Verifique a conexão.');
+        }
     };
 
     // ─── Export CSV ───────────────────────────────────────────────────────────

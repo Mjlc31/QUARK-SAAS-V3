@@ -771,3 +771,51 @@ CREATE INDEX IF NOT EXISTS idx_opportunities_user_id ON public.opportunities(use
 -- ─────────────────────────────────────────────────────────────
 ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.activities;
+
+-- ─────────────────────────────────────────────────────────────
+-- 10. FINANCIAL DRE SUMMARY RPC
+-- ─────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION get_financial_dre_summary(
+    p_user_id UUID,
+    p_start_date DATE DEFAULT NULL,
+    p_end_date DATE DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_dre JSONB;
+BEGIN
+    SELECT jsonb_build_object(
+        'receita_bruta', COALESCE(SUM(amount) FILTER (WHERE type = 'receita' AND category IN ('venda', 'servico', 'manutencao', 'assinatura', 'outros_r')), 0),
+        'deducoes', COALESCE(SUM(amount) FILTER (WHERE type = 'receita' AND category IN ('devolucao', 'cancelamento')), 0),
+        'cpv_equipamentos', COALESCE(SUM(amount) FILTER (WHERE type = 'custo' AND category = 'equipamentos'), 0),
+        'cpv_mao_obra', COALESCE(SUM(amount) FILTER (WHERE type = 'custo' AND category = 'mao_de_obra'), 0),
+        'cpv_frete', COALESCE(SUM(amount) FILTER (WHERE type = 'custo' AND category = 'frete'), 0),
+        'cpv_outros', COALESCE(SUM(amount) FILTER (WHERE type = 'custo' AND category = 'outros_c'), 0),
+        'desp_salarios', COALESCE(SUM(amount) FILTER (WHERE type = 'despesa' AND category = 'salarios'), 0),
+        'desp_marketing', COALESCE(SUM(amount) FILTER (WHERE type = 'despesa' AND category = 'marketing'), 0),
+        'desp_aluguel', COALESCE(SUM(amount) FILTER (WHERE type = 'despesa' AND category = 'aluguel'), 0),
+        'desp_combustivel', COALESCE(SUM(amount) FILTER (WHERE type = 'despesa' AND category = 'combustivel'), 0),
+        'desp_software', COALESCE(SUM(amount) FILTER (WHERE type = 'despesa' AND category = 'software'), 0),
+        'desp_escritorio', COALESCE(SUM(amount) FILTER (WHERE type = 'despesa' AND category = 'escritorio'), 0),
+        'desp_financeira', COALESCE(SUM(amount) FILTER (WHERE type = 'despesa' AND category = 'taxa_financeira'), 0),
+        'desp_outras', COALESCE(SUM(amount) FILTER (WHERE type = 'despesa' AND category = 'outras_d'), 0),
+        'impostos', COALESCE(SUM(amount) FILTER (WHERE type = 'despesa' AND category = 'imposto'), 0),
+        'total_receita', COALESCE(SUM(amount) FILTER (WHERE type = 'receita'), 0),
+        'total_custo', COALESCE(SUM(amount) FILTER (WHERE type = 'custo'), 0),
+        'total_despesa', COALESCE(SUM(amount) FILTER (WHERE type = 'despesa'), 0),
+        'count_receita', COUNT(*) FILTER (WHERE type = 'receita'),
+        'count_custo', COUNT(*) FILTER (WHERE type = 'custo'),
+        'count_despesa', COUNT(*) FILTER (WHERE type = 'despesa')
+    ) INTO v_dre
+    FROM public.financial_transactions
+    WHERE user_id = p_user_id
+    AND deleted_at IS NULL
+    AND (p_start_date IS NULL OR date >= p_start_date)
+    AND (p_end_date IS NULL OR date <= p_end_date);
+    
+    RETURN v_dre;
+END;
+$$;

@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Check, ChevronDown, FilePlus2, History, Loader2, Printer, Save, Search, Trash2, UserRound } from "lucide-react";
+import { Check, ChevronDown, FilePlus2, FileSignature, History, Loader2, Printer, Save, Search, Trash2, UserRound } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { Button, Card, Field, Input, cx } from "@/components/ui";
 import { useCrmLeads, type CrmLead } from "@/lib/crm-leads";
 import type { CompanySettings } from "@/lib/defaults";
 import { formatDateTime, formatPhone } from "@/lib/format";
 import { supabase } from "@/lib/supabaseClient";
+import { OnlineSignModal } from "../docs/online-sign-modal";
 
 export type ToolKind = "procuracao" | "aluguel" | "recibo" | "nota_servico";
 
@@ -152,6 +153,7 @@ export function ToolWorkspace<T>({
   leadId,
   setLeadId,
   issues,
+  company,
 }: {
   kind: ToolKind;
   docTitle: string;
@@ -167,11 +169,13 @@ export function ToolWorkspace<T>({
   setLeadId: (id: string | null) => void;
   /** Campos importantes ainda vazios: aparecem como alerta antes de imprimir. */
   issues: string[];
+  company?: Company;
 }) {
   const store = useToolDocs<T>(kind);
   const [docId, setDocId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [signModalOpen, setSignModalOpen] = useState(false);
   const firstNumber = useRef(false);
 
   useEffect(() => {
@@ -272,7 +276,16 @@ export function ToolWorkspace<T>({
             <p className="flex items-center gap-2 text-xs font-semibold tracking-wider text-zinc-500 uppercase">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-lime-400" /> Pré-visualização A4
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              {(kind === "procuracao" || kind === "aluguel") && (
+                <Button
+                  size="sm"
+                  onClick={() => setSignModalOpen(true)}
+                  className="bg-lime-400 hover:bg-lime-300 text-zinc-950 font-semibold shadow-[0_0_16px_rgba(163,230,53,0.35)]"
+                >
+                  <FileSignature className="h-3.5 w-3.5" /> Assinar online
+                </Button>
+              )}
               <Button variant="secondary" size="sm" onClick={save} loading={saving}>
                 <Save className="h-3.5 w-3.5" /> Salvar
               </Button>
@@ -291,6 +304,31 @@ export function ToolWorkspace<T>({
           </div>
         </div>
       </div>
+
+      {(kind === "procuracao" || kind === "aluguel") && (
+        <OnlineSignModal
+          open={signModalOpen}
+          onClose={() => setSignModalOpen(false)}
+          kind={kind}
+          docTitle={docTitle}
+          data={data}
+          leadId={leadId}
+          company={
+            company || {
+              name: "Quark Energia",
+              fantasy: "Quark Energia",
+              cnpj: "",
+              address: "",
+              city: "Maceió",
+              phone: "",
+              email: "",
+              logo: "",
+              tech: "",
+              techRegistry: "",
+            }
+          }
+        />
+      )}
     </div>
   );
 }

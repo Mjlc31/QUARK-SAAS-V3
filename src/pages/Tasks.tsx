@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { CheckCircle, Clock, Plus, User, AlertCircle, Trash2, X, Calendar as CalendarIcon, Flag, MessageCircle, Mail, Bell, BellOff, List as ListIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { CheckCircle, Clock, Plus, User, AlertCircle, Trash2, X, Calendar as CalendarIcon, Flag, MessageCircle, Mail, Bell, BellOff, List as ListIcon, ChevronLeft, ChevronRight, FileSignature, Zap, Copy, Sparkles } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
+import { whatsappUrl } from '../lib/format';
 import toast from 'react-hot-toast';
 
 // 1. Mock Data
@@ -62,7 +64,7 @@ const Tasks: React.FC = () => {
       try {
         const response = await fetch('/agent/task-notify', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
           body: JSON.stringify({
             title: taskData.title,
             assignee: taskData.assignee,
@@ -104,7 +106,7 @@ const Tasks: React.FC = () => {
       await fetch('/agent/task-notify', {
 
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
         body: JSON.stringify({
           title: newTaskData.title,
           assignee: newTaskData.assignee,
@@ -321,7 +323,14 @@ const Tasks: React.FC = () => {
                       {task.completed && <CheckCircle size={14} />}
                     </button>
                     <div className={`flex-1 ${task.completed ? 'opacity-50 line-through' : ''}`}>
-                      <h4 className="text-white font-medium text-lg md:text-base">{task.title}</h4>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="text-white font-medium text-lg md:text-base">{task.title}</h4>
+                        {task.copy && (
+                          <span className="inline-flex items-center gap-1 bg-lime-500/10 text-lime-400 border border-lime-500/25 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                            ⚡ Script Cadência
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-3 text-xs text-slate-400 mt-2 md:mt-1 flex-wrap">
                         <span className="flex items-center gap-1 bg-white/5 px-2 py-1 rounded"><User size={12} /> {task.assignee.split(' ')[0]}</span>
                         <span className="flex items-center gap-1 bg-white/5 px-2 py-1 rounded"><Clock size={12} /> {task.deadline ? new Date(task.deadline).toLocaleDateString('pt-BR') : 'Sem prazo'}</span>
@@ -332,15 +341,67 @@ const Tasks: React.FC = () => {
                           {task.priority === 'High' ? '🔴 ALTA' : task.priority === 'Medium' ? '🟡 MÉDIA' : '🟢 BAIXA'}
                         </span>
                       </div>
+                      {task.copy && (
+                        <div className="mt-2.5 p-3 rounded-xl bg-zinc-900/80 border border-white/5 text-xs text-zinc-300 font-sans leading-relaxed">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-lime-400 block mb-1">Copy Sugerida para WhatsApp:</span>
+                          "{task.copy}"
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between md:justify-end gap-2 border-t md:border-t-0 border-white/5 pt-3 md:pt-0">
-                    <div className="flex gap-2">
+                  <div className="flex items-center justify-between md:justify-end gap-2 border-t md:border-t-0 border-white/5 pt-3 md:pt-0 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {task.copy && (
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(task.copy!);
+                            toast.success("Script copiado! Abrindo WhatsApp...");
+                            const phone = task.lead_phone || "";
+                            window.open(whatsappUrl(phone, task.copy!), "_blank");
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-xs font-semibold hover:bg-emerald-500/25 transition active:scale-95 shadow-sm"
+                        >
+                          <MessageCircle size={14} /> WhatsApp com Copy
+                        </button>
+                      )}
+                      {task.action === 'procuracao' && (
+                        <Link
+                          to="/ferramentas?t=procuracao"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/15 text-purple-400 border border-purple-500/30 text-xs font-semibold hover:bg-purple-500/25 transition"
+                        >
+                          <FileSignature size={14} /> Procuração
+                        </Link>
+                      )}
+                      {task.action === 'aluguel' && (
+                        <Link
+                          to="/ferramentas?t=aluguel"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-500/15 text-sky-400 border border-sky-500/30 text-xs font-semibold hover:bg-sky-500/25 transition"
+                        >
+                          <FileSignature size={14} /> Contrato
+                        </Link>
+                      )}
+                      {task.action === 'proposta' && (
+                        <Link
+                          to="/propostas/nova"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-lime-500/15 text-lime-400 border border-lime-500/30 text-xs font-semibold hover:bg-lime-500/25 transition"
+                        >
+                          <Zap size={14} /> Nova Proposta
+                        </Link>
+                      )}
+                      {task.lead_id && (
+                        <Link
+                          to={`/orcamento-rapido?lead=${task.lead_id}`}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-lime-500/15 text-lime-400 border border-lime-500/30 text-xs font-semibold hover:bg-lime-500/25 transition"
+                          title="Gerar Arte de Oferta Rápida para WhatsApp/Instagram"
+                        >
+                          <Sparkles size={14} /> Oferta Rápida
+                        </Link>
+                      )}
                       <button
                         onClick={() => handleNotify('whatsapp', task)}
                         className="p-2 text-green-400 bg-green-500/10 hover:bg-green-500/20 rounded-lg transition-colors"
-                        title="WhatsApp"
+                        title="Notificar Colega via WhatsApp"
                       >
                         <MessageCircle size={18} />
                       </button>

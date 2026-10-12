@@ -93,9 +93,9 @@ function Proposals() {
     };
   }, [scoped]);
 
-  const duplicate = async (p: Proposal) => {
-    const { id, number, public_token, created_at, updated_at, lead, sent_at, viewed_at, view_count, accepted_at, accepted_by, status, ...rest } = p;
-    void id; void number; void public_token; void created_at; void updated_at; void lead; void sent_at; void viewed_at; void view_count; void accepted_at; void accepted_by; void status;
+  const duplicate = async (p: Proposal & { views?: ProposalView[]; deleted_at?: string | null }) => {
+    const { id, number, public_token, created_at, updated_at, lead, sent_at, viewed_at, view_count, accepted_at, accepted_by, status, views, deleted_at, ...rest } = p;
+    void id; void number; void public_token; void created_at; void updated_at; void lead; void sent_at; void viewed_at; void view_count; void accepted_at; void accepted_by; void status; void views; void deleted_at;
     const { data: copy, error } = await supabase().from("proposals").insert({ ...rest, status: "rascunho" }).select("id").single();
     if (error) return toast.error(error.message);
     toast.success("Orçamento duplicado");
@@ -104,7 +104,7 @@ function Proposals() {
 
   const remove = async (p: Proposal) => {
     if (!confirm(`Excluir o orçamento #${p.number}? Esta ação não pode ser desfeita.`)) return;
-    const { error } = await supabase().from("proposals").delete().eq("id", p.id);
+    const { error } = await supabase().from("proposals").update({ deleted_at: new Date().toISOString() }).eq("id", p.id);
     if (error) return toast.error(error.message);
     toast.success("Orçamento excluído");
   };
