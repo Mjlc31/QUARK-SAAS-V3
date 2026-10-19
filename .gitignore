@@ -37,8 +37,11 @@ whatsapp-backend/.env
 scratch/
 *.patch
 test.pdf
-
-
+*.csv
+*.xlsx
+*trello*
+GDf44SAs*
+export_trello_clients.py
 
 # Credentials
 service_account.json

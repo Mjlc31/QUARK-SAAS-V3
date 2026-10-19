@@ -237,11 +237,23 @@ export interface ClientPortalUser {
   cpf?: string;
   birth_date?: string;
   auth_user_id?: string;
+  user_id?: string;
   is_active: boolean;
   quark_points?: number;
   referral_code?: string;
   last_login?: string;
   created_at?: string;
+  deleted_at?: string | null;
+  city?: string | null;
+  state?: string | null;
+  address?: string | null;
+  cep?: string | null;
+  utility_company?: string | null;
+  utility_account?: string | null;
+  system_size_kw?: number | null;
+  install_date?: string | null;
+  monthly_avg_kwh?: number | null;
+  notes?: string | null;
 }
 
 export interface SupportTicket {

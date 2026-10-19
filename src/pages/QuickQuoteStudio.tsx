@@ -37,6 +37,7 @@ import { recordXpEvent } from '../lib/gamification';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { toast } from 'sonner';
+import { useSearchParams } from 'react-router-dom';
 
 const HEADLINES = [
   ['Oportunidade', 'Imperdível'],
@@ -91,9 +92,27 @@ const QuickQuoteStudio: React.FC = () => {
 
   // Número identificador da proposta
   const [proposalNumber, setProposalNumber] = useState('');
+  const [searchParams] = useSearchParams();
+
+  // Preenchimento automático quando acessado via link direto de cliente
   useEffect(() => {
-    setProposalNumber(`${new Date().getFullYear()}${String(Date.now()).slice(-5)}`);
-  }, []);
+    const nomeParam = searchParams.get('nome');
+    const potenciaParam = searchParams.get('potencia');
+    const cidadeParam = searchParams.get('cidade');
+
+    if (nomeParam) {
+      setClient((prev) => ({
+        ...prev,
+        name: nomeParam,
+        city: cidadeParam || prev.city,
+      }));
+    }
+    if (potenciaParam && !isNaN(Number(potenciaParam))) {
+      const kw = Number(potenciaParam);
+      const approxModules = Math.round((kw * 1000) / 580);
+      setQ((prev) => ({ ...prev, modules: approxModules > 0 ? approxModules : 0, consumptionKwh: 0 }));
+    }
+  }, [searchParams]);
 
   // Quando seleciona um lead do CRM, preenche automaticamente os dados
   useEffect(() => {

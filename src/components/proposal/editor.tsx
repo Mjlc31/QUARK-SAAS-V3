@@ -226,9 +226,11 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
       focusSection(inputs.kitPrice > 0 && inputs.moduleQty > 0 ? "sec-preco" : "sec-kit");
       return null;
     }
-    setSaving(true);
+    const oppId = leadId && leadId.length === 36 ? leadId : null;
     const row = {
       lead_id: leadId,
+      opportunity_id: oppId,
+      user_id: user?.id,
       title: title || null,
       inputs,
       power_kwp: pricing.powerKwp,
@@ -244,7 +246,7 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
     const sb = supabase();
     const res = current.current
       ? await sb.from("proposals").update(row).eq("id", current.current.id).select("*").single()
-      : await sb.from("proposals").insert({ ...row, created_by: user!.id }).select("*").single();
+      : await sb.from("proposals").insert({ ...row, user_id: user!.id, created_by: user!.id }).select("*").single();
     setSaving(false);
     if (res.error) {
       toast.error(res.error.message);

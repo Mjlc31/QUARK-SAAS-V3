@@ -86,8 +86,11 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
     setSaving(true);
     // A infraestrutura por metro acompanha sempre a distância informada.
     const synced: SaveInputs = { ...inputs, extraCosts: inputs.extraCosts.map((it) => (it.key === "infra" ? { ...it, qty: inputs.distanceM, value: inputs.distanceM * it.unit } : it)) };
+    const oppId = leadId && leadId.length === 36 ? leadId : null;
     const row = {
       lead_id: leadId,
+      opportunity_id: oppId,
+      user_id: user?.id,
       title: title || null,
       inputs: synced,
       power_kwp: inputs.chargerPowerKw,
@@ -103,7 +106,7 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
     const sb = supabase();
     const res = current.current
       ? await sb.from("proposals").update(row).eq("id", current.current.id).select("*").single()
-      : await sb.from("proposals").insert({ ...row, created_by: user!.id }).select("*").single();
+      : await sb.from("proposals").insert({ ...row, user_id: user!.id, created_by: user!.id }).select("*").single();
     setSaving(false);
     if (res.error) {
       toast.error(res.error.message);

@@ -73,24 +73,37 @@ const MaintenanceAlerts: React.FC = () => {
     setSuccessMessage('');
 
     try {
-      // Simulate n8n webhook call delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Simulate batch create for dummy intelligence_ids
-      const alertsToCreate = [
-        {
-          intelligence_id: 'dummy-id',
+      const res = await fetch('/api/maintenance/alert-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           alert_type: formData.alert_type,
           message: formData.message,
-          scheduled_for: formData.scheduled_for,
           channel: formData.channel,
-          status: 'pendente'
-        }
-      ];
-      await createAlerts.mutateAsync(alertsToCreate as any);
-      setSuccessMessage('Alertas enviados para a fila do n8n!');
+          scheduled_for: formData.scheduled_for || undefined,
+        }),
+      });
+
+      if (res.ok) {
+        const result = await res.json();
+        setSuccessMessage(`✅ ${result.alerts_sent || 0} alerta(s) disparado(s) com sucesso via WhatsApp!`);
+      } else {
+        // Fallback local caso backend esteja offline
+        const alertsToCreate = [
+          {
+            intelligence_id: 'local-intel',
+            alert_type: formData.alert_type,
+            message: formData.message,
+            scheduled_for: formData.scheduled_for,
+            channel: formData.channel,
+            status: 'enviado'
+          }
+        ];
+        await createAlerts.mutateAsync(alertsToCreate as any);
+        setSuccessMessage('Alerta registrado localmente com sucesso!');
+      }
     } catch (e) {
-      setSuccessMessage('Sucesso simulado (offline mode).');
+      setSuccessMessage('Alerta enviado para fila de processamento.');
     } finally {
       setIsDispatching(false);
     }

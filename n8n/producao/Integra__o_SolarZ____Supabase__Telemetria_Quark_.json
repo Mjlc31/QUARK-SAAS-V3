@@ -1,0 +1,188 @@
+{
+  "updatedAt": "2026-09-24T06:13:32.857Z",
+  "createdAt": "2026-09-24T06:13:32.857Z",
+  "id": "wM5wcX7COJZhXyei",
+  "name": "Integração SolarZ -> Supabase (Telemetria Quark)",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "id": "2015bb1a-f459-477f-bb18-f7fa9fd0b620",
+      "name": "Gatilho Diário",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.solarz.com.br/v1/usinas",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer SUA_API_KEY_AQUI"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a3bf1072-4303-4af9-8379-511900d975c0",
+      "name": "Buscar Usinas SolarZ",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "data",
+        "options": {}
+      },
+      "id": "68aefe82-3b0e-4346-8a03-c0698bde0c40",
+      "name": "Separar Usinas (Item Lists)",
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 3,
+      "position": [
+        448,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://sumydaewtszecrvdgoku.supabase.co/rest/v1/client_intelligence?utility_account=eq.{{$json[\"codigo_uc\"]}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "sb_publishable_YSHgrXjsvOroxDokhAZavg_GBQY8Hha"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer sb_publishable_YSHgrXjsvOroxDokhAZavg_GBQY8Hha"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "monthly_generation_kwh",
+              "value": "={{$json[\"geracao_mensal_kwh\"]}}"
+            },
+            {
+              "name": "total_savings_brl",
+              "value": "={{$json[\"economia_total_rs\"]}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "84adf58e-f5d9-4c2c-9bbf-dafe51455df4",
+      "name": "Atualizar Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        672,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Gatilho Diário": {
+      "main": [
+        [
+          {
+            "node": "Buscar Usinas SolarZ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Usinas SolarZ": {
+      "main": [
+        [
+          {
+            "node": "Separar Usinas (Item Lists)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Separar Usinas (Item Lists)": {
+      "main": [
+        [
+          {
+            "node": "Atualizar Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "nodeGroups": [],
+  "pinData": {},
+  "versionId": "5ba7d07d-2303-4d11-af37-92e4b3132cd3",
+  "activeVersionId": null,
+  "versionCounter": 1,
+  "triggerCount": 0,
+  "sourceWorkflowId": null,
+  "tags": [],
+  "shared": [
+    {
+      "updatedAt": "2026-09-24T06:13:32.860Z",
+      "createdAt": "2026-09-24T06:13:32.860Z",
+      "role": "workflow:owner",
+      "workflowId": "wM5wcX7COJZhXyei",
+      "projectId": "VeN6MujGsf51gHZZ",
+      "project": {
+        "updatedAt": "2026-09-24T05:51:42.639Z",
+        "createdAt": "2026-09-22T21:00:47.272Z",
+        "id": "VeN6MujGsf51gHZZ",
+        "name": "arthur duda <arthurmoraesp12@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "customTelemetryTags": [],
+        "creatorId": "92c5f28f-d447-4d8a-922a-1a7cf2ae50be"
+      }
+    }
+  ],
+  "versionMetadata": {
+    "name": null,
+    "description": null
+  }
+}

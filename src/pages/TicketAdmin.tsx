@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { 
   Headphones, Clock, CheckCircle, Search, Filter, 
-  X, Send, User, ChevronRight, AlertCircle, AlertTriangle
+  X, Send, User, ChevronRight, AlertCircle, AlertTriangle, Loader2
 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTickets, useTicketMessages, useUpdateTicketStatus, useAddTicketMessage } from '../hooks/useTickets';
 import { SupportTicket, TicketMessage, TicketStatus, TicketPriority, TicketCategory } from '../types';
 import { SkeletonPage } from '../components/SkeletonLoader';
@@ -72,19 +73,69 @@ const TicketAdmin: React.FC = () => {
     });
   }, [tickets, searchTerm, statusFilter, priorityFilter, categoryFilter]);
 
+  const queryClient = useQueryClient();
+  const [isSendingReply, setIsSendingReply] = useState(false);
+
   const handleSendReply = async () => {
-    if (!replyText.trim() || !selectedTicket || !addMessage) return;
-    await addMessage.mutateAsync({
-      ticket_id: selectedTicket.id,
-      message: replyText,
-      sender_type: 'operator'
-    });
+    if (!replyText.trim() || !selectedTicket || isSendingReply) return;
+    const textToSend = replyText.trim();
+    setIsSendingReply(true);
+
+    let sentViaApi = false;
+    try {
+      const response = await fetch(`/api/tickets/${selectedTicket.id}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: textToSend,
+          sender_type: 'operator',
+        }),
+      });
+
+      if (response.ok) {
+        const json = await response.json();
+        if (json && json.success) {
+          sentViaApi = true;
+        }
+      }
+    } catch (httpErr) {
+      console.warn('[TicketAdmin] Falha ao enviar via API /api/tickets/:id/messages, aplicando fallback:', httpErr);
+    }
+
+    if (!sentViaApi && addMessage) {
+      try {
+        await addMessage.mutateAsync({
+          ticket_id: selectedTicket.id,
+          message: textToSend,
+          sender_type: 'operator'
+        });
+      } catch (mutateErr) {
+        console.error('[TicketAdmin] Erro no fallback de mensagem:', mutateErr);
+      }
+    }
+
+    queryClient.invalidateQueries({ queryKey: ['ticket_messages', selectedTicket.id] });
+    queryClient.invalidateQueries({ queryKey: ['support_tickets'] });
+
     setReplyText('');
+    setIsSendingReply(false);
   };
 
   const handleStatusChange = async (newStatus: TicketStatus) => {
-    if (!selectedTicket || !updateStatus) return;
-    await updateStatus.mutateAsync({ id: selectedTicket.id, status: newStatus });
+    if (!selectedTicket) return;
+    try {
+      const res = await fetch(`/api/tickets/${selectedTicket.id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!res.ok) throw new Error('HTTP error');
+    } catch {
+      if (updateStatus) {
+        await updateStatus.mutateAsync({ id: selectedTicket.id, status: newStatus });
+      }
+    }
+    queryClient.invalidateQueries({ queryKey: ['support_tickets'] });
     setSelectedTicket({ ...selectedTicket, status: newStatus });
   };
   if (isLoading) return <div className="p-8"><SkeletonPage /></div>;
@@ -374,10 +425,11 @@ const TicketAdmin: React.FC = () => {
               />
               <button 
                 onClick={handleSendReply}
-                disabled={!replyText.trim()}
+                disabled={!replyText.trim() || isSendingReply}
                 className="bg-lime-500 hover:bg-lime-400 text-black p-4 rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center flex-shrink-0"
+                title="Enviar Resposta (Dispara WhatsApp)"
               >
-                <Send size={18} />
+                {isSendingReply ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
               </button>
             </div>
           </div>

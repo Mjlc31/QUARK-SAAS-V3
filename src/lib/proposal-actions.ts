@@ -7,10 +7,13 @@ export async function duplicateProposal(id: string, userId: string): Promise<{ i
   const sb = supabase();
   const { data: p, error } = await sb.from("proposals").select("*").eq("id", id).single();
   if (error || !p) throw new Error(error?.message ?? "Proposta não encontrada");
+  const oppId = p.opportunity_id || (p.lead_id && p.lead_id.length === 36 ? p.lead_id : null);
   const { data, error: err } = await sb
     .from("proposals")
     .insert({
       lead_id: p.lead_id,
+      opportunity_id: oppId,
+      user_id: userId,
       title: p.title ? `${p.title} (cópia)` : "Cópia",
       status: "rascunho",
       inputs: p.inputs,
@@ -26,6 +29,6 @@ export async function duplicateProposal(id: string, userId: string): Promise<{ i
     .select("id, number")
     .single();
   if (err || !data) throw new Error(err?.message ?? "Não foi possível duplicar");
-  await sb.from("activities").insert({ lead_id: p.lead_id, type: "proposta", content: `Orçamento #${data.number} criado a partir do #${p.number}`, created_by: userId });
+  await sb.from("activities").insert({ opportunity_id: oppId, type: "proposta", content: `Orçamento #${data.number} criado a partir do #${p.number}`, created_by: userId });
   return data as { id: string; number: number };
 }

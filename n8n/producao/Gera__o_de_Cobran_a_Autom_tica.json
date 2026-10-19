@@ -1,0 +1,147 @@
+{
+  "updatedAt": "2026-09-29T23:38:50.000Z",
+  "createdAt": "2026-09-24T06:23:23.134Z",
+  "id": "cobranca-001",
+  "name": "Geração de Cobrança Automática",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "path": "proposta-aprovada",
+        "httpMethod": "POST",
+        "options": {}
+      },
+      "id": "webhook-proposta",
+      "name": "Webhook Proposta",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sandbox.asaas.com/api/v3/payments",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "access_token",
+              "value": "SEU_TOKEN_ASAAS_AQUI"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"customer\": \"{{ $json.body.cliente_asaas_id }}\",\n  \"billingType\": \"PIX\",\n  \"value\": {{ $json.body.valor }},\n  \"dueDate\": \"{{ $json.body.vencimento }}\",\n  \"description\": \"Pagamento referente a Proposta Quark SaaS\"\n}",
+        "options": {}
+      },
+      "id": "gerar-cobranca",
+      "name": "Gerar Cobrança (Asaas)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        400,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://evolution-api:8080/message/sendText/quark",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "quark_senha_secreta_123"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"{{ $('Webhook Proposta').item.json.body.telefone }}\",\n  \"options\": {\n    \"delay\": 1200,\n    \"presence\": \"composing\"\n  },\n  \"textMessage\": {\n    \"text\": \"Olá! Sua proposta foi aprovada e já preparamos tudo. Aqui está o link para pagamento do PIX: {{ $json.invoiceUrl }}\\n\\nAssim que confirmado, iniciaremos a implantação! 🚀\"\n  }\n}",
+        "options": {}
+      },
+      "id": "enviar-whatsapp",
+      "name": "Enviar WhatsApp (Evolution)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        600,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Proposta": {
+      "main": [
+        [
+          {
+            "node": "Gerar Cobrança (Asaas)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gerar Cobrança (Asaas)": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp (Evolution)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": null,
+  "staticData": null,
+  "meta": null,
+  "nodeGroups": [],
+  "pinData": null,
+  "versionId": "857d4551-41f4-4e5a-ba72-2d9a936d70f0",
+  "activeVersionId": "857d4551-41f4-4e5a-ba72-2d9a936d70f0",
+  "versionCounter": 2,
+  "triggerCount": 1,
+  "sourceWorkflowId": null,
+  "tags": [],
+  "shared": [
+    {
+      "updatedAt": "2026-09-24T06:23:23.135Z",
+      "createdAt": "2026-09-24T06:23:23.135Z",
+      "role": "workflow:owner",
+      "workflowId": "cobranca-001",
+      "projectId": "VeN6MujGsf51gHZZ",
+      "project": {
+        "updatedAt": "2026-09-24T05:51:42.639Z",
+        "createdAt": "2026-09-22T21:00:47.272Z",
+        "id": "VeN6MujGsf51gHZZ",
+        "name": "arthur duda <arthurmoraesp12@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "customTelemetryTags": [],
+        "creatorId": "92c5f28f-d447-4d8a-922a-1a7cf2ae50be"
+      }
+    }
+  ],
+  "versionMetadata": {
+    "name": null,
+    "description": null
+  }
+}

@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.1"
   }
   public: {
     Tables: {
@@ -64,6 +64,51 @@ export type Database = {
           status?: string | null
         }
         Relationships: []
+      }
+      activities: {
+        Row: {
+          content: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          lead_id: string | null
+          opportunity_id: string | null
+          type: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          lead_id?: string | null
+          opportunity_id?: string | null
+          type?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          lead_id?: string | null
+          opportunity_id?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activities_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       agent_notes: {
         Row: {
@@ -130,6 +175,7 @@ export type Database = {
           client_id: string | null
           client_name: string
           created_at: string | null
+          deleted_at: string | null
           id: string
           install_end_date: string | null
           install_start_date: string | null
@@ -150,6 +196,7 @@ export type Database = {
           client_id?: string | null
           client_name: string
           created_at?: string | null
+          deleted_at?: string | null
           id?: string
           install_end_date?: string | null
           install_start_date?: string | null
@@ -170,6 +217,7 @@ export type Database = {
           client_id?: string | null
           client_name?: string
           created_at?: string | null
+          deleted_at?: string | null
           id?: string
           install_end_date?: string | null
           install_start_date?: string | null
@@ -205,52 +253,88 @@ export type Database = {
       }
       client_portal_users: {
         Row: {
+          address: string | null
           auth_user_id: string | null
           birth_date: string | null
+          cep: string | null
+          city: string | null
           cpf: string | null
           created_at: string | null
+          deleted_at: string | null
           email: string
           id: string
+          install_date: string | null
           is_active: boolean | null
           last_login: string | null
           lead_id: string | null
+          monthly_avg_kwh: number | null
           name: string
+          notes: string | null
+          opportunity_id: string | null
           phone: string | null
           quark_points: number | null
           referral_code: string | null
+          state: string | null
+          system_size_kw: number | null
           user_id: string | null
+          utility_account: string | null
+          utility_company: string | null
         }
         Insert: {
+          address?: string | null
           auth_user_id?: string | null
           birth_date?: string | null
+          cep?: string | null
+          city?: string | null
           cpf?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           email: string
           id?: string
+          install_date?: string | null
           is_active?: boolean | null
           last_login?: string | null
           lead_id?: string | null
+          monthly_avg_kwh?: number | null
           name: string
+          notes?: string | null
+          opportunity_id?: string | null
           phone?: string | null
           quark_points?: number | null
           referral_code?: string | null
+          state?: string | null
+          system_size_kw?: number | null
           user_id?: string | null
+          utility_account?: string | null
+          utility_company?: string | null
         }
         Update: {
+          address?: string | null
           auth_user_id?: string | null
           birth_date?: string | null
+          cep?: string | null
+          city?: string | null
           cpf?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           email?: string
           id?: string
+          install_date?: string | null
           is_active?: boolean | null
           last_login?: string | null
           lead_id?: string | null
+          monthly_avg_kwh?: number | null
           name?: string
+          notes?: string | null
+          opportunity_id?: string | null
           phone?: string | null
           quark_points?: number | null
           referral_code?: string | null
+          state?: string | null
+          system_size_kw?: number | null
           user_id?: string | null
+          utility_account?: string | null
+          utility_company?: string | null
         }
         Relationships: [
           {
@@ -258,6 +342,76 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_portal_users_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_referrals: {
+        Row: {
+          created_at: string | null
+          id: string
+          lead_id: string | null
+          notes: string | null
+          points_credited: boolean | null
+          referred_city: string | null
+          referred_name: string
+          referred_phone: string
+          referrer_client_id: string | null
+          reward_points: number | null
+          status: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          lead_id?: string | null
+          notes?: string | null
+          points_credited?: boolean | null
+          referred_city?: string | null
+          referred_name: string
+          referred_phone: string
+          referrer_client_id?: string | null
+          reward_points?: number | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          lead_id?: string | null
+          notes?: string | null
+          points_credited?: boolean | null
+          referred_city?: string | null
+          referred_name?: string
+          referred_phone?: string
+          referrer_client_id?: string | null
+          reward_points?: number | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_referrals_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_referrals_referrer_client_id_fkey"
+            columns: ["referrer_client_id"]
+            isOneToOne: false
+            referencedRelation: "client_portal_users"
             referencedColumns: ["id"]
           },
         ]
@@ -300,10 +454,129 @@ export type Database = {
           },
         ]
       }
+      document_signers: {
+        Row: {
+          cpf: string | null
+          created_at: string | null
+          document_id: string
+          id: string
+          ip: string | null
+          name: string
+          phone: string | null
+          role: string
+          signature: string | null
+          signed_at: string | null
+          signed_cpf: string | null
+          signed_name: string | null
+          token: string
+          user_agent: string | null
+          viewed_at: string | null
+        }
+        Insert: {
+          cpf?: string | null
+          created_at?: string | null
+          document_id: string
+          id?: string
+          ip?: string | null
+          name: string
+          phone?: string | null
+          role?: string
+          signature?: string | null
+          signed_at?: string | null
+          signed_cpf?: string | null
+          signed_name?: string | null
+          token: string
+          user_agent?: string | null
+          viewed_at?: string | null
+        }
+        Update: {
+          cpf?: string | null
+          created_at?: string | null
+          document_id?: string
+          id?: string
+          ip?: string | null
+          name?: string
+          phone?: string | null
+          role?: string
+          signature?: string | null
+          signed_at?: string | null
+          signed_cpf?: string | null
+          signed_name?: string | null
+          token?: string
+          user_agent?: string | null
+          viewed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_signers_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documents: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          data: Json
+          deleted_at: string | null
+          hash: string | null
+          id: string
+          kind: string
+          lead_id: string | null
+          opportunity_id: string | null
+          status: string
+          title: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          data?: Json
+          deleted_at?: string | null
+          hash?: string | null
+          id?: string
+          kind?: string
+          lead_id?: string | null
+          opportunity_id?: string | null
+          status?: string
+          title: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          data?: Json
+          deleted_at?: string | null
+          hash?: string | null
+          id?: string
+          kind?: string
+          lead_id?: string | null
+          opportunity_id?: string | null
+          status?: string
+          title?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ecommerce_products: {
         Row: {
           category: string | null
           created_at: string | null
+          deleted_at: string | null
           delivery_days: number | null
           description: string | null
           id: string
@@ -319,6 +592,7 @@ export type Database = {
         Insert: {
           category?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           delivery_days?: number | null
           description?: string | null
           id?: string
@@ -334,6 +608,7 @@ export type Database = {
         Update: {
           category?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           delivery_days?: number | null
           description?: string | null
           id?: string
@@ -344,6 +619,36 @@ export type Database = {
           overload_percentage?: number | null
           price?: number
           promo_price?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      evolution_connections: {
+        Row: {
+          created_at: string
+          id: string
+          instance: string
+          state: string | null
+          status_reason: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          instance: string
+          state?: string | null
+          status_reason?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          instance?: string
+          state?: string | null
+          status_reason?: string | null
+          updated_at?: string
           user_id?: string | null
         }
         Relationships: []
@@ -381,38 +686,70 @@ export type Database = {
       financial_transactions: {
         Row: {
           amount: number
+          attachment_url: string | null
           category: string
           created_at: string | null
           date: string
+          deleted_at: string | null
           description: string
           id: string
           note: string | null
+          opportunity_id: string | null
+          payment_method: string | null
+          proposal_id: string | null
+          status: string | null
           type: string
           user_id: string | null
         }
         Insert: {
           amount: number
+          attachment_url?: string | null
           category: string
           created_at?: string | null
           date: string
+          deleted_at?: string | null
           description: string
           id?: string
           note?: string | null
+          opportunity_id?: string | null
+          payment_method?: string | null
+          proposal_id?: string | null
+          status?: string | null
           type: string
           user_id?: string | null
         }
         Update: {
           amount?: number
+          attachment_url?: string | null
           category?: string
           created_at?: string | null
           date?: string
+          deleted_at?: string | null
           description?: string
           id?: string
           note?: string | null
+          opportunity_id?: string | null
+          payment_method?: string | null
+          proposal_id?: string | null
+          status?: string | null
           type?: string
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "financial_transactions_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_transactions_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fk_financial_user"
             columns: ["user_id"]
@@ -619,6 +956,7 @@ export type Database = {
         Row: {
           created_at: string | null
           data: Json
+          deleted_at: string | null
           id: string
           updated_at: string | null
           user_id: string | null
@@ -626,6 +964,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           data: Json
+          deleted_at?: string | null
           id: string
           updated_at?: string | null
           user_id?: string | null
@@ -633,6 +972,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           data?: Json
+          deleted_at?: string | null
           id?: string
           updated_at?: string | null
           user_id?: string | null
@@ -644,6 +984,7 @@ export type Database = {
           alert_type: string | null
           channel: string | null
           created_at: string | null
+          error_reason: string | null
           id: string
           intelligence_id: string | null
           message: string | null
@@ -656,6 +997,7 @@ export type Database = {
           alert_type?: string | null
           channel?: string | null
           created_at?: string | null
+          error_reason?: string | null
           id?: string
           intelligence_id?: string | null
           message?: string | null
@@ -668,6 +1010,7 @@ export type Database = {
           alert_type?: string | null
           channel?: string | null
           created_at?: string | null
+          error_reason?: string | null
           id?: string
           intelligence_id?: string | null
           message?: string | null
@@ -694,9 +1037,11 @@ export type Database = {
           completed_date: string | null
           cost: number | null
           created_at: string | null
+          deleted_at: string | null
           id: string
           lead_id: string | null
           notes: string | null
+          opportunity_id: string | null
           price: number | null
           scheduled_date: string | null
           service_type: string | null
@@ -712,9 +1057,11 @@ export type Database = {
           completed_date?: string | null
           cost?: number | null
           created_at?: string | null
+          deleted_at?: string | null
           id?: string
           lead_id?: string | null
           notes?: string | null
+          opportunity_id?: string | null
           price?: number | null
           scheduled_date?: string | null
           service_type?: string | null
@@ -730,9 +1077,11 @@ export type Database = {
           completed_date?: string | null
           cost?: number | null
           created_at?: string | null
+          deleted_at?: string | null
           id?: string
           lead_id?: string | null
           notes?: string | null
+          opportunity_id?: string | null
           price?: number | null
           scheduled_date?: string | null
           service_type?: string | null
@@ -756,38 +1105,147 @@ export type Database = {
             referencedRelation: "leads"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "maintenance_services_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string | null
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          is_read: boolean | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          is_read?: boolean | null
+          title: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          is_read?: boolean | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       opportunities: {
         Row: {
+          address: string | null
           amount: number | null
+          avg_bill: number | null
+          birth_date: string | null
           city: string | null
+          connection_type: string | null
+          consumption_kwh: number | null
+          cpf_cnpj: string | null
           created_at: string | null
+          deleted_at: string | null
+          email: string | null
           id: string
+          installation_date: string | null
+          latitude: number | null
+          longitude: number | null
+          loss_reason: string | null
+          next_action_date: string | null
+          next_action_text: string | null
+          notes: string | null
           phone: string | null
+          roof_type: string | null
+          segment: string | null
+          services: string[] | null
+          source: string | null
           status: string | null
+          system_power: number | null
+          tariff: number | null
+          temperature: string | null
           title: string
           updated_at: string | null
           user_id: string | null
         }
         Insert: {
+          address?: string | null
           amount?: number | null
+          avg_bill?: number | null
+          birth_date?: string | null
           city?: string | null
+          connection_type?: string | null
+          consumption_kwh?: number | null
+          cpf_cnpj?: string | null
           created_at?: string | null
+          deleted_at?: string | null
+          email?: string | null
           id?: string
+          installation_date?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          loss_reason?: string | null
+          next_action_date?: string | null
+          next_action_text?: string | null
+          notes?: string | null
           phone?: string | null
+          roof_type?: string | null
+          segment?: string | null
+          services?: string[] | null
+          source?: string | null
           status?: string | null
+          system_power?: number | null
+          tariff?: number | null
+          temperature?: string | null
           title: string
           updated_at?: string | null
           user_id?: string | null
         }
         Update: {
+          address?: string | null
           amount?: number | null
+          avg_bill?: number | null
+          birth_date?: string | null
           city?: string | null
+          connection_type?: string | null
+          consumption_kwh?: number | null
+          cpf_cnpj?: string | null
           created_at?: string | null
+          deleted_at?: string | null
+          email?: string | null
           id?: string
+          installation_date?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          loss_reason?: string | null
+          next_action_date?: string | null
+          next_action_text?: string | null
+          notes?: string | null
           phone?: string | null
+          roof_type?: string | null
+          segment?: string | null
+          services?: string[] | null
+          source?: string | null
           status?: string | null
+          system_power?: number | null
+          tariff?: number | null
+          temperature?: string | null
           title?: string
           updated_at?: string | null
           user_id?: string | null
@@ -864,23 +1322,53 @@ export type Database = {
       }
       products: {
         Row: {
+          brand: string | null
+          category: string | null
           created_at: string | null
           data: Json
+          deleted_at: string | null
+          description: string | null
           id: string
+          image: string | null
+          name: string | null
+          power: number | null
+          power_unit: string | null
+          price: number | null
+          stock: number | null
           updated_at: string | null
           user_id: string | null
         }
         Insert: {
+          brand?: string | null
+          category?: string | null
           created_at?: string | null
           data: Json
+          deleted_at?: string | null
+          description?: string | null
           id: string
+          image?: string | null
+          name?: string | null
+          power?: number | null
+          power_unit?: string | null
+          price?: number | null
+          stock?: number | null
           updated_at?: string | null
           user_id?: string | null
         }
         Update: {
+          brand?: string | null
+          category?: string | null
           created_at?: string | null
           data?: Json
+          deleted_at?: string | null
+          description?: string | null
           id?: string
+          image?: string | null
+          name?: string | null
+          power?: number | null
+          power_unit?: string | null
+          price?: number | null
+          stock?: number | null
           updated_at?: string | null
           user_id?: string | null
         }
@@ -893,6 +1381,7 @@ export type Database = {
           email: string | null
           id: string
           name: string | null
+          phone: string | null
           role: string | null
           updated_at: string | null
         }
@@ -902,6 +1391,7 @@ export type Database = {
           email?: string | null
           id: string
           name?: string | null
+          phone?: string | null
           role?: string | null
           updated_at?: string | null
         }
@@ -911,6 +1401,7 @@ export type Database = {
           email?: string | null
           id?: string
           name?: string | null
+          phone?: string | null
           role?: string | null
           updated_at?: string | null
         }
@@ -920,9 +1411,11 @@ export type Database = {
         Row: {
           client_id: string | null
           completed_at: string | null
+          deleted_at: string | null
           id: string
           is_current: boolean | null
           notes: string | null
+          opportunity_id: string | null
           phase: string
           phase_label: string
           project_id: string | null
@@ -932,9 +1425,11 @@ export type Database = {
         Insert: {
           client_id?: string | null
           completed_at?: string | null
+          deleted_at?: string | null
           id?: string
           is_current?: boolean | null
           notes?: string | null
+          opportunity_id?: string | null
           phase: string
           phase_label: string
           project_id?: string | null
@@ -944,9 +1439,11 @@ export type Database = {
         Update: {
           client_id?: string | null
           completed_at?: string | null
+          deleted_at?: string | null
           id?: string
           is_current?: boolean | null
           notes?: string | null
+          opportunity_id?: string | null
           phase?: string
           phase_label?: string
           project_id?: string | null
@@ -962,6 +1459,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "project_tracking_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "project_tracking_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
@@ -974,6 +1478,7 @@ export type Database = {
         Row: {
           created_at: string | null
           data: Json
+          deleted_at: string | null
           id: string
           updated_at: string | null
           user_id: string | null
@@ -981,6 +1486,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           data: Json
+          deleted_at?: string | null
           id: string
           updated_at?: string | null
           user_id?: string | null
@@ -988,6 +1494,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           data?: Json
+          deleted_at?: string | null
           id?: string
           updated_at?: string | null
           user_id?: string | null
@@ -1047,85 +1554,274 @@ export type Database = {
           },
         ]
       }
+      proposal_views: {
+        Row: {
+          device: string | null
+          duration_seconds: number | null
+          id: string
+          internal: boolean | null
+          last_seen_at: string
+          proposal_id: string
+          referrer: string | null
+          session_id: string | null
+          user_agent: string | null
+          viewed_at: string
+        }
+        Insert: {
+          device?: string | null
+          duration_seconds?: number | null
+          id?: string
+          internal?: boolean | null
+          last_seen_at?: string
+          proposal_id: string
+          referrer?: string | null
+          session_id?: string | null
+          user_agent?: string | null
+          viewed_at?: string
+        }
+        Update: {
+          device?: string | null
+          duration_seconds?: number | null
+          id?: string
+          internal?: boolean | null
+          last_seen_at?: string
+          proposal_id?: string
+          referrer?: string | null
+          session_id?: string | null
+          user_agent?: string | null
+          viewed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_views_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proposals: {
         Row: {
+          accepted_at: string | null
+          accepted_by: string | null
           address: string | null
           blocks: Json | null
           city: string | null
           client_name: string | null
+          commission_value: number | null
           cpf_cnpj: string | null
           created_at: string | null
-          data: Json
+          created_by: string | null
+          data: Json | null
+          deleted_at: string | null
+          direct_cost: number | null
           email: string | null
           final_price: number | null
           id: string
+          inputs: Json | null
           installation_cost: number | null
           lead_id: string | null
+          monthly_generation: number | null
+          number: number
+          opportunity_id: string | null
           pdf_url: string | null
           phone: string | null
+          power_kwp: number | null
+          profit_value: number | null
+          public_token: string
           roof_type: string | null
+          sent_at: string | null
           state: string | null
           status: string | null
           system_size_kw: number | null
+          tax_value: number | null
           theme: Json | null
+          title: string | null
           updated_at: string | null
           user_id: string | null
+          valid_until: string | null
           version: number | null
+          view_count: number | null
+          viewed_at: string | null
+          views: Json | null
         }
         Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
           address?: string | null
           blocks?: Json | null
           city?: string | null
           client_name?: string | null
+          commission_value?: number | null
           cpf_cnpj?: string | null
           created_at?: string | null
-          data: Json
+          created_by?: string | null
+          data?: Json | null
+          deleted_at?: string | null
+          direct_cost?: number | null
           email?: string | null
           final_price?: number | null
           id?: string
+          inputs?: Json | null
           installation_cost?: number | null
           lead_id?: string | null
+          monthly_generation?: number | null
+          number?: number
+          opportunity_id?: string | null
           pdf_url?: string | null
           phone?: string | null
+          power_kwp?: number | null
+          profit_value?: number | null
+          public_token?: string
           roof_type?: string | null
+          sent_at?: string | null
           state?: string | null
           status?: string | null
           system_size_kw?: number | null
+          tax_value?: number | null
           theme?: Json | null
+          title?: string | null
           updated_at?: string | null
           user_id?: string | null
+          valid_until?: string | null
           version?: number | null
+          view_count?: number | null
+          viewed_at?: string | null
+          views?: Json | null
         }
         Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
           address?: string | null
           blocks?: Json | null
           city?: string | null
           client_name?: string | null
+          commission_value?: number | null
           cpf_cnpj?: string | null
           created_at?: string | null
-          data?: Json
+          created_by?: string | null
+          data?: Json | null
+          deleted_at?: string | null
+          direct_cost?: number | null
           email?: string | null
           final_price?: number | null
           id?: string
+          inputs?: Json | null
           installation_cost?: number | null
           lead_id?: string | null
+          monthly_generation?: number | null
+          number?: number
+          opportunity_id?: string | null
           pdf_url?: string | null
           phone?: string | null
+          power_kwp?: number | null
+          profit_value?: number | null
+          public_token?: string
           roof_type?: string | null
+          sent_at?: string | null
           state?: string | null
           status?: string | null
           system_size_kw?: number | null
+          tax_value?: number | null
           theme?: Json | null
+          title?: string | null
           updated_at?: string | null
           user_id?: string | null
+          valid_until?: string | null
           version?: number | null
+          view_count?: number | null
+          viewed_at?: string | null
+          views?: Json | null
         }
         Relationships: [
           {
-            foreignKeyName: "proposals_lead_id_fkey"
-            columns: ["lead_id"]
+            foreignKeyName: "proposals_opportunity_id_fkey"
+            columns: ["opportunity_id"]
             isOneToOne: false
-            referencedRelation: "leads"
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quark_points_redemptions: {
+        Row: {
+          client_id: string | null
+          created_at: string | null
+          id: string
+          notes: string | null
+          points_spent: number
+          reward_id: string
+          reward_title: string
+          scheduled_date: string | null
+          status: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          points_spent: number
+          reward_id: string
+          reward_title: string
+          scheduled_date?: string | null
+          status?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          points_spent?: number
+          reward_id?: string
+          reward_title?: string
+          scheduled_date?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quark_points_redemptions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_portal_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quark_points_transactions: {
+        Row: {
+          client_id: string | null
+          created_at: string | null
+          description: string
+          id: string
+          points: number
+          reference_id: string | null
+          type: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string | null
+          description: string
+          id?: string
+          points: number
+          reference_id?: string | null
+          type?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string | null
+          description?: string
+          id?: string
+          points?: number
+          reference_id?: string | null
+          type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quark_points_transactions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_portal_users"
             referencedColumns: ["id"]
           },
         ]
@@ -1205,8 +1901,10 @@ export type Database = {
           category: string | null
           client_id: string | null
           created_at: string | null
+          deleted_at: string | null
           description: string | null
           id: string
+          opportunity_id: string | null
           priority: string | null
           resolved_at: string | null
           status: string | null
@@ -1219,8 +1917,10 @@ export type Database = {
           category?: string | null
           client_id?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           description?: string | null
           id?: string
+          opportunity_id?: string | null
           priority?: string | null
           resolved_at?: string | null
           status?: string | null
@@ -1233,8 +1933,10 @@ export type Database = {
           category?: string | null
           client_id?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           description?: string | null
           id?: string
+          opportunity_id?: string | null
           priority?: string | null
           resolved_at?: string | null
           status?: string | null
@@ -1248,6 +1950,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "client_portal_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_tickets_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
             referencedColumns: ["id"]
           },
         ]
@@ -1275,23 +1984,41 @@ export type Database = {
       }
       tasks: {
         Row: {
+          assignee: string | null
+          completed: boolean | null
           created_at: string | null
           data: Json
+          deadline: string | null
+          deleted_at: string | null
           id: string
+          priority: string | null
+          title: string | null
           updated_at: string | null
           user_id: string | null
         }
         Insert: {
+          assignee?: string | null
+          completed?: boolean | null
           created_at?: string | null
           data: Json
+          deadline?: string | null
+          deleted_at?: string | null
           id: string
+          priority?: string | null
+          title?: string | null
           updated_at?: string | null
           user_id?: string | null
         }
         Update: {
+          assignee?: string | null
+          completed?: boolean | null
           created_at?: string | null
           data?: Json
+          deadline?: string | null
+          deleted_at?: string | null
           id?: string
+          priority?: string | null
+          title?: string | null
           updated_at?: string | null
           user_id?: string | null
         }
@@ -1331,6 +2058,53 @@ export type Database = {
             columns: ["ticket_id"]
             isOneToOne: false
             referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tool_documents: {
+        Row: {
+          created_at: string
+          data: Json
+          deleted_at: string | null
+          id: string
+          kind: string
+          number: string | null
+          opportunity_id: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          data?: Json
+          deleted_at?: string | null
+          id?: string
+          kind: string
+          number?: string | null
+          opportunity_id?: string | null
+          title: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json
+          deleted_at?: string | null
+          id?: string
+          kind?: string
+          number?: string | null
+          opportunity_id?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tool_documents_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
             referencedColumns: ["id"]
           },
         ]
@@ -1375,6 +2149,7 @@ export type Database = {
           month_ref: string
           pdf_url: string | null
           savings_brl: number | null
+          status: string | null
           user_id: string | null
         }
         Insert: {
@@ -1387,6 +2162,7 @@ export type Database = {
           month_ref: string
           pdf_url?: string | null
           savings_brl?: number | null
+          status?: string | null
           user_id?: string | null
         }
         Update: {
@@ -1399,6 +2175,7 @@ export type Database = {
           month_ref?: string
           pdf_url?: string | null
           savings_brl?: number | null
+          status?: string | null
           user_id?: string | null
         }
         Relationships: [
@@ -1421,8 +2198,10 @@ export type Database = {
           from_user: string
           id: string
           is_group: boolean
+          status: string | null
           timestamp: number
           to_user: string
+          user_id: string | null
         }
         Insert: {
           body: string
@@ -1433,8 +2212,10 @@ export type Database = {
           from_user: string
           id?: string
           is_group?: boolean
+          status?: string | null
           timestamp: number
           to_user: string
+          user_id?: string | null
         }
         Update: {
           body?: string
@@ -1445,8 +2226,10 @@ export type Database = {
           from_user?: string
           id?: string
           is_group?: boolean
+          status?: string | null
           timestamp?: number
           to_user?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -1508,10 +2291,20 @@ export type Database = {
         Returns: undefined
       }
       check_cpf_exists: { Args: { p_cpf: string }; Returns: Json }
+      create_crm_lead: { Args: { p: Json }; Returns: Json }
       create_public_lead: { Args: { p: Json }; Returns: Json }
       create_tenant_policy: { Args: { table_name: string }; Returns: undefined }
+      credit_referral_points: {
+        Args: { p_referral_id: string }
+        Returns: boolean
+      }
       get_client_profile_id: { Args: never; Returns: string }
+      get_financial_dre_summary: {
+        Args: { p_end_date?: string; p_start_date?: string; p_user_id: string }
+        Returns: Json
+      }
       get_public_company: { Args: never; Returns: Json }
+      get_public_document: { Args: { p_token: string }; Returns: Json }
       get_public_proposal: { Args: { p_token: string }; Returns: Json }
       get_webhook_url: { Args: never; Returns: string }
       is_member: { Args: never; Returns: boolean }
@@ -1542,8 +2335,45 @@ export type Database = {
         }
         Returns: boolean
       }
+      ping_proposal_view: {
+        Args: { p_seconds: number; p_view: string }
+        Returns: undefined
+      }
+      redeem_quark_points: {
+        Args: {
+          p_client_id: string
+          p_notes?: string
+          p_points_spent: number
+          p_reward_id: string
+          p_reward_title: string
+        }
+        Returns: Json
+      }
+      register_proposal_view: {
+        Args: {
+          p_device: string
+          p_internal: boolean
+          p_referrer: string
+          p_session: string
+          p_token: string
+          p_user_agent: string
+        }
+        Returns: string
+      }
+      sign_public_document: {
+        Args: {
+          p_cpf: string
+          p_ip?: string
+          p_name: string
+          p_signature: string
+          p_token: string
+          p_ua?: string
+        }
+        Returns: Json
+      }
       track_proposal_view: { Args: { p_token: string }; Returns: Json }
       track_usage: { Args: never; Returns: number }
+      view_public_document: { Args: { p_token: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never

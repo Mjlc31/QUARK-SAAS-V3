@@ -11,10 +11,36 @@ import {
   TrendingUp,
   Percent,
   X,
-  Check
+  Check,
+  Gift,
+  Globe
 } from 'lucide-react';
 import { useMaintenance, useMaintenanceStats, useCreateMaintenance, useUpdateMaintenance } from '../hooks/useMaintenance';
 import { MaintenanceService, MaintenanceServiceStatus, MaintenanceServiceType } from '../types';
+
+const getServiceOriginBadge = (service: MaintenanceService) => {
+  const notesLower = (service.notes || '').toLowerCase();
+  const isPointsRedemption = notesLower.includes('resgate de pontos') || notesLower.includes('quark points');
+  const isPortal = isPointsRedemption || service.client_id != null || notesLower.includes('portal');
+
+  if (isPointsRedemption) {
+    return {
+      label: 'Resgate de Pontos',
+      className: 'bg-purple-500/15 text-purple-300 border border-purple-500/30',
+      icon: Gift,
+    };
+  }
+
+  if (isPortal) {
+    return {
+      label: 'Origem: Portal',
+      className: 'bg-lime-500/15 text-lime-400 border border-lime-500/30',
+      icon: Globe,
+    };
+  }
+
+  return null;
+};
 
 const Maintenance: React.FC = () => {
   const { data: services, isLoading } = useMaintenance();
@@ -219,34 +245,45 @@ const Maintenance: React.FC = () => {
                 </span>
               </div>
               <div className="space-y-3">
-                {filteredServices.filter(s => s.status === status).map(service => (
-                  <div key={service.id} className="glass-panel p-4 rounded-xl cursor-pointer hover:border-lime-500/30 transition-all">
-                    <div className="flex justify-between items-start mb-2">
-                      <p className="font-bold text-white text-sm truncate">{service.client_name}</p>
-                      <span className={`text-[10px] px-2 py-1 rounded-md uppercase font-bold ${getStatusBadge(service.status)}`}>
-                        {getStatusLabel(service.status)}
-                      </span>
-                    </div>
-                    <div className="text-xs text-slate-400 mb-3 space-y-1">
-                      <p className="capitalize">{service.service_type}</p>
-                      <p className="flex items-center gap-1"><Calendar size={12}/> {service.scheduled_date ? new Date(service.scheduled_date).toLocaleDateString('pt-BR') : 'Sem data'}</p>
-                    </div>
-                    <div className="flex justify-between items-center pt-3 border-t border-white/5">
-                      <div>
-                        <p className="text-xs text-slate-500">{service.technician || 'Não alocado'}</p>
-                        {service.status !== 'concluido' && (
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); updateService.mutate({ id: service.id, status: 'concluido' }); }}
-                            className="mt-1 text-[10px] text-lime-400 hover:text-lime-300 flex items-center gap-1 font-bold uppercase"
-                          >
-                            <Check size={10} /> Concluir
-                          </button>
-                        )}
+                {filteredServices.filter(s => s.status === status).map(service => {
+                  const originBadge = getServiceOriginBadge(service);
+                  return (
+                    <div key={service.id} className="glass-panel p-4 rounded-xl cursor-pointer hover:border-lime-500/30 transition-all">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="font-bold text-white text-sm truncate">{service.client_name}</p>
+                          {originBadge && (
+                            <span className={`inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider mt-1 ${originBadge.className}`}>
+                              <originBadge.icon size={10} />
+                              {originBadge.label}
+                            </span>
+                          )}
+                        </div>
+                        <span className={`text-[10px] px-2 py-1 rounded-md uppercase font-bold shrink-0 ${getStatusBadge(service.status)}`}>
+                          {getStatusLabel(service.status)}
+                        </span>
                       </div>
-                      <p className="text-sm font-bold text-lime-400">{fmt(service.price)}</p>
+                      <div className="text-xs text-slate-400 mb-3 space-y-1">
+                        <p className="capitalize">{service.service_type}</p>
+                        <p className="flex items-center gap-1"><Calendar size={12}/> {service.scheduled_date ? new Date(service.scheduled_date).toLocaleDateString('pt-BR') : 'Sem data'}</p>
+                      </div>
+                      <div className="flex justify-between items-center pt-3 border-t border-white/5">
+                        <div>
+                          <p className="text-xs text-slate-500">{service.technician || 'Não alocado'}</p>
+                          {service.status !== 'concluido' && (
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); updateService.mutate({ id: service.id, status: 'concluido' }); }}
+                              className="mt-1 text-[10px] text-lime-400 hover:text-lime-300 flex items-center gap-1 font-bold uppercase"
+                            >
+                              <Check size={10} /> Concluir
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-sm font-bold text-lime-400">{fmt(service.price)}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -268,34 +305,47 @@ const Maintenance: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {filteredServices.map(service => (
-                  <tr key={service.id} className="hover:bg-white/5 transition-colors group">
-                    <td className="p-4 text-sm font-medium text-white">{service.client_name}</td>
-                    <td className="p-4 text-sm text-slate-300 capitalize">{service.service_type}</td>
-                    <td className="p-4">
-                      <span className={`text-[10px] px-2 py-1 rounded-md uppercase font-bold ${getStatusBadge(service.status)}`}>
-                        {getStatusLabel(service.status)}
-                      </span>
-                    </td>
-                    <td className="p-4 text-sm text-slate-400">
-                      {service.scheduled_date ? new Date(service.scheduled_date).toLocaleDateString('pt-BR') : '-'}
-                    </td>
-                    <td className="p-4 text-sm font-bold text-lime-400 font-mono">{fmt(service.price)}</td>
-                    <td className="p-4 text-sm font-bold text-blue-400 font-mono">{fmt(service.price - service.cost)}</td>
-                    <td className="p-4 text-sm text-slate-400">{service.technician || '-'}</td>
-                    <td className="p-4 text-right">
-                      {service.status !== 'concluido' && (
-                        <button 
-                          onClick={() => updateService.mutate({ id: service.id, status: 'concluido' })}
-                          className="p-1.5 rounded-lg bg-lime-500/10 text-lime-400 hover:bg-lime-500/20 transition-colors inline-flex"
-                          title="Marcar como Concluído"
-                        >
-                          <Check size={16} />
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {filteredServices.map(service => {
+                  const originBadge = getServiceOriginBadge(service);
+                  return (
+                    <tr key={service.id} className="hover:bg-white/5 transition-colors group">
+                      <td className="p-4 text-sm font-medium text-white">
+                        <div className="flex flex-col gap-1 items-start">
+                          <span>{service.client_name}</span>
+                          {originBadge && (
+                            <span className={`inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider ${originBadge.className}`}>
+                              <originBadge.icon size={10} />
+                              {originBadge.label}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-4 text-sm text-slate-300 capitalize">{service.service_type}</td>
+                      <td className="p-4">
+                        <span className={`text-[10px] px-2 py-1 rounded-md uppercase font-bold ${getStatusBadge(service.status)}`}>
+                          {getStatusLabel(service.status)}
+                        </span>
+                      </td>
+                      <td className="p-4 text-sm text-slate-400">
+                        {service.scheduled_date ? new Date(service.scheduled_date).toLocaleDateString('pt-BR') : '-'}
+                      </td>
+                      <td className="p-4 text-sm font-bold text-lime-400 font-mono">{fmt(service.price)}</td>
+                      <td className="p-4 text-sm font-bold text-blue-400 font-mono">{fmt(service.price - service.cost)}</td>
+                      <td className="p-4 text-sm text-slate-400">{service.technician || '-'}</td>
+                      <td className="p-4 text-right">
+                        {service.status !== 'concluido' && (
+                          <button 
+                            onClick={() => updateService.mutate({ id: service.id, status: 'concluido' })}
+                            className="p-1.5 rounded-lg bg-lime-500/10 text-lime-400 hover:bg-lime-500/20 transition-colors inline-flex"
+                            title="Marcar como Concluído"
+                          >
+                            <Check size={16} />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

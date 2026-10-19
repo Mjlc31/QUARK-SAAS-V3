@@ -17,6 +17,7 @@ import { supabase } from "@/lib/supabase/client";
 import { ViewsPill } from "@/components/ProposalViews";
 import { fetchProposalViews, type ProposalView } from "@/lib/proposal-tracking";
 import type { Product, Proposal, ProposalStatus } from "@/lib/types";
+import { useAuth } from "@/contexts/AuthContext";
 
 type Filter = "todas" | ProposalStatus;
 
@@ -29,7 +30,7 @@ export default function ProposalsPage() {
 }
 
 function Proposals() {
-  
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -96,7 +97,14 @@ function Proposals() {
   const duplicate = async (p: Proposal & { views?: ProposalView[]; deleted_at?: string | null }) => {
     const { id, number, public_token, created_at, updated_at, lead, sent_at, viewed_at, view_count, accepted_at, accepted_by, status, views, deleted_at, ...rest } = p;
     void id; void number; void public_token; void created_at; void updated_at; void lead; void sent_at; void viewed_at; void view_count; void accepted_at; void accepted_by; void status; void views; void deleted_at;
-    const { data: copy, error } = await supabase().from("proposals").insert({ ...rest, status: "rascunho" }).select("id").single();
+    const oppId = p.opportunity_id || (p.lead_id && p.lead_id.length === 36 ? p.lead_id : null);
+    const { data: copy, error } = await supabase().from("proposals").insert({
+      ...rest,
+      user_id: user?.id || p.user_id,
+      created_by: user?.id || p.created_by,
+      opportunity_id: oppId,
+      status: "rascunho",
+    }).select("id").single();
     if (error) return toast.error(error.message);
     toast.success("Orçamento duplicado");
     navigate(`/propostas/${copy.id}`);

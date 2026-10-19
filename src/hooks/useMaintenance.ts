@@ -12,7 +12,7 @@ export function useMaintenance() {
       const { data, error } = await supabase
         .from('maintenance_services')
         .select('*')
-        .eq('user_id', userAuth.user.id)
+        .or(`user_id.eq.${userAuth.user.id},user_id.is.null`)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -34,7 +34,7 @@ export function useMaintenanceStats() {
       const { data, error } = await supabase
         .from('maintenance_services')
         .select('*')
-        .eq('user_id', userAuth.user.id);
+        .or(`user_id.eq.${userAuth.user.id},user_id.is.null`);
 
       if (error) {
         throw error;

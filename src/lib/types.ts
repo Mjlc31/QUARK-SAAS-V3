@@ -74,6 +74,8 @@ export interface Proposal {
   view_count: number;
   accepted_at: string | null;
   accepted_by: string | null;
+  user_id?: string | null;
+  opportunity_id?: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

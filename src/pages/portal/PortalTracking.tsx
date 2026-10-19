@@ -20,8 +20,41 @@ const mockPhases = [
 const PortalTracking: React.FC = () => {
   const navigate = useNavigate();
   const { client, logout } = usePortal();
-  const completedCount = mockPhases.filter(p => p.status === 'completed').length;
-  const progressPercent = Math.round((completedCount / (mockPhases.length - 1)) * 100);
+  const [phases, setPhases] = React.useState(mockPhases);
+  const [systemSize, setSystemSize] = React.useState('8.5 kWp');
+
+  React.useEffect(() => {
+    async function loadTracking() {
+      const targetId = client?.id || 'demo';
+      try {
+        const res = await fetch(`/api/portal/project/${targetId}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.phases && data.phases.length > 0) {
+            const mapped = data.phases.map((p: any, idx: number) => ({
+              id: idx + 1,
+              label: p.label,
+              status: p.completed ? 'completed' : p.is_current ? 'current' : 'future',
+              date: p.completed_at 
+                ? new Date(p.completed_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' }) 
+                : (p.is_current ? 'Em andamento' : 'Pendente'),
+              desc: p.notes || '',
+            }));
+            setPhases(mapped);
+            if (data.client?.system_size_kw) {
+              setSystemSize(`${data.client.system_size_kw} kWp`);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[PortalTracking] Usando dados locais offline:', err);
+      }
+    }
+    loadTracking();
+  }, [client?.id]);
+
+  const completedCount = phases.filter(p => p.status === 'completed').length;
+  const progressPercent = Math.min(100, Math.round((completedCount / (phases.length - 1 || 1)) * 100));
 
   const handleLogout = async () => {
     await logout();
@@ -73,11 +106,11 @@ const PortalTracking: React.FC = () => {
             </div>
             <div>
               <span className="block text-xs font-bold text-zinc-500 uppercase mb-1">Sistema</span>
-              <span className="text-sm text-white font-medium">8.5 kWp</span>
+              <span className="text-sm text-white font-medium">{systemSize}</span>
             </div>
             <div>
               <span className="block text-xs font-bold text-zinc-500 uppercase mb-1">Local</span>
-              <span className="text-sm text-white font-medium flex items-center gap-1"><Navigation size={14} className="text-zinc-400"/> São Paulo, SP</span>
+              <span className="text-sm text-white font-medium flex items-center gap-1"><Navigation size={14} className="text-zinc-400"/> Maceió, AL</span>
             </div>
             <div>
               <span className="block text-xs font-bold text-zinc-500 uppercase mb-1">Início</span>
@@ -105,7 +138,7 @@ const PortalTracking: React.FC = () => {
           <div className="absolute left-[39px] sm:left-[47px] top-10 bottom-10 w-0.5 bg-zinc-800 z-0"></div>
           
           <div className="space-y-8 relative z-10">
-            {mockPhases.map((phase, index) => (
+            {phases.map((phase, index) => (
               <motion.div 
                 key={phase.id}
                 initial={{ opacity: 0, y: 20 }}

@@ -1,0 +1,151 @@
+{
+  "updatedAt": "2026-09-30T04:48:41.000Z",
+  "createdAt": "2026-09-24T06:22:46.248Z",
+  "id": "sondagem-lead-001",
+  "name": "Sondagem de Novo Lead (Proativo)",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "path": "novo-lead-crm",
+        "httpMethod": "POST",
+        "options": {}
+      },
+      "id": "webhook-lead",
+      "name": "Webhook Novo Lead",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://evolution-api:8080/message/sendText/quark",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "quark_senha_secreta_123"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"{{ $json.body.data.phone }}\",\n  \"options\": {\n    \"delay\": 2500,\n    \"presence\": \"composing\"\n  },\n  \"text\": \"Olá {{ $json.body.data.name }}, tudo bem? Sou da equipe da Quark Energia ☀️\\n\\nVi que você tem interesse em se livrar do aluguel da conta de luz. Podemos conversar rapidinho?\"\n}",
+        "options": {}
+      },
+      "id": "enviar-primeira-msg",
+      "name": "Disparar Primeira Mensagem",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/leads?id=eq.{{ $('Webhook Novo Lead').item.json.body.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer ={{ $env.SUPABASE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"data\": { \"status\": \"Contatado (IA)\" }\n}",
+        "options": {}
+      },
+      "id": "atualizar-crm",
+      "name": "Atualizar Status no CRM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        650,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Novo Lead": {
+      "main": [
+        [
+          {
+            "node": "Disparar Primeira Mensagem",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Disparar Primeira Mensagem": {
+      "main": [
+        [
+          {
+            "node": "Atualizar Status no CRM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": null,
+  "staticData": null,
+  "meta": null,
+  "nodeGroups": [],
+  "pinData": null,
+  "versionId": "10c7b60c-561a-4bac-ae48-70556a2a7159",
+  "activeVersionId": "10c7b60c-561a-4bac-ae48-70556a2a7159",
+  "versionCounter": 4,
+  "triggerCount": 1,
+  "sourceWorkflowId": null,
+  "tags": [],
+  "shared": [
+    {
+      "updatedAt": "2026-09-24T06:22:46.249Z",
+      "createdAt": "2026-09-24T06:22:46.249Z",
+      "role": "workflow:owner",
+      "workflowId": "sondagem-lead-001",
+      "projectId": "VeN6MujGsf51gHZZ",
+      "project": {
+        "updatedAt": "2026-09-24T05:51:42.639Z",
+        "createdAt": "2026-09-22T21:00:47.272Z",
+        "id": "VeN6MujGsf51gHZZ",
+        "name": "arthur duda <arthurmoraesp12@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "customTelemetryTags": [],
+        "creatorId": "92c5f28f-d447-4d8a-922a-1a7cf2ae50be"
+      }
+    }
+  ],
+  "versionMetadata": {
+    "name": null,
+    "description": null
+  }
+}

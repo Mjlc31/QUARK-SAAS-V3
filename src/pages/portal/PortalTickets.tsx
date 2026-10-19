@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Headphones, Plus, MessageSquare, X, Send, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
+import { usePortal } from '../../contexts/PortalContext';
 
 const initialTickets = [
   { id: 'TKT-1234', subject: 'Dúvida sobre a fatura', category: 'Financeiro', priority: 'Normal', status: 'Resolvido', date: '12 Set, 2026', messages: [
@@ -18,6 +19,7 @@ const initialTickets = [
 
 const PortalTickets: React.FC = () => {
   const navigate = useNavigate();
+  const { client, logout } = usePortal();
   const [filter, setFilter] = useState('Todos');
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -29,11 +31,47 @@ const PortalTickets: React.FC = () => {
   const [newPriority, setNewPriority] = useState('Normal');
   const [newDescription, setNewDescription] = useState('');
 
-  const handleCreateTicket = () => {
+  // Sincroniza chamados reais do backend
+  useEffect(() => {
+    async function loadTickets() {
+      try {
+        const res = await fetch('/api/tickets');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.tickets && data.tickets.length > 0) {
+            const formatted = data.tickets.map((t: any) => ({
+              id: t.id.substring(0, 8).toUpperCase(),
+              realId: t.id,
+              subject: t.subject,
+              category: t.category.charAt(0).toUpperCase() + t.category.slice(1),
+              priority: t.priority.charAt(0).toUpperCase() + t.priority.slice(1),
+              status: t.status === 'resolvido' ? 'Resolvido' : 'Aberto',
+              date: new Date(t.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' }),
+              messages: [
+                {
+                  sender: 'client',
+                  text: t.description || 'Chamado registrado pelo portal.',
+                  time: new Date(t.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+                },
+              ],
+            }));
+            setTickets([...formatted, ...initialTickets]);
+          }
+        }
+      } catch (err) {
+        console.warn('[PortalTickets] Offline fallback ativado:', err);
+      }
+    }
+    loadTickets();
+  }, [client?.id]);
+
+  const handleCreateTicket = async () => {
     if (!newSubject.trim() || !newDescription.trim()) return;
 
-    const newTicket = {
-      id: `TKT-${Math.floor(1000 + Math.random() * 9000)}`,
+    const shortId = `TKT-${Math.floor(1000 + Math.random() * 9000)}`;
+    const optimisticTicket = {
+      id: shortId,
+      realId: shortId,
       subject: newSubject,
       category: newCategory,
       priority: newPriority,
@@ -44,12 +82,68 @@ const PortalTickets: React.FC = () => {
       ]
     };
 
-    setTickets([newTicket, ...tickets]);
+    setTickets([optimisticTicket, ...tickets]);
     setIsModalOpen(false);
+
+    try {
+      await fetch('/api/tickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subject: newSubject,
+          description: newDescription,
+          category: newCategory.toLowerCase(),
+          priority: newPriority.toLowerCase(),
+          client_id: client?.id || null,
+          client_name: client?.name || 'Cliente Portal',
+          client_email: client?.email,
+          client_phone: client?.phone,
+        }),
+      });
+    } catch (err) {
+      console.warn('[PortalTickets] Erro ao sincronizar ticket com backend:', err);
+    }
+
     setNewSubject('');
     setNewCategory('Manutenção');
     setNewPriority('Normal');
     setNewDescription('');
+  };
+
+  const handleSendReply = async (ticketId: string) => {
+    if (!replyText.trim()) return;
+    const text = replyText.trim();
+    const time = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    const targetTicket = tickets.find((t: any) => t.id === ticketId);
+    const backendTicketId = (targetTicket as any)?.realId || ticketId;
+
+    setTickets((prev: any) =>
+      prev.map((t: any) => {
+        if (t.id === ticketId) {
+          return {
+            ...t,
+            messages: [...t.messages, { sender: 'client', text, time }],
+          };
+        }
+        return t;
+      })
+    );
+    setReplyText('');
+
+    try {
+      await fetch(`/api/tickets/${backendTicketId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          sender_type: 'client',
+          sender_id: client?.id || null,
+        }),
+      });
+    } catch (err) {
+      console.warn('[PortalTickets] Mensagem enviada em modo offline:', err);
+    }
   };
 
   const filteredTickets = tickets.filter(t => {
@@ -185,12 +279,21 @@ const PortalTickets: React.FC = () => {
                       <div className="p-4 bg-zinc-900/80 border-t border-white/5 flex gap-2">
                         <input 
                           type="text" 
-                          placeholder="Digite sua mensagem..." 
+                          placeholder="Digite sua mensagem e pressione Enter..." 
                           value={replyText}
                           onChange={(e) => setReplyText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleSendReply(ticket.id);
+                            }
+                          }}
                           className="flex-1 bg-zinc-950 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-lime-500 outline-none transition-colors"
                         />
-                        <button className="p-2.5 bg-lime-500 hover:bg-lime-400 text-zinc-950 rounded-xl transition-colors active:scale-95">
+                        <button 
+                          onClick={() => handleSendReply(ticket.id)}
+                          className="p-2.5 bg-lime-500 hover:bg-lime-400 text-zinc-950 rounded-xl transition-colors active:scale-95"
+                        >
                           <Send size={18} />
                         </button>
                       </div>

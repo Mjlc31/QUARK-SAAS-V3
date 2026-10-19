@@ -30,6 +30,7 @@ interface Transaction {
     amount: number;
     date: string;
     note?: string;
+    attachment_url?: string;
 }
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -158,6 +159,7 @@ const Financial: React.FC = () => {
     const mapRow = (r: any): Transaction => ({
         id: r.id, description: r.description, type: r.type as TransactionType,
         category: r.category as Category, amount: Number(r.amount), date: r.date, note: r.note || undefined,
+        attachment_url: r.attachment_url || (r.note?.includes('Comprovante: ') ? r.note.split('Comprovante: ')[1]?.trim() : undefined),
     });
 
     const filtered = viewMode === 'monthly' ? transactions : allYearTx;
@@ -442,6 +444,7 @@ const Financial: React.FC = () => {
         const payload = {
             description: form.description, type: form.type, category: form.category,
             amount: parseFloat(form.amount), date: form.date, note: finalNote, user_id: user.id,
+            attachment_url: attachmentUrl || null,
         };
         const { data, error } = await supabase.from('financial_transactions').insert([payload]).select().single();
         if (error) { setSavingError('Erro ao salvar. Tente novamente.'); }
@@ -839,7 +842,21 @@ const Financial: React.FC = () => {
                                                 <div className={`w-2 h-2 rounded-full flex-shrink-0 ${t.type === 'receita' ? 'bg-lime-500' : t.type === 'custo' ? 'bg-orange-500' : 'bg-red-500'}`} />
                                                 <div className="flex-1 min-w-0">
                                                     <p className="text-sm font-medium text-white truncate">{t.description}</p>
-                                                    <p className="text-xs text-slate-500">{CATEGORY_LABELS[t.category]} · {new Date(t.date + 'T00:00:00').toLocaleDateString('pt-BR')}{t.note ? ` · ${t.note}` : ''}</p>
+                                                    <p className="text-xs text-slate-500">
+                                                        {CATEGORY_LABELS[t.category]} · {new Date(t.date + 'T00:00:00').toLocaleDateString('pt-BR')}
+                                                        {t.note ? ` · ${t.note.split(' | Comprovante: ')[0]}` : ''}
+                                                        {t.attachment_url && (
+                                                            <a
+                                                                href={t.attachment_url}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="inline-flex items-center gap-1 text-[11px] text-lime-400 hover:text-lime-300 transition-colors ml-2 font-medium"
+                                                                onClick={e => e.stopPropagation()}
+                                                            >
+                                                                📎 Comprovante
+                                                            </a>
+                                                        )}
+                                                    </p>
                                                 </div>
                                                 <span className={`text-[10px] px-2 py-0.5 rounded border font-bold flex-shrink-0 ${typeColors[t.type]}`}>
                                                     {typeLabels[t.type]}

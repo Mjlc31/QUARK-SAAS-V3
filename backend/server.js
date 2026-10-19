@@ -12,6 +12,13 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { z } from 'zod';
 import { insertTaskIntoCalendar } from './googleCalendar.js';
 import spinAgent from './spinAgent.js';
+import ticketsRouter from './routes/tickets.js';
+import maintenanceRouter from './routes/maintenance.js';
+import trackingRouter from './routes/tracking.js';
+import pointsRouter from './routes/points.js';
+import telemetryRouter from './routes/telemetry.js';
+import ocrRouter from './routes/ocr.js';
+import prospectingRouter from './routes/prospecting.js';
 
 dotenv.config();
 
@@ -45,6 +52,7 @@ const io = new Server(server, {
     credentials: true
   }
 });
+app.set('io', io);
 
 // ─── Environment & Config ──────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
@@ -521,247 +529,19 @@ app.post('/agent/task-notify', requireAuth, async (req, res) => {
   }
 });
 
-// ─── OCR de Faturas de Energia com Gemini Vision ────────────────────────────
-app.post('/api/ocr', requireAuth, async (req, res) => {
-  try {
-    const base64Image = req.body.imageBase64 || req.body.base64Image;
-    const mimeType = req.body.mimeType || 'image/jpeg';
 
-    if (!base64Image) {
-      return res.status(400).json({ error: 'Nenhuma imagem base64 fornecida' });
-    }
-
-    const cleanBase64 = base64Image.replace(/^data:image\/[a-zA-Z0-9+.-]+;base64,/, '');
-
-    if (!GEMINI_API_KEY) {
-      return res.json({
-        name: 'Cliente Extraído OCR',
-        monthlyConsumptionKwh: 450,
-        tariffRate: 0.95,
-        totalAmount: 427.50
-      });
-    }
-
-    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-3.5-flash' });
-
-    const prompt = `Analise esta fatura de energia elétrica brasileira e extraia os seguintes dados em JSON puro:
-{
-  "name": "nome completo do titular/cliente",
-  "monthlyConsumptionKwh": número (consumo faturado ou consumo do mês em kWh),
-  "tariffRate": número (tarifa com impostos em R$/kWh, ex: 0.95),
-  "totalAmount": número (valor total a pagar em R$)
-}`;
-
-    const result = await model.generateContent([
-      prompt,
-      { inlineData: { data: cleanBase64, mimeType } }
-    ]);
-
-    let parsed = {};
-    try {
-      const text = result.response.text().replace(/```json|```/g, '').trim();
-      parsed = JSON.parse(text);
-    } catch {
-      parsed = {
-        name: 'Cliente Extraído OCR',
-        monthlyConsumptionKwh: 450,
-        tariffRate: 0.95
-      };
-    }
-
-    res.json({
-      name: parsed.name || 'Cliente Extraído OCR',
-      monthlyConsumptionKwh: Number(parsed.monthlyConsumptionKwh) || 0,
-      tariffRate: Number(parsed.tariffRate) || 0.95,
-      totalAmount: Number(parsed.totalAmount) || 0
-    });
-  } catch (error) {
-    console.error('[OCR] Erro:', error);
-    res.status(500).json({ error: 'Falha no processamento OCR', details: error.message });
-  }
-});
-
-// ─── Auditoria Equatorial ──────────────────────────────────────────────────
-app.post('/api/audit/equatorial', async (req, res) => {
-  const { documentId, birthDate, cpf } = req.body;
-  const doc = documentId || cpf;
-  res.json({
-    status: 'success',
-    analise: {
-      fatura_auditada: '07/2024',
-      energia_injetada: 450,
-      energia_compensada: 450,
-      saldo_acumulado: 120,
-      parecer: 'A Equatorial realizou o abatimento correto da energia para o titular. Não há divergências encontradas.',
-      divergencia: false,
-    }
-  });
-});
-
-// ─── Prospecção Google Maps (Scraper Real) ─────────────────────────────────
-app.post('/api/prospeccao/buscar', requireAuth, async (req, res) => {
-  const SCRAPER_URL = 'http://127.0.0.1:8080';
-
-  try {
-    const { segmento, localizacao, lat, lon } = req.body;
-    const query = `${segmento || 'empresas'} em ${localizacao || 'Maceió'}`;
-    console.log(`[PROSPECCAO] Busca solicitada: "${query}" (lat=${lat}, lon=${lon})`);
-
-    // 1. Submeter job ao scraper
-    const jobName = `quark-${Date.now()}`;
-    const formParams = new URLSearchParams();
-    formParams.append('name', jobName);
-    formParams.append('keywords', query);
-    formParams.append('lang', 'pt');
-    formParams.append('depth', '4');
-    formParams.append('zoom', '14');
-    formParams.append('radius', '15000');
-    formParams.append('maxtime', '4m');
-    if (lat && lon) {
-      formParams.append('latitude', String(lat));
-      formParams.append('longitude', String(lon));
-    }
-
-    let submitRes;
-    try {
-      submitRes = await axios.post(`${SCRAPER_URL}/scrape`, formParams.toString(), {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        timeout: 15000
-      });
-    } catch (scraperErr) {
-      console.error('[PROSPECCAO] Scraper indisponível:', scraperErr.message);
-      return res.status(503).json({ error: 'Scraper indisponível. Verifique se o container Docker está rodando.' });
-    }
-
-    // Extrair job ID do HTML retornado
-    const htmlBody = submitRes.data;
-    const idMatch = typeof htmlBody === 'string' ? htmlBody.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/) : null;
-    if (!idMatch) {
-      console.error('[PROSPECCAO] Não foi possível extrair job ID. Resposta:', typeof htmlBody === 'string' ? htmlBody.substring(0, 300) : htmlBody);
-      return res.status(500).json({ error: 'Falha ao iniciar busca no scraper' });
-    }
-    const jobId = idMatch[1];
-    console.log(`[PROSPECCAO] Job criado: ${jobId}`);
-
-    // 2. Polling: aguardar conclusão (máximo 5 min = 100 x 3s)
-    let jobDone = false;
-    for (let i = 0; i < 100; i++) {
-      await new Promise(r => setTimeout(r, 3000));
-      try {
-        const jobsRes = await axios.get(`${SCRAPER_URL}/jobs`, { timeout: 5000 });
-        const jobsHtml = typeof jobsRes.data === 'string' ? jobsRes.data : '';
-        // O scraper mostra link de download quando o job conclui
-        if (jobsHtml.includes(`/download?id=${jobId}`)) {
-          jobDone = true;
-          console.log(`[PROSPECCAO] Job ${jobId} completou com sucesso.`);
-          break;
-        }
-        // Checar falha
-        const jobIdx = jobsHtml.indexOf(jobId);
-        if (jobIdx > -1) {
-          const slice = jobsHtml.substring(jobIdx, jobIdx + 500);
-          if (slice.includes('status-failed') || slice.includes('status-error')) {
-            console.error(`[PROSPECCAO] Job ${jobId} falhou.`);
-            return res.status(500).json({ error: 'O scraper falhou ao processar a busca.' });
-          }
-        }
-        if (i % 10 === 0) console.log(`[PROSPECCAO] Polling ${i+1}/100 para job ${jobId}...`);
-      } catch (pollErr) {
-        console.warn('[PROSPECCAO] Erro no polling:', pollErr.message);
-      }
-    }
-
-    if (!jobDone) {
-      console.error(`[PROSPECCAO] Job ${jobId} timeout.`);
-      return res.status(504).json({ error: 'Tempo esgotado aguardando resultados do scraper.' });
-    }
-
-    // 3. Baixar CSV
-    console.log(`[PROSPECCAO] Job ${jobId} concluído. Baixando CSV...`);
-    let csvData;
-    try {
-      const dlRes = await axios.get(`${SCRAPER_URL}/download?id=${jobId}`, { timeout: 15000 });
-      csvData = dlRes.data;
-    } catch (dlErr) {
-      console.error('[PROSPECCAO] Erro ao baixar CSV:', dlErr.message);
-      return res.status(500).json({ error: 'Erro ao baixar resultados.' });
-    }
-
-    // 4. Parsear CSV
-    const { parse } = await import('csv-parse/sync');
-    let records;
-    try {
-      records = parse(csvData, {
-        columns: true,
-        skip_empty_lines: true,
-        relax_quotes: true,
-        relax_column_count: true,
-        trim: true
-      });
-    } catch (parseErr) {
-      console.error('[PROSPECCAO] Erro ao parsear CSV:', parseErr.message);
-      return res.status(500).json({ error: 'Erro ao processar resultados do scraper.' });
-    }
-
-    // 5. Mapear para o formato do frontend
-    const leads = records.map((row, i) => ({
-      id: i + 1,
-      nome: row.title || 'Sem nome',
-      avaliacao: row.review_rating
-        ? `${parseFloat(row.review_rating).toFixed(1)} (${row.review_count || 0})`
-        : '-',
-      endereco: row.address || '-',
-      telefone: row.phone || '-',
-      website: row.website || '',
-      latitude: row.latitude ? parseFloat(row.latitude) : null,
-      longitude: row.longitude ? parseFloat(row.longitude) : null,
-      categoria: row.category || ''
-    })).filter(l => l.nome !== 'Sem nome');
-
-    console.log(`[PROSPECCAO] ${leads.length} leads encontrados para "${query}"`);
-    res.json({ leads });
-  } catch (error) {
-    console.error('[PROSPECCAO] Erro geral:', error);
-    res.status(500).json({ error: 'Erro interno ao buscar leads' });
-  }
-});
-
-// ─── Portal & Tickets ──────────────────────────────────────────────────────
+// ─── Rotas Modulares do Quark SaaS ─────────────────────────────────────────
+app.use('/api/tickets', ticketsRouter);
+app.use('/api/maintenance', maintenanceRouter);
+app.use('/api/portal', trackingRouter);
+app.use('/api/portal/points', pointsRouter);
+app.use('/api/portal/telemetry', telemetryRouter);
+app.use('/api/ocr', ocrRouter);
+app.use('/api/audit', ocrRouter);
+app.use('/api/utility', ocrRouter);
+app.use('/api/prospeccao', prospectingRouter);
 app.post('/api/portal/auth', (req, res) => res.json({ success: true, message: 'Portal auth ready' }));
-app.get('/api/portal/project/:clientId', (req, res) => {
-  res.json({
-    success: true,
-    phases: [
-      { phase: 'venda_confirmada', label: 'Venda Confirmada', completed: true },
-      { phase: 'projeto_elaboracao', label: 'Projeto em Elaboração', completed: true },
-      { phase: 'projeto_enviado', label: 'Projeto Enviado', completed: true },
-      { phase: 'aprovacao_concessionaria', label: 'Aprovação Concessionária', completed: false, is_current: true },
-      { phase: 'logistica_entrega', label: 'Logística de Entrega', completed: false },
-      { phase: 'instalacao', label: 'Instalação', completed: false },
-      { phase: 'homologacao', label: 'Homologação', completed: false },
-      { phase: 'comissionamento', label: 'Comissionamento', completed: false },
-      { phase: 'finalizado', label: 'Finalizado', completed: false }
-    ]
-  });
-});
 
-app.post('/api/tickets', (req, res) => {
-  res.json({
-    success: true,
-    ticket: {
-      id: `ticket_${Date.now()}`,
-      subject: req.body?.subject || 'Suporte Técnico',
-      status: 'aberto',
-      created_at: new Date().toISOString()
-    }
-  });
-});
-
-app.post('/api/maintenance/alert-batch', (req, res) => {
-  const count = req.body?.client_ids?.length || 0;
-  res.json({ success: true, alerts_sent: count });
-});
 
 // ─── API DE DOCUMENTOS PÚBLICOS (Assinatura Eletrônica Certificada) ──────
 const handlePublicDocument = async (req, res) => {
@@ -861,39 +641,7 @@ const handlePublicDocument = async (req, res) => {
 app.get('/api/public/document/:token', handlePublicDocument);
 app.post('/api/public/document/:token', handlePublicDocument);
 
-// Webhook Reverso para o N8N ou Evolution confirmar entrega de Alertas
-app.post('/api/maintenance/webhook-delivery', async (req, res) => {
-  try {
-    const { alert_id, status, error_reason } = req.body;
-    if (!alert_id || !status) {
-      return res.status(400).json({ error: 'alert_id and status are required' });
-    }
-    
-    // status expected: 'enviado', 'lido', 'respondido', 'falha'
-    const updatePayload = {
-      status,
-      sent_at: new Date().toISOString()
-    };
-    
-    if (status === 'falha' && error_reason) {
-      updatePayload.error_reason = error_reason;
-      console.log(`[Webhook Reverso] Alerta ${alert_id} falhou: ${error_reason}`);
-    }
-    
-    const { error } = await supabase
-      .from('maintenance_alerts')
-      .update(updatePayload)
-      .eq('id', alert_id);
-      
-    if (error) throw error;
-    
-    console.log(`[Webhook Reverso] Alerta ${alert_id} atualizado para ${status}`);
-    res.json({ success: true });
-  } catch (error) {
-    console.error('[Webhook Reverso] Error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+
 
 
 // ─── API DE PROPOSTAS PÚBLICAS ──────────────────────────────────────────────

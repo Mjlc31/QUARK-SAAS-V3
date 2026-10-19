@@ -496,7 +496,7 @@ const Conversations: React.FC = () => {
                 absolute inset-0 z-50 md:relative md:inset-auto md:z-auto md:translate-x-0
                 ${mobileShowChat ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}
             `}>
-                <div className="absolute inset-0 opacity-[0.04] pointer-events-none" style={{ backgroundImage: 'url("https://w0.peakpx.com/wallpaper/818/148/HD-wallpaper-whatsapp-background-cool-dark-green-new-theme-whatsapp.jpg")', backgroundSize: '400px', backgroundRepeat: 'repeat', filter: 'grayscale(100%) contrast(120%)' }} />
+                <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#22c55e 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
 
                 {activeChat ? (
                     <>

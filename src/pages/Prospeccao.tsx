@@ -126,10 +126,14 @@ export default function Prospeccao() {
   }, [user?.id]);
   
   const isLeadImported = (lead: ProspectLead) => {
-    return existingOpps.some(opp => 
-      opp.title.toLowerCase() === lead.nome.toLowerCase() || 
-      (lead.telefone && lead.telefone !== '-' && opp.phone && opp.phone !== '-' && opp.phone === lead.telefone)
-    );
+    const leadName = (lead?.nome || '').trim().toLowerCase();
+    if (!leadName) return false;
+    return existingOpps.some(opp => {
+      const oppTitle = (opp?.title || '').trim().toLowerCase();
+      const matchName = Boolean(oppTitle && oppTitle === leadName);
+      const matchPhone = Boolean(lead?.telefone && lead.telefone !== '-' && opp?.phone && opp.phone !== '-' && opp.phone === lead.telefone);
+      return matchName || matchPhone;
+    });
   };
   
   const segDropdownRef = useRef<HTMLDivElement>(null);
