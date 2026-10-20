@@ -3,7 +3,9 @@ import { Calculator as CalcIcon, Sun, Zap, FileText, MapPin, AlertTriangle, Tren
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Line, Area, Cell, AreaChart } from 'recharts';
 import { CityData, SolarSystemResult } from '../types';
 import { useApp } from '../contexts/AppContext';
+import { useCrm } from '../contexts/CrmContext';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 import { pdf } from '@react-pdf/renderer';
 import ProposalPDF from '../components/proposal/ProposalPDF';
 import { buildInitialBlocks } from '../components/proposal/catalog';
@@ -35,7 +37,8 @@ const MONTHLY_YIELD_FACTOR = [1.05, 1.02, 1.0, 0.95, 0.90, 0.85, 0.88, 0.95, 1.0
 const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
 const Calculator: React.FC = () => {
-  const { products, addLead } = useApp();
+  const { products } = useApp();
+  const { addLead } = useCrm();
   const navigate = useNavigate();
 
   const [selectedCity, setSelectedCity] = useState<string>('Maceió');
@@ -311,20 +314,28 @@ const Calculator: React.FC = () => {
     if (!result) return;
     setIsSavingToCRM(true);
 
-    const leadName = clientName || `Projeto ${selectedCity} - ${result.systemSizeKw}kWp`;
+    try {
+      const leadName = clientName || `Projeto ${selectedCity} - ${result.systemSizeKw}kWp`;
 
-    await addLead({
-      name: leadName,
-      city: selectedCity,
-      monthlyConsumption: consumption,
-      value: result.totalInvestment,
-      phone: ''
-    });
+      await addLead({
+        name: leadName,
+        city: selectedCity,
+        monthlyConsumption: consumption,
+        value: result.totalInvestment,
+        status: 'Lead',
+        phone: ''
+      });
 
-    setTimeout(() => {
+      toast.success('Oportunidade gerada e salva no CRM!');
+      setTimeout(() => {
+        setIsSavingToCRM(false);
+        navigate('/crm');
+      }, 500);
+    } catch (err: any) {
+      console.error("[Calculator] Erro ao salvar no CRM:", err);
+      toast.error(err.message || 'Erro ao salvar no CRM');
       setIsSavingToCRM(false);
-      navigate('/crm');
-    }, 1000);
+    }
   };
 
   return (

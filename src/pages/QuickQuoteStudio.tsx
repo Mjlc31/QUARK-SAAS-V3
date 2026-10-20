@@ -34,7 +34,7 @@ import {
 import { OfferCard, STORY_W, STORY_H, OfferData, Highlight } from '../components/quick-quote/offer-card';
 import { QuoteCard, CARD_W, CARD_H, QuoteCardData } from '../components/quick-quote/quote-card';
 import { recordXpEvent } from '../lib/gamification';
-import html2canvas from 'html2canvas';
+import html2canvas from 'html2canvas-pro';
 import jsPDF from 'jspdf';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';

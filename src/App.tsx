@@ -40,6 +40,8 @@ const ClientLoginScreen = React.lazy(() => import('./pages/auth/ClientLoginScree
 const PublicDocumentSign = React.lazy(() => import('./pages/PublicDocumentSign'));
 const QuickQuoteStudio = React.lazy(() => import('./pages/QuickQuoteStudio'));
 const TeamManagement = React.lazy(() => import('./pages/TeamManagement'));
+const Receipts = React.lazy(() => import('./pages/Receipts'));
+const Contracts = React.lazy(() => import('./pages/Contracts'));
 import { AppProvider, useApp } from './contexts/AppContext';
 import { LayoutDashboard, Menu, Zap, Users, CheckSquare, HardHat, DollarSign } from 'lucide-react';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -101,9 +103,11 @@ const MainLayout: React.FC = () => {
             <Route path="/tasks" element={<PageWrapper><Tasks /></PageWrapper>} />
             <Route path="/products" element={<PageWrapper><Products /></PageWrapper>} />
             <Route path="/ecommerce" element={<PageWrapper><Products /></PageWrapper>} />
-            <Route path="/follow-up" element={<PageWrapper><FollowUp /></PageWrapper>} />
+            <Route path="/follow-up" element={<PageWrapper><Engineering /></PageWrapper>} />
             <Route path="/reports" element={<PageWrapper><Reports /></PageWrapper>} />
             <Route path="/financeiro" element={<PageWrapper><Financial /></PageWrapper>} />
+            <Route path="/recibos" element={<PageWrapper><Receipts /></PageWrapper>} />
+            <Route path="/contratos" element={<PageWrapper><Contracts /></PageWrapper>} />
             <Route path="/prospeccao" element={<PageWrapper><Prospeccao /></PageWrapper>} />
             <Route path="/clientes" element={<PageWrapper><ClientCatalog /></PageWrapper>} />
             <Route path="/ferramentas" element={<PageWrapper><Tools /></PageWrapper>} />

@@ -31,37 +31,90 @@ const PortalTickets: React.FC = () => {
   const [newPriority, setNewPriority] = useState('Normal');
   const [newDescription, setNewDescription] = useState('');
 
-  // Sincroniza chamados reais do backend
+  // Sincroniza chamados reais do backend e do cache local compartilhado com o painel interno
   useEffect(() => {
     async function loadTickets() {
+      const mergedTickets: any[] = [];
+
+      // 1. Carrega chamados salvos localmente (compartilhados com o Admin em TicketAdmin.tsx)
+      try {
+        const localTicketsRaw = localStorage.getItem('quark_support_tickets');
+        const msgsRaw = localStorage.getItem('quark_ticket_messages');
+        const msgsMap = msgsRaw ? JSON.parse(msgsRaw) : {};
+
+        if (localTicketsRaw) {
+          const localList = JSON.parse(localTicketsRaw);
+          localList.forEach((t: any) => {
+            const ticketMsgs = msgsMap[t.id] || [];
+            mergedTickets.push({
+              id: t.id.length > 8 ? t.id.substring(0, 8).toUpperCase() : t.id,
+              realId: t.id,
+              subject: t.subject,
+              category: t.category ? (t.category.charAt(0).toUpperCase() + t.category.slice(1)) : 'Suporte',
+              priority: t.priority ? (t.priority.charAt(0).toUpperCase() + t.priority.slice(1)) : 'Normal',
+              status: t.status === 'resolvido' || t.status === 'fechado' ? 'Resolvido' : 'Aberto',
+              date: t.created_at ? new Date(t.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Hoje',
+              messages: ticketMsgs.length > 0 
+                ? ticketMsgs.map((m: any) => ({
+                    sender: m.sender_type || 'client',
+                    text: m.message,
+                    time: m.created_at ? new Date(m.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'Agora'
+                  }))
+                : [
+                    {
+                      sender: 'client',
+                      text: t.description || 'Chamado registrado pelo portal.',
+                      time: 'Aberto'
+                    }
+                  ]
+            });
+          });
+        }
+      } catch (e) {}
+
+      // 2. Tenta buscar da API do backend
       try {
         const res = await fetch('/api/tickets');
         if (res.ok) {
           const data = await res.json();
           if (data.tickets && data.tickets.length > 0) {
-            const formatted = data.tickets.map((t: any) => ({
-              id: t.id.substring(0, 8).toUpperCase(),
-              realId: t.id,
-              subject: t.subject,
-              category: t.category.charAt(0).toUpperCase() + t.category.slice(1),
-              priority: t.priority.charAt(0).toUpperCase() + t.priority.slice(1),
-              status: t.status === 'resolvido' ? 'Resolvido' : 'Aberto',
-              date: new Date(t.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' }),
-              messages: [
-                {
-                  sender: 'client',
-                  text: t.description || 'Chamado registrado pelo portal.',
-                  time: new Date(t.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-                },
-              ],
-            }));
-            setTickets([...formatted, ...initialTickets]);
+            data.tickets.forEach((t: any) => {
+              if (!mergedTickets.some(m => m.realId === t.id)) {
+                mergedTickets.push({
+                  id: t.id.substring(0, 8).toUpperCase(),
+                  realId: t.id,
+                  subject: t.subject,
+                  category: t.category ? (t.category.charAt(0).toUpperCase() + t.category.slice(1)) : 'Suporte',
+                  priority: t.priority ? (t.priority.charAt(0).toUpperCase() + t.priority.slice(1)) : 'Normal',
+                  status: t.status === 'resolvido' ? 'Resolvido' : 'Aberto',
+                  date: new Date(t.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' }),
+                  messages: [
+                    {
+                      sender: 'client',
+                      text: t.description || 'Chamado registrado pelo portal.',
+                      time: new Date(t.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+                    },
+                  ],
+                });
+              }
+            });
           }
         }
       } catch (err) {
         console.warn('[PortalTickets] Offline fallback ativado:', err);
       }
+
+      // Adiciona tickets iniciais se lista estiver vazia
+      if (mergedTickets.length === 0) {
+        setTickets(initialTickets);
+      } else {
+        // Mantém tickets iniciais como exemplos
+        const ids = new Set(mergedTickets.map(m => m.id));
+        const nonDupInitials = initialTickets.filter(init => !ids.has(init.id));
+        setTickets([...mergedTickets, ...nonDupInitials]);
+      }
     }
+
     loadTickets();
   }, [client?.id]);
 
@@ -69,6 +122,9 @@ const PortalTickets: React.FC = () => {
     if (!newSubject.trim() || !newDescription.trim()) return;
 
     const shortId = `TKT-${Math.floor(1000 + Math.random() * 9000)}`;
+    const nowIso = new Date().toISOString();
+    const timeFormatted = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
     const optimisticTicket = {
       id: shortId,
       realId: shortId,
@@ -78,12 +134,56 @@ const PortalTickets: React.FC = () => {
       status: 'Aberto',
       date: new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' }),
       messages: [
-        { sender: 'client', text: newDescription, time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) }
+        { sender: 'client', text: newDescription, time: timeFormatted }
       ]
     };
 
     setTickets([optimisticTicket, ...tickets]);
     setIsModalOpen(false);
+
+    // Salva no armazenamento compartilhado com o painel interno TicketAdmin.tsx
+    try {
+      const catMap: Record<string, string> = {
+        'Inversor Parou / Falha de Geração': 'manutencao',
+        'Manutenção Preventiva': 'manutencao',
+        'Limpeza de Painéis': 'limpeza',
+        'Dúvida sobre Fatura': 'financeiro',
+        'Vistoria & Homologação': 'homologacao',
+      };
+      const resolvedCategory = catMap[newCategory] || 'outros';
+      const resolvedPriority = newCategory.includes('Inversor') ? 'urgente' : newPriority.toLowerCase();
+
+      const newTicketRecord = {
+        id: shortId,
+        client_id: client?.id || 'cli_portal',
+        client_name: client?.name || 'Cliente Portal',
+        subject: newSubject,
+        description: newDescription,
+        category: resolvedCategory,
+        priority: resolvedPriority,
+        status: 'aberto',
+        created_at: nowIso,
+        updated_at: nowIso
+      };
+
+      const existingRaw = localStorage.getItem('quark_support_tickets');
+      const existingList = existingRaw ? JSON.parse(existingRaw) : [];
+      localStorage.setItem('quark_support_tickets', JSON.stringify([newTicketRecord, ...existingList]));
+
+      const initialMsg = {
+        id: `msg-${Date.now()}`,
+        ticket_id: shortId,
+        sender_type: 'client',
+        message: newDescription,
+        attachments: [],
+        created_at: nowIso
+      };
+      const msgsRaw = localStorage.getItem('quark_ticket_messages');
+      const msgsMap = msgsRaw ? JSON.parse(msgsRaw) : {};
+      msgsMap[shortId] = [initialMsg];
+      localStorage.setItem('quark_ticket_messages', JSON.stringify(msgsMap));
+      localStorage.setItem(`quark_ticket_messages_${shortId}`, JSON.stringify([initialMsg]));
+    } catch (storageErr) {}
 
     try {
       await fetch('/api/tickets', {
@@ -105,7 +205,7 @@ const PortalTickets: React.FC = () => {
     }
 
     setNewSubject('');
-    setNewCategory('Manutenção');
+    setNewCategory('Inversor Parou / Falha de Geração');
     setNewPriority('Normal');
     setNewDescription('');
   };
@@ -114,6 +214,7 @@ const PortalTickets: React.FC = () => {
     if (!replyText.trim()) return;
     const text = replyText.trim();
     const time = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const nowIso = new Date().toISOString();
 
     const targetTicket = tickets.find((t: any) => t.id === ticketId);
     const backendTicketId = (targetTicket as any)?.realId || ticketId;
@@ -130,6 +231,26 @@ const PortalTickets: React.FC = () => {
       })
     );
     setReplyText('');
+
+    // Salva no armazenamento compartilhado com o painel interno
+    try {
+      const msgsRaw = localStorage.getItem('quark_ticket_messages');
+      const msgsMap = msgsRaw ? JSON.parse(msgsRaw) : {};
+      const currentList = msgsMap[backendTicketId] || msgsMap[ticketId] || [];
+      const newMsg = {
+        id: `msg-${Date.now()}`,
+        ticket_id: backendTicketId,
+        sender_type: 'client',
+        message: text,
+        attachments: [],
+        created_at: nowIso
+      };
+      msgsMap[backendTicketId] = [...currentList, newMsg];
+      msgsMap[ticketId] = msgsMap[backendTicketId];
+      localStorage.setItem('quark_ticket_messages', JSON.stringify(msgsMap));
+      localStorage.setItem(`quark_ticket_messages_${backendTicketId}`, JSON.stringify(msgsMap[backendTicketId]));
+      localStorage.setItem(`quark_ticket_messages_${ticketId}`, JSON.stringify(msgsMap[backendTicketId]));
+    } catch (e) {}
 
     try {
       await fetch(`/api/tickets/${backendTicketId}/messages`, {
@@ -348,11 +469,12 @@ const PortalTickets: React.FC = () => {
                       onChange={(e) => setNewCategory(e.target.value)}
                       className="w-full bg-zinc-950 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:border-lime-500 outline-none transition-colors appearance-none"
                     >
-                      <option value="Manutenção">Manutenção</option>
-                      <option value="Limpeza">Limpeza</option>
-                      <option value="Financeiro">Financeiro</option>
-                      <option value="Dúvida">Dúvida</option>
-                      <option value="Outros">Outros</option>
+                      <option value="Inversor Parou / Falha de Geração">⚡ Inversor Parou / Falha de Geração</option>
+                      <option value="Manutenção Preventiva">🔧 Manutenção Preventiva</option>
+                      <option value="Limpeza de Painéis">💧 Limpeza de Painéis</option>
+                      <option value="Dúvida sobre Fatura">📄 Dúvida sobre Fatura</option>
+                      <option value="Vistoria & Homologação">🛡️ Vistoria & Homologação</option>
+                      <option value="Outros">💬 Outros Assuntos</option>
                     </select>
                   </div>
                   <div>

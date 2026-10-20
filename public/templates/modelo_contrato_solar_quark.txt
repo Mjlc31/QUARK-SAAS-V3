@@ -1,0 +1,119 @@
+CONTRATO DE PRESTAÇÃO DE SERVIÇOS DE FORNECIMENTO DE PROJETO DE ENGENHARIA, INSTALAÇÃO E COMISSIONAMENTO DE KIT DE MICROGERAÇÃO SOLAR CONECTADO À REDE.
+
+CONTRATADA: QUARK ENERGIA, pessoa jurídica de direito privado, inscrita no CNPJ sob o nº 55.138.256/0001-51 localizada na Rua Paulo Henrique Mendes, CEP 57.081-520, neste ato representada por seu Diretor Técnico José Anderson da Silva Alves, brasileiro, inscrito no CPF sob o número: 084.960.164-98.
+
+CONTRATANTE: {{NOME_CONTRATANTE}} [ __________________________________________________ ], inscrito no comprovante de pessoa física/jurídica sob o nº: {{DOCUMENTO_CLIENTE}} [ ______________________________ ], com endereço/sede na {{ENDERECO_COMPLETO_CLIENTE}} [ ____________________________________________________________________________________________________ ].
+
+CLÁUSULA PRIMEIRA - DO OBJETO
+1. O presente contrato tem como objetivo o fornecimento do projeto técnico fotovoltaico, conforme resolução 482 da ANEEL, tratando-se de um sistema com potência instalada de {{POTENCIA_KWP}} kWp [ ______ ], sendo {{QTD_MODULOS_NUM}} ({{QTD_MODULOS_EXTENSO}}) [ _____ ( ____________________ ) ] módulos fotovoltaicos de {{POTENCIA_MODULO_WP}} Wp [ ______ ] e {{QTD_INVERSORES_NUM}} ({{QTD_INVERSORES_EXTENSO}}) [ _____ ( ____________________ ) ] Inversor {{MARCA_INVERSOR}} de {{POTENCIA_INVERSOR_KW}} kW [ ____________________ ], além de estrutura de fixação para {{TIPO_ESTRUTURA}} [ _________________________ ], o registro, acompanhamento e aprovação do projeto junto à concessionária local {{CONCESSIONARIA_LOCAL}} [ ____________________ ]. Ademais, inclui-se o acompanhamento do procedimento de acesso, testes elétricos, primeira utilização e visita técnica para coleta dos dados necessários para início do projeto.
+
+CLÁUSULA SEGUNDA - DOS SERVIÇOS
+2. É de competência da CONTRATADA a prestação dos seguintes serviços:
+a. Memorial descritivo;
+b. Diagrama unifilar e/ou trifilar;
+c. Troca do tipo de fornecimento da unidade geradora junto a concessionária;
+d. Layout da cobertura;
+e. Layout do inversor;
+f. Layout de montagem da String Box;
+g. Planta de localização;
+h. Emissão de ART do projeto;
+i. Parecer da visita técnica;
+j. Manutenção, monitoramento e limpeza gratuita por 1 ano;
+k. Fornecimento e instalação de materiais elétricos (Quadro CC e Quadro CA);
+l. Fornecimento e instalação de estrutura para suporte dos módulos fotovoltaicos;
+m. Fornecimento e instalação de componentes elétricos para conexão dos módulos FV, quadros CC, inversores e quadro baixa tensão;
+n. Teste de funcionalidade e entrega de conformidade da usina;
+o. Fornecimento de {{QTD_MODULOS_NUM}} [ _____ ] módulos fotovoltaicos;
+p. Fornecimento de {{QTD_INVERSORES_NUM}} [ _____ ] Inversor(es).
+
+CLÁUSULA TERCEIRA - DOS VALORES E FORMA DE PAGAMENTO
+3. Pela prestação dos serviços, o CONTRATANTE pagará à CONTRATADA a quantia total de R$ {{VALOR_TOTAL_NUMERICO}} ({{VALOR_TOTAL_EXTENSO}}) [ R$ ______________ ( _________________________________________________________________ ) ], na seguinte condição:
+3.1. {{CONDICOES_DE_PAGAMENTO}} [ __________________________________________________________________________________________________________________________________________________________________________________________________________________________________ ]
+
+CLÁUSULA QUARTA – DOS PRAZOS
+4. Com a assinatura do presente contrato, atribuem-se os seguintes prazos:
+i. Fornecimento: a aquisição do kit fotovoltaico será feita em até 5 (cinco) dias úteis após a assinatura do contrato. O prazo para entrega é de até 20 (vinte) dias úteis a partir da confirmação do pedido.
+Projeto: Até 5 (cinco) dias úteis a contar da data de assinatura do contrato;
+ii. Formalização: A solicitação de acesso ao sistema de distribuição da concessionária local ({{CONCESSIONARIA_LOCAL}}) será feita e o parecer de acesso será aprovado, sendo obtido perante a concessionária local, dando direito a execução do projeto. Dessa forma, a autorização para o início da execução dos serviços (Parecer de Acesso) é ato exclusivo da concessionária local que de acordo com o Resolução nº 482/2012 da ANEEL é de até 15 (quinze) dias após o recebimento de acesso, para central geradora classificada como microgeração distribuída, quando não houver necessidade melhorias ou reforços no sistema de distribuição acessado. Quando houver necessidade de execução de obras de melhoria ou reforço no sistema de distribuição o prazo para emissão do Parecer de Acesso é de até 30 (trinta) dias após o recebimento da solicitação de acesso.
+iii. Instalação e Comissionamento: em 15 (quinze) dias, a contar da entrega do kit fotovoltaico no local de execução da instalação, salvo condições climáticas adversas que impeçam ou dificultem os serviços.
+iv. Vistoria das instalações de conexão: em até 7 (sete) dias contados da data de solicitação formal junto à Concessionária. A solicitação da vistoria será feita após a aprovação do projeto, emissão do Parecer de Acesso pela {{CONCESSIONARIA_LOCAL}}, conclusão da instalação e realização de todos os testes e comissionamento;
+v. Documentação: em até 5 (cinco) dias úteis após a aprovação da vistoria e liberação para funcionamento pela {{CONCESSIONARIA_LOCAL}}.
+Parágrafo único. O fornecimento do equipamento objeto deste contrato ocorrerá em sincronia com os prazos de realização dos serviços.
+*Os prazos acima descritos serão atendidos, salvo se no local da instalação não estiver atendendo aos padrões de entrada da Concessionária de Energia.
+
+CLÁUSULA QUINTA - DAS GARANTIAS
+5. As garantias dos módulos fotovoltaicos e dos inversores/micro inversores ficarão sob responsabilidade da empresa FORNECEDORA, a Nota Fiscal de compra terá validade como garantia dos materiais e equipamentos descritos no Anexo I, estabelecido e listado na sua proposta. Havendo defeitos de fábrica que interfiram no seu bom funcionamento a FORNECEDORA será responsável pela reposição dos equipamentos e/ou componentes nos locais indicados para a instalação, dentro dos prazos de garantias autorizadas pelo fabricante.
+5.1 A FORNECEDORA ({{FORNECEDORA_EQUIPAMENTOS}} [ ____________________ ]), através do fabricante, oferecerá garantia dos módulos solares fotovoltaicos pelo prazo de 15 (quinze) anos contra defeitos de fabricação e garantia linear de produção de 25 (vinte e cinco) anos com entrega mínima de 84% (oitenta e quatro por cento) da capacidade total do módulo.
+5.2 A FORNECEDORA ({{FORNECEDORA_EQUIPAMENTOS}} [ ____________________ ]), através do fabricante, oferecerá a garantia do inversor de 10 (dez) anos contra defeitos de fabricação.
+5.3 As garantias das estruturas de fixação em alumínio são de 15 (quinze) anos. Por sua vez, os cabos solares e conectores possuem garantia de 5 (cinco) anos e a caixa de proteção tem garantia de 1 (um) ano contra defeitos de fabricação, por parte dos fabricantes.
+5.4 Os serviços de instalação do sistema têm garantia de 1 (um ano) ano por parte da CONTRATADA.
+5.5 Ocorrerá anulação das garantias se houver intervenção no sistema fotovoltaico pela CONTRATANTE ou por terceiros (sendo eles profissionais ou não) que não forem indicados pela CONTRATADA para instalação do sistema.
+
+CLÁUSULA SEXTA - DAS OBRIGAÇÕES DA CONTRATADA
+6. A contratada se vincula aos seguintes termos:
+a. A CONTRATADA se compromete a fornecer os equipamentos e executar a instalação dos itens contidos na Cláusula 1ª deste contrato.
+b. Utilizar equipamentos adequados à realização dos serviços e pessoal qualificado, assumindo plena e exclusiva responsabilidade por sua contratação, eximindo a CONTRATANTE de qualquer responsabilidade.
+c. Executar as atividades necessárias à implantação do empreendimento de modo a não interferir desnecessária ou indevidamente com instalações ou serviços já existentes.
+d. Prestar informação adequada e clara ao CONTRATANTE sobre os produtos e serviços.
+e. A CONTRATADA fornecerá consultoria e assessoria jurídica ao CONTRATANTE através de seu procurador judicial para questões jurídicas relativas à relação entre o CONTRATANTE e a concessionária de Energia Elétrica responsável pela região, sem custos adicionais.
+
+CLÁUSULA SÉTIMA - DAS OBRIGAÇÕES DO CONTRATANTE
+7. O contratante possui as seguintes obrigações:
+a. Efetuar os pagamentos à CONTRATADA, de forma tempestiva, nos termos deste Contrato.
+b. Fornecer à CONTRATADA todas as informações solicitadas para o cumprimento integral do presente contrato, estando ciente de que a omissão de quaisquer informações poderá comprometer a qualidade do resultado do projeto;
+c. Pagar os custos do projeto advindos do atraso ocorrido por ação sua, a exemplo de cancelamento de visitas, atraso na entrega de documentos solicitados ou mudanças não programadas no planejamento do presente contrato;
+d. Liberar a entrada dos profissionais para a execução dos serviços de instalação nas áreas do imóvel para isso necessárias.
+e. Providenciar a disponibilização dos pontos de energia.
+f. Receber e armazenar os equipamentos entregues pela CONTRATADA de forma segura durante a etapa de instalação, zelando pela sua guarda e respondendo por eventuais perdas e danos. Eventuais restrições implicam atrasos consideráveis de responsabilidade do CONTRATANTE.
+g. Garantir que o local do serviço não possua nenhuma inconformidade na instalação elétrica que interfira ou impeça a instalação, ou que danifique o equipamento de energia solar. Caso contrário a CONTRATANTE deverá readequar as instalações a pedido da CONTRATADA;
+h. Quaisquer necessidades de obras de reforço estrutural ou adequação de infraestrutura serão apontadas pela CONTRATADA, durante a visita técnica, devendo ser sanadas pela CONTRATANTE. Tendo em vista, como exposto na proposta contratual, que o pré-orçamento não cobre essas necessidades.
+i. Na indisponibilidade de local no imóvel do CONTRATANTE para receber e armazenar em segurança os equipamentos, materiais e componentes do sistema gerador, a partir da data estabelecida para a instalação, este deverá providenciar depósito alternativo para entrega imediata, cabendo-lhe os ônus respectivos, bem como a obrigação de transportar para o local da instalação posteriormente;
+7.1 Não compete à CONTRATADA:
+I. Realizar mais que 1 (uma) modificação ao final da elaboração do projeto fotovoltaico;
+a) Caso a CONTRATANTE deseje mais modificações que o previsto, esta estará ciente que poderá acarretar acréscimos de prazo e preço do projeto, sendo de inteira e única responsabilidade do próprio.
+II. Realizar o processo de legalização da obra ou do empreendimento perante qualquer instância.
+III. Fornecimento de telha;
+IV. Obras de transmissão de energia em linha aérea;
+V. Estrutura mecânica de reforço de telhado;
+VI. Reforma no padrão de entrada da unidade consumidora;
+VII. Instalação de internet no local para ser estabelecido o monitoramento da Usina;
+VIII. Obras civis.
+
+CLÁUSULA OITAVA - DA EXTINÇÃO CONTRATUAL
+8. É assegurado às partes rescindir o presente contrato antes do término do prazo.
+8.1 Em caso de inadimplemento por parte do CONTRATANTE quanto ao pagamento dos produtos fornecidos e serviços prestados, deverá incidir, sobre o valor do presente instrumento, multa moratória de 2% (dois por cento), juros de mora de 1% (um por cento) ao mês, além de correção monetária.
+8.2 Em caso de cobrança extrajudicial, devem ser acrescidas custas processuais e 20% (vinte por cento) de honorários advocatícios.
+8.3 A parte que descumprir qualquer cláusula estabelecida neste instrumento, exceto aquelas relativas ao preço e condições de pagamento, se responsabilizará por multa de 2% (dois por cento) do valor total do presente contrato.
+8.4 Em caso de ação judicial, devem ser acrescidas custas processuais e 20% (vinte por cento) de honorários advocatícios.
+
+CLÁUSULA NONA - DAS DISPOSIÇÕES GERAIS
+9. O presente contrato é celebrado em caráter irrevogável e irretratável e obriga as partes e seus eventuais sucessores de qualquer título.
+9.1 A CONTRATADA é pessoa jurídica de direito privado formalmente constituída, de modo que inexiste qualquer espécie de vínculo, inclusive trabalhista, entre os diretores e/ou os funcionários e prepostos das CONTRATADAS e da CONTRATANTE.
+9.2 Os direitos e obrigações decorrentes do presente contrato não poderão ser cedidos ou transferidos, total ou parcialmente, a terceiros, a qualquer título, salvo por concordância prévia e expressa da outra parte.
+9.3 É vedado à CONTRATADA utilizar o presente objeto contratual em garantias para transações, inclusive bancárias e/ou financeiras de qualquer espécie, efetuarem operação de desconto, negociarem, repassarem ou de qualquer forma cederem os créditos decorrentes da execução desse a bancos, empresas de “factoring” ou terceiros, sem prévia autorização por escrito da CONTRATANTE.
+9.4 Se qualquer disposição deste contrato for declarada ou considerada ilegal, inexequível ou nula, as partes deverão, de comum acordo, alterar este contrato, modificando a referida disposição para torná-la legal e exequível devendo preservar o seu objetivo, ou, se não for possível, substituí-la por outra disposição que seja legal e exequível e atinja objetivo semelhante.
+9.5 O presente contrato não poderá ser, em todo ou em qualquer parte, alterado, modificado ou rescindido oralmente. Qualquer alteração, modificação, rescisão ou renúncia relativa a este contrato, deverá ser feita apenas por instrumento escrito e assinado pelas partes, o qual será parte integrante e inseparável deste contrato.
+9.6 Este instrumento de contrato serve como título executivo extrajudicial, nos termos do inciso III, art.784, do Código de Processo Civil de 2015.
+9.7. Em caso de ocorrência de fatos não previstos neste contrato, a solução do impasse será dada através da aplicação de lei ou princípio que regule o caso, não sendo configurada a presente relação como de consumo.
+
+CLÁUSULA DÉCIMA - DO FORO
+10. As partes elegem o foro da Comarca de {{CIDADE_FORO}} [ ____________________ ] no Estado de {{ESTADO_FORO}} [ ____________________ ], para nele serem dirimidas todas e quaisquer dúvidas ou questões oriundas do presente contrato, renunciando a qualquer outro, por mais especial e privilegiado que seja.
+
+Por estarem assim justos e contratados, firmam o presente instrumento, em três vias de igual teor.
+
+{{CIDADE_FORO}} - {{ESTADO_FORO}}, {{DATA_EXTENSO}}.
+[ ____________________________, _____ de ____________________ de 20____ ]
+
+____________________________________
+CONTRATANTE
+{{NOME_CONTRATANTE}}
+CPF/CNPJ: {{DOCUMENTO_CLIENTE}}
+
+____________________________________
+CONTRATADA
+QUARK ENERGIA
+CNPJ: 55.138.256/0001-51
+Por seu Diretor Técnico: José Anderson da Silva Alves
+
+--------------------------------------------------------------------------------
+Quark Energia • Tel/WhatsApp: +55 (82) 99424-1835 • E-mail: projetos@quarkenergia.com.br • Instagram: @quarkenergia

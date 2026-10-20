@@ -2,6 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabaseClient';
 import { usePortal } from '../contexts/PortalContext';
 
+const withTimeout = <T,>(p: PromiseLike<T>, ms = 1000): Promise<T> =>
+  Promise.race([Promise.resolve(p), new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+
 export interface TelemetryChartPoint {
   month: string;
   geracao: number;
@@ -86,23 +89,31 @@ export function useClientTelemetry(clientId?: string | null) {
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(effectiveClientId);
 
       let intelligence = null;
-      if (isUuid) {
-        const { data: intelData } = await supabase
-          .from('client_intelligence')
-          .select('*')
-          .eq('client_id', effectiveClientId)
-          .maybeSingle();
-        intelligence = intelData;
-      }
+      try {
+        if (isUuid) {
+          const { data: intelData } = await withTimeout(
+            supabase
+              .from('client_intelligence')
+              .select('*')
+              .eq('client_id', effectiveClientId)
+              .maybeSingle(),
+            1000
+          );
+          intelligence = intelData;
+        }
 
-      if (!intelligence && client?.name) {
-        const { data: intelByName } = await supabase
-          .from('client_intelligence')
-          .select('*')
-          .ilike('client_name', `%${client.name.trim()}%`)
-          .maybeSingle();
-        intelligence = intelByName;
-      }
+        if (!intelligence && client?.name) {
+          const { data: intelByName } = await withTimeout(
+            supabase
+              .from('client_intelligence')
+              .select('*')
+              .ilike('client_name', `%${client.name.trim()}%`)
+              .maybeSingle(),
+            1000
+          );
+          intelligence = intelByName;
+        }
+      } catch (e) {}
 
       const systemSizeKw = Number(intelligence?.system_size_kw || client?.system_size_kw || 6.6);
       const expectedMonthlyGen = Math.round(systemSizeKw * 5.4 * 30 * 0.78);
@@ -111,29 +122,34 @@ export function useClientTelemetry(clientId?: string | null) {
       let systemHealth = 'Operação Normal - Eficiência 98%';
 
       if (intelligence?.id) {
-        const { data: invoices } = await supabase
-          .from('utility_invoices')
-          .select('*')
-          .eq('intelligence_id', intelligence.id)
-          .order('month_ref', { ascending: true });
+        try {
+          const { data: invoices } = await withTimeout(
+            supabase
+              .from('utility_invoices')
+              .select('*')
+              .eq('intelligence_id', intelligence.id)
+              .order('month_ref', { ascending: true }),
+            1000
+          );
 
-        if (invoices && invoices.length > 0) {
-          chartData = invoices.map((inv) => ({
-            month: inv.month_ref,
-            geracao: Number(inv.generation_kwh || 0),
-            consumo: Number(inv.consumption_kwh || 0),
-            economia: Number(inv.savings_brl || 0),
-          }));
+          if (invoices && invoices.length > 0) {
+            chartData = (invoices as any[]).map((inv: any) => ({
+              month: inv.month_ref,
+              geracao: Number(inv.generation_kwh || 0),
+              consumo: Number(inv.consumption_kwh || 0),
+              economia: Number(inv.savings_brl || 0),
+            }));
 
-          const avgRealGen = chartData.reduce((acc, curr) => acc + curr.geracao, 0) / chartData.length;
-          const ratio = expectedMonthlyGen > 0 ? avgRealGen / expectedMonthlyGen : 1;
-          if (ratio < 0.85) {
-            systemHealth = 'Sugerida Limpeza';
-          } else {
-            const effPercent = Math.min(100, Math.round(ratio * 100));
-            systemHealth = `Operação Normal - Eficiência ${effPercent}%`;
+            const avgRealGen = chartData.reduce((acc, curr) => acc + curr.geracao, 0) / chartData.length;
+            const ratio = expectedMonthlyGen > 0 ? avgRealGen / expectedMonthlyGen : 1;
+            if (ratio < 0.85) {
+              systemHealth = 'Sugerida Limpeza';
+            } else {
+              const effPercent = Math.min(100, Math.round(ratio * 100));
+              systemHealth = `Operação Normal - Eficiência ${effPercent}%`;
+            }
           }
-        }
+        } catch (e) {}
       }
 
       if (chartData.length === 0) {

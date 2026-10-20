@@ -45,21 +45,35 @@ export function useFinancialDreSummary(params?: { startDate?: string; endDate?: 
   return useQuery({
     queryKey: ['financial_dre_summary', { startDate, endDate }],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user?.id) throw new Error('Not authenticated');
+      try {
+        const sessionPromise = Promise.race([
+          supabase.auth.getSession(),
+          new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), 800))
+        ]);
+        const { data: { session } } = await sessionPromise;
+        if (!session?.user?.id) return null;
 
-      const { data, error } = await supabase.rpc('get_financial_dre_summary', {
-        p_user_id: session.user.id,
-        p_start_date: startDate || null,
-        p_end_date: endDate || null
-      });
+        const rpcPromise = Promise.race([
+          Promise.resolve(supabase.rpc('get_financial_dre_summary', {
+            p_user_id: session.user.id,
+            p_start_date: startDate || null,
+            p_end_date: endDate || null
+          })),
+          new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), 1200))
+        ]);
+        const { data, error } = await rpcPromise;
 
-      if (error) {
-        // Se a função não existir (ainda não rodou o SQL), devolve null para fazermos o fallback no client
-        if (error.code === 'PGRST202') return null;
-        throw error;
+        if (error) {
+          // Se a função não existir (ainda não rodou o SQL), devolve null para fazermos o fallback no client
+          return null;
+        }
+        return data;
+      } catch {
+        // Fallback gracioso para cálculo client-side quando offline ou timeout
+        return null;
       }
-      return data;
     },
+    staleTime: 1000 * 60 * 5,
+    retry: false,
   });
 }

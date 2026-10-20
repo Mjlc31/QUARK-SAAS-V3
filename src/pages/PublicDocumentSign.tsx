@@ -28,17 +28,85 @@ export default function PublicDocumentSign() {
   const [read, setRead] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
+  const withTimeout = <T,>(p: Promise<T>, ms = 1200): Promise<T> =>
+    Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+
+  const findLocalContract = (t: string): PublicDocument | null => {
+    try {
+      const cachedDirect = localStorage.getItem(`quark-doc-signer-${t}`);
+      if (cachedDirect) return JSON.parse(cachedDirect);
+
+      const contractsJson = localStorage.getItem("quark_contracts_cache");
+      if (contractsJson) {
+        const contracts: any[] = JSON.parse(contractsJson);
+        const hit = contracts.find((c) => c.signers?.some((s: any) => s.token === t));
+        if (hit) {
+          const signerHit = hit.signers.find((s: any) => s.token === t);
+          return {
+            document: {
+              id: hit.id,
+              kind: hit.kind || "contrato_solar",
+              title: hit.title || "Contrato de Instalação Solar",
+              data: hit.data || {},
+              status: hit.status || "pendente",
+              created_at: hit.created_at || new Date().toISOString(),
+              completed_at: hit.completed_at || null,
+              hash: hit.hash || `hash_${hit.id.slice(0, 8)}`,
+            },
+            signer: {
+              role: signerHit.role,
+              name: signerHit.name,
+              cpf: signerHit.cpf || null,
+              signed_at: signerHit.signed_at || null,
+              signed_name: signerHit.signed_name || signerHit.name,
+            },
+            signers: hit.signers,
+            company: {
+              company_name: "Quark Energia",
+              whatsapp: "5582994241835",
+              phone: "+55 (82) 99424-1835",
+              email: "projetos@quarkenergia.com.br",
+            },
+            seller: {
+              name: "José Anderson da Silva Alves",
+              phone: "5582994241835",
+              email: "projetos@quarkenergia.com.br",
+            },
+          };
+        }
+      }
+    } catch (e) {
+      console.warn("[PublicDocumentSign] Erro ao buscar cache local:", e);
+    }
+    return null;
+  };
+
   const loadDocument = async () => {
     if (!token) return;
     try {
-      // 1. Tenta carregar via Supabase RPC oficial
-      const { data: res, error } = await supabase.rpc("get_public_document", { p_token: token });
+      // 1. Tenta carregar via Supabase RPC oficial com timeout rápido
+      let res: any = null;
+      let error: any = null;
+      try {
+        const rpcResult: any = await withTimeout(Promise.resolve(supabase.rpc("get_public_document", { p_token: token })), 1200);
+        res = rpcResult?.data;
+        error = rpcResult?.error;
+      } catch (rpcErr) {
+        error = rpcErr;
+      }
+
       if (!error && res) {
         setData(res as PublicDocument);
-        // Registra visualização
-        await supabase.rpc("view_public_document", { p_token: token });
+        withTimeout(Promise.resolve(supabase.rpc("view_public_document", { p_token: token })), 1000).catch(() => {});
       } else {
-        // 2. Se a tabela/RPC ainda não estiver ativa no banco remoto, tenta fallback local/mock ou backend
+        // 2. Se falhar ou timeout, tenta fallback local do contracts_cache
+        const localDoc = findLocalContract(token);
+        if (localDoc) {
+          setData(localDoc);
+          return;
+        }
+
+        // 3. Fallback no backend HTTP
         const fallbackRes = await fetch(`/api/public/document/${token}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -48,16 +116,12 @@ export default function PublicDocumentSign() {
         if (fallbackRes?.ok) {
           const json = await fallbackRes.json();
           if (json.document) setData(json);
-        } else {
-          // Fallback para modo offline/demonstração se recuperado do storage local
-          const cached = localStorage.getItem(`quark-doc-signer-${token}`);
-          if (cached) {
-            setData(JSON.parse(cached));
-          }
         }
       }
     } catch (err) {
       console.error("[PublicDocumentSign] Erro ao carregar:", err);
+      const localDoc = findLocalContract(token);
+      if (localDoc) setData(localDoc);
     } finally {
       setLoading(false);
     }
@@ -315,23 +379,33 @@ function SignSheet({
     setBusy(true);
 
     try {
-      // Tenta via RPC Supabase
-      const { data: res, error: rpcError } = await supabase.rpc("sign_public_document", {
-        p_token: token,
-        p_name: name.trim().slice(0, 160),
-        p_cpf: cpf.replace(/\D/g, ""),
-        p_signature: signature,
-        p_ip: "",
-        p_ua: navigator.userAgent.slice(0, 300),
-      });
+      // 1. Tenta via RPC Supabase com timeout
+      let rpcSuccess = false;
+      try {
+        const timeoutRpc = Promise.race([
+          supabase.rpc("sign_public_document", {
+            p_token: token,
+            p_name: name.trim().slice(0, 160),
+            p_cpf: cpf.replace(/\D/g, ""),
+            p_signature: signature,
+            p_ip: "",
+            p_ua: navigator.userAgent.slice(0, 300),
+          }),
+          new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 1200)),
+        ]);
+        const { data: res, error: rpcError } = await timeoutRpc;
+        if (!rpcError && res?.ok) {
+          rpcSuccess = true;
+        }
+      } catch {}
 
-      if (!rpcError && res?.ok) {
+      if (rpcSuccess) {
         setBusy(false);
         onSigned();
         return;
       }
 
-      // Fallback via backend POST /api/public/document/:token
+      // 2. Fallback via backend POST /api/public/document/:token
       const fetchRes = await fetch(`/api/public/document/${token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -344,7 +418,42 @@ function SignSheet({
         return;
       }
 
-      // Se ambos falharem mas tiver dados válidos no cliente (ex: modo offline ou desenvolvimento)
+      // 3. Fallback modo offline: atualiza quark_contracts_cache no localStorage
+      try {
+        const contractsJson = localStorage.getItem("quark_contracts_cache");
+        if (contractsJson) {
+          const contracts: any[] = JSON.parse(contractsJson);
+          let updated = false;
+          const nowIso = new Date().toISOString();
+          contracts.forEach((c) => {
+            const s = c.signers?.find((si: any) => si.token === token);
+            if (s) {
+              s.signed_at = nowIso;
+              s.signed_name = name.trim();
+              s.cpf = cpf.replace(/\D/g, "");
+              s.signature = signature;
+              s.signature_data = signature;
+              updated = true;
+              const allSigned = c.signers.every((si: any) => !!si.signed_at);
+              if (allSigned) {
+                c.status = "assinado";
+                c.completed_at = nowIso;
+              }
+            }
+          });
+
+          if (updated) {
+            localStorage.setItem("quark_contracts_cache", JSON.stringify(contracts));
+            setBusy(false);
+            onSigned();
+            return;
+          }
+        }
+      } catch (cacheErr) {
+        console.warn("[SignSheet] Erro ao persistir no cache:", cacheErr);
+      }
+
+      // Se nenhum tiver sucesso:
       setError("Não foi possível conectar ao servidor de assinaturas. Tente novamente.");
     } catch (e: any) {
       setError(e.message || "Erro ao registrar assinatura.");

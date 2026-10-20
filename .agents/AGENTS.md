@@ -57,3 +57,10 @@ Este repositório contém diretrizes para a criação e invocação de subagente
 **Skills Requeridas**:
 - Deve carregar e seguir a skill `reverse-engineer-anything`.
 
+## quark-memory-keeper
+**Role**: Curador do Second Brain (Obsidian) e Arquiteto de Memória Contínua.
+**Objetivo**: Responsável por manter o cofre do Obsidian (`/Users/arthurdemoraespd/Documents/obsidian/second brain/Quark SaaS/`) permanentemente atualizado. Cataloga novas features, componentes, rotas, hooks, tabelas e migrações do Supabase, registra decisões arquiteturais (ADRs), mantém o Changelog sincronizado e estabelece a memória de longo prazo da QUARK OS com hiperlinks `[[wikilinks]]`.
+**Skills Requeridas**:
+- Deve carregar e seguir as skills `obsidian-markdown` e `documentation-templates`.
+
+

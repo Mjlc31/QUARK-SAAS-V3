@@ -5,15 +5,15 @@ import { sendWhatsAppMessage, cleanPhoneNumber } from '../services/whatsapp.js';
 const router = express.Router();
 
 const SOLAR_PHASES = [
-  { phase: 'venda_confirmada', label: 'Venda Confirmada', desc: 'Contrato assinado e pagamento inicial aprovado.' },
-  { phase: 'projeto_elaboracao', label: 'Projeto em Elaboração', desc: 'Engenharia dimensionou e desenhou o sistema.' },
-  { phase: 'projeto_enviado', label: 'Projeto Enviado', desc: 'Projeto protocolado na concessionária de energia.' },
-  { phase: 'aprovacao_concessionaria', label: 'Aprovação Concessionária', desc: 'Parecer de acesso liberado pela concessionária.' },
-  { phase: 'logistica_entrega', label: 'Logística de Entrega', desc: 'Equipamentos em trânsito para o local da obra.' },
-  { phase: 'instalacao', label: 'Instalação', desc: 'Montagem das estruturas e fixação dos módulos.' },
-  { phase: 'homologacao', label: 'Homologação', desc: 'Vistoria da concessionária e troca do medidor.' },
-  { phase: 'comissionamento', label: 'Comissionamento', desc: 'Testes finais e ativação do sistema.' },
-  { phase: 'finalizado', label: 'Finalizado', desc: 'Sistema gerando energia limpa! Entrega do manual do usuário.' },
+  { phase: 'venda_confirmada', label: 'Venda Confirmada & Contrato', desc: 'Contrato assinado e documentação validada para início da engenharia.' },
+  { phase: 'projeto_elaboracao', label: 'Elaboração do Projeto Técnico', desc: 'Engenharia realizou o dimensionamento e desenhou os diagramas elétricos.' },
+  { phase: 'compra_kit', label: 'Compra do Kit & Emissão de NF', desc: 'Módulos solares, inversor e estrutura faturados com Nota Fiscal emitida.' },
+  { phase: 'projeto_enviado', label: 'Protocolo na Concessionária', desc: 'Projeto e solicitação de acesso formalmente protocolados na Equatorial Energia.' },
+  { phase: 'aprovacao_concessionaria', label: 'Parecer de Acesso Aprovado', desc: 'Parecer de acesso deferido e aprovado pela concessionária sem pendências.' },
+  { phase: 'logistica_entrega', label: 'Logística & Entrega dos Equipamentos', desc: 'Módulos, inversor e estruturas em rota de entrega no endereço da obra.' },
+  { phase: 'instalacao', label: 'Instalação & Montagem dos Painéis', desc: 'Equipe técnica executando fixação mecânica no telhado e conexões elétricas.' },
+  { phase: 'homologacao', label: 'Vistoria & Troca do Medidor', desc: 'Concessionária realiza a vistoria final e substitui o medidor pelo bidirecional.' },
+  { phase: 'finalizado', label: 'Usina Ativa & Gerando Economia!', desc: 'Sistema 100% energizado, homologado e gerando economia real!' },
 ];
 
 // GET /api/portal/project/:clientId - Retorna tracking do cliente com seeding automático
@@ -295,6 +295,86 @@ router.post('/project/:clientId/advance', async (req, res) => {
   } catch (error) {
     console.error('[TRACKING] Erro ao avançar etapa:', error);
     res.status(500).json({ success: false, error: 'Erro ao avançar etapa', details: error.message });
+  }
+});
+
+// POST /api/portal/provision-access - Gera/redefine acesso do cliente por CPF e senha
+router.post('/provision-access', async (req, res) => {
+  try {
+    const { clientId, customPassword } = req.body;
+    if (!clientId) {
+      return res.status(400).json({ success: false, error: 'clientId é obrigatório' });
+    }
+
+    const { data: client, error: clientErr } = await supabase
+      .from('client_portal_users')
+      .select('*')
+      .eq('id', clientId)
+      .single();
+
+    if (clientErr || !client) {
+      return res.status(404).json({ success: false, error: 'Cliente não encontrado' });
+    }
+
+    const cleanCpf = (client.cpf || '').replace(/\D/g, '');
+    const clientEmail = (client.email && client.email.includes('@')) 
+      ? client.email.trim().toLowerCase() 
+      : `${cleanCpf || client.id.slice(0, 8)}@cliente.quarkenergia.com.br`;
+
+    // Senha inicial: senha customizada ou primeiros 6 dígitos do CPF ou 'quark2026'
+    const finalPassword = customPassword && customPassword.trim().length >= 6
+      ? customPassword.trim()
+      : (cleanCpf && cleanCpf.length >= 6 ? cleanCpf.substring(0, 6) : 'quark2026');
+
+    let authUserId = client.auth_user_id;
+
+    if (authUserId) {
+      const { error: updateAuthErr } = await supabase.auth.admin.updateUserById(authUserId, {
+        password: finalPassword,
+        email_confirm: true,
+      });
+      if (updateAuthErr) throw updateAuthErr;
+    } else {
+      const { data: existingUsers } = await supabase.auth.admin.listUsers();
+      const foundUser = existingUsers?.users?.find((u) => u.email?.toLowerCase() === clientEmail);
+
+      if (foundUser) {
+        authUserId = foundUser.id;
+        await supabase.auth.admin.updateUserById(authUserId, {
+          password: finalPassword,
+          email_confirm: true,
+        });
+      } else {
+        const { data: newUser, error: createErr } = await supabase.auth.admin.createUser({
+          email: clientEmail,
+          password: finalPassword,
+          email_confirm: true,
+          user_metadata: {
+            name: client.name,
+            cpf: cleanCpf,
+            role: 'client',
+          },
+        });
+        if (createErr) throw createErr;
+        authUserId = newUser.user.id;
+      }
+
+      await supabase
+        .from('client_portal_users')
+        .update({ auth_user_id: authUserId, email: clientEmail })
+        .eq('id', client.id);
+    }
+
+    res.json({
+      success: true,
+      message: 'Acesso do cliente gerado com sucesso!',
+      loginCpf: client.cpf || cleanCpf,
+      loginEmail: clientEmail,
+      temporaryPassword: finalPassword,
+    });
+  } catch (error) {
+    console.error('[TRACKING] Erro ao provisionar acesso:', error);
+    res.status(500).json({ success: false, error: 'Erro ao provisionar acesso', details: error.message });
   }
 });
 

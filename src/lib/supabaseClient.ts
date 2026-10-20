@@ -56,5 +56,9 @@ export const supabase = createClient(finalUrl, finalKey, {
     storage: safeStorage,
     flowType: 'implicit',
     storageKey: 'quark-auth-token',
+    // Previne deadlock com Web Locks API (navigator.locks) comum em SPA/Vite
+    lock: async (_name: string, _acquireTimeout: number, fn: () => Promise<any>) => {
+      return await fn();
+    },
   }
 });

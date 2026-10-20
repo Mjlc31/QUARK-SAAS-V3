@@ -26,13 +26,29 @@ const app = express();
 const server = http.createServer(app);
 
 // ─── CORS & Body Parsers ───────────────────────────────────────────────────
-const allowedOrigins = process.env.NODE_ENV === 'production' 
-  ? ['https://app.quarkenergia.com.br', 'https://quarkenergia.com.br'] 
-  : ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'];
+const allowedOrigins = [
+  'https://app.quarkenergia.com.br',
+  'https://quarkenergia.com.br',
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:5175',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174',
+];
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+  if (allowedOrigins.includes(origin)) return true;
+  if (process.env.NODE_ENV !== 'production' && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+    return true;
+  }
+  return false;
+};
 
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (isAllowedOrigin(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -47,7 +63,7 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // Socket.IO
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: (origin, callback) => callback(null, isAllowedOrigin(origin)),
     methods: ['GET', 'POST'],
     credentials: true
   }

@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Sun, TrendingUp, Wrench, HardHat, Headphones, MapPin, CreditCard, 
   ShoppingBag, LogOut, CheckCircle2, AlertTriangle, Activity, ChevronRight,
-  ShieldCheck, ArrowUpRight
+  ShieldCheck, ArrowUpRight, FileText, Download, Check, Sparkles
 } from 'lucide-react';
 import { 
   ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, 
@@ -13,6 +13,7 @@ import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { usePortal } from '../../contexts/PortalContext';
 import { useClientTelemetry } from '../../hooks/useClientTelemetry';
+import { useClientProjectTracking } from '../../hooks/useProjectTracking';
 
 const fallbackChartData = [
   { month: 'Mai/26', geracao: 480, consumo: 390 },
@@ -28,12 +29,14 @@ const PortalDashboard: React.FC = () => {
   const { client, logout } = usePortal();
   const clientName = client?.name || 'Cliente';
   const clientId = client?.id;
+  const [chartMetric, setChartMetric] = useState<'kwh' | 'brl'>('kwh');
 
   // Telemetria Solar
   const { data: telemetry, isLoading: loadingTelemetry } = useClientTelemetry(clientId);
 
-  // Status da Obra / Projeto
-  const { data: projectData, isLoading: loadingProject } = useQuery({
+  // Status da Obra / Projeto em tempo real via Supabase + fallback API
+  const { data: clientTracking } = useClientProjectTracking(clientId);
+  const { data: projectData } = useQuery({
     queryKey: ['portal-project-status', clientId],
     queryFn: async () => {
       if (!clientId) return null;
@@ -73,13 +76,18 @@ const PortalDashboard: React.FC = () => {
   const systemHealth = telemetry?.system_health || 'Operação Normal - Eficiência 98%';
   const isHealthWarning = systemHealth.toLowerCase().includes('limpeza') || systemHealth.toLowerCase().includes('atenção');
 
-  const completionPercent = projectData?.completion_percent ?? 70;
-  const currentPhaseLabel = projectData?.current_phase?.label || projectData?.current_phase?.phase_label || 'Em Instalação e Montagem';
+  // Cálculo preciso da fase atual e porcentagem de evolução
+  const currentTrackingPhase = clientTracking?.find(t => t.is_current) || clientTracking?.[0];
+  const currentPhaseLabel = currentTrackingPhase?.phase_label || projectData?.current_phase?.label || projectData?.current_phase?.phase_label || 'Em Instalação e Montagem';
+  const completedTrackingCount = clientTracking?.filter(t => !!t.completed_at).length || 0;
+  const completionPercent = (clientTracking && clientTracking.length > 0)
+    ? Math.min(100, Math.round((completedTrackingCount / (clientTracking.length - 1 || 1)) * 100))
+    : (projectData?.completion_percent ?? 60);
 
   return (
     <div className="min-h-screen bg-[#090d16] text-zinc-200 font-sans pb-12">
-      {/* Top Header */}
-      <header className="sticky top-0 z-50 bg-[#0c1222]/90 backdrop-blur-xl border-b border-white/5">
+      {/* Top Header Mobile */}
+      <header className="md:hidden sticky top-0 z-50 bg-[#0c1222]/90 backdrop-blur-xl border-b border-white/5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-lime-500/20 flex items-center justify-center border border-lime-500/40 text-lime-400 font-display font-bold">
@@ -274,7 +282,7 @@ const PortalDashboard: React.FC = () => {
             { 
               title: 'Loja & Fidelidade', 
               icon: ShoppingBag, 
-              path: '/portal/ecommerce', 
+              path: '/portal/shop', 
               color: 'hover:border-lime-500/50', 
               iconColor: 'text-lime-400',
               desc: 'Pontos e indicações'
@@ -313,23 +321,40 @@ const PortalDashboard: React.FC = () => {
             transition={{ delay: 0.3 }}
             className="lg:col-span-2 glass-panel p-6 rounded-2xl border border-white/10"
           >
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
               <div>
                 <h3 className="font-bold text-white text-base tracking-tight flex items-center gap-2">
-                  <Activity size={18} className="text-lime-400" /> Histórico de Geração & Eficiência
+                  <Activity size={18} className="text-lime-400" /> Histórico de Geração & Economia Solar
                 </h3>
                 <p className="text-xs text-zinc-400">
-                  Valores mensais de energia gerada (kWh) capturados pela inteligência Quark
+                  Dados de telemetria solar integrados aos registros de fatura da distribuidora
                 </p>
               </div>
 
-              <div className="flex items-center gap-4 text-xs">
-                <span className="flex items-center gap-1.5 text-lime-400 font-semibold">
-                  <span className="w-2.5 h-2.5 rounded-full bg-lime-400" /> Geração Real
-                </span>
-                <span className="flex items-center gap-1.5 text-blue-400 font-semibold">
-                  <span className="w-2.5 h-2.5 rounded-full bg-blue-400" /> Consumo Médio
-                </span>
+              {/* Seletor de Métrica: kWh vs R$ */}
+              <div className="flex items-center gap-1.5 p-1 bg-zinc-950/80 rounded-xl border border-white/5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setChartMetric('kwh')}
+                  className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 ${
+                    chartMetric === 'kwh'
+                      ? 'bg-lime-500/20 text-lime-400 border border-lime-500/30'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  <Sun size={13} /> Geração (kWh)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChartMetric('brl')}
+                  className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 ${
+                    chartMetric === 'brl'
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  <TrendingUp size={13} /> Economia (R$)
+                </button>
               </div>
             </div>
 
@@ -351,6 +376,7 @@ const PortalDashboard: React.FC = () => {
                     axisLine={false} 
                     dx={-8} 
                     fontSize={11} 
+                    tickFormatter={(v) => chartMetric === 'brl' ? `R$${v}` : `${v}`}
                   />
                   <Tooltip 
                     contentStyle={{ 
@@ -361,27 +387,45 @@ const PortalDashboard: React.FC = () => {
                       boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)'
                     }}
                     labelStyle={{ color: '#94a3b8', fontSize: '11px', marginBottom: '4px' }}
+                    formatter={(value: any, name: any) => [
+                      chartMetric === 'brl' ? formatCurrency(Number(value)) : `${value} kWh`,
+                      name
+                    ]}
                     cursor={{ stroke: '#475569', strokeWidth: 1, strokeDasharray: '4 4' }}
                   />
-                  <Line 
-                    type="monotone" 
-                    dataKey="geracao" 
-                    name="Geração (kWh)" 
-                    stroke="#a3e635" 
-                    strokeWidth={2.5} 
-                    dot={{ r: 4, fill: '#0f172a', strokeWidth: 2, stroke: '#a3e635' }} 
-                    activeDot={{ r: 6, fill: '#a3e635', strokeWidth: 0 }} 
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="consumo" 
-                    name="Consumo (kWh)" 
-                    stroke="#60a5fa" 
-                    strokeWidth={2} 
-                    strokeDasharray="4 4"
-                    dot={{ r: 3, fill: '#0f172a', strokeWidth: 1.5, stroke: '#60a5fa' }} 
-                    activeDot={{ r: 5, fill: '#60a5fa', strokeWidth: 0 }} 
-                  />
+                  {chartMetric === 'kwh' ? (
+                    <>
+                      <Line 
+                        type="monotone" 
+                        dataKey="geracao" 
+                        name="Geração Solar (kWh)" 
+                        stroke="#a3e635" 
+                        strokeWidth={2.5} 
+                        dot={{ r: 4, fill: '#0f172a', strokeWidth: 2, stroke: '#a3e635' }} 
+                        activeDot={{ r: 6, fill: '#a3e635', strokeWidth: 0 }} 
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="consumo" 
+                        name="Consumo Médio (kWh)" 
+                        stroke="#60a5fa" 
+                        strokeWidth={2} 
+                        strokeDasharray="4 4"
+                        dot={{ r: 3, fill: '#0f172a', strokeWidth: 1.5, stroke: '#60a5fa' }} 
+                        activeDot={{ r: 5, fill: '#60a5fa', strokeWidth: 0 }} 
+                      />
+                    </>
+                  ) : (
+                    <Line 
+                      type="monotone" 
+                      dataKey="economia" 
+                      name="Economia na Fatura (R$)" 
+                      stroke="#10b981" 
+                      strokeWidth={2.5} 
+                      dot={{ r: 4, fill: '#0f172a', strokeWidth: 2, stroke: '#10b981' }} 
+                      activeDot={{ r: 6, fill: '#10b981', strokeWidth: 0 }} 
+                    />
+                  )}
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -420,7 +464,7 @@ const PortalDashboard: React.FC = () => {
               <div className="relative pl-4 border-l border-blue-500/40">
                 <div className="absolute -left-[5px] top-1 w-2.5 h-2.5 rounded-full bg-zinc-900 border border-blue-400" />
                 <p className="text-xs text-zinc-200 font-semibold">
-                  Próxima revisão agendada: {formatDate(telemetry?.next_maintenance_date || '')}
+                  Próxima revisão: {formatDate(telemetry?.next_maintenance_date || '')}
                 </p>
                 <p className="text-[10px] text-zinc-500 mt-0.5">Inspeção periódica recomendada</p>
               </div>
@@ -434,6 +478,94 @@ const PortalDashboard: React.FC = () => {
             </div>
           </motion.div>
         </div>
+
+        {/* Seção Especial: Fatura da Concessionária & Compensação de Energia */}
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="glass-panel p-6 rounded-2xl border border-white/10 relative overflow-hidden"
+        >
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-xl bg-lime-500/15 border border-lime-500/30 text-lime-400 flex items-center justify-center shrink-0">
+                <FileText size={22} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-lime-400">
+                    Fatura & Concessionária
+                  </span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                    <CheckCircle2 size={11} /> Compensação no SCEE Ativa
+                  </span>
+                </div>
+                <h3 className="text-lg font-bold text-white mt-0.5">
+                  Extrato da Última Fatura de Energia · Equatorial AL
+                </h3>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => navigate('/portal/tickets')}
+                className="px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-xs text-zinc-200 font-semibold transition flex items-center gap-1.5"
+              >
+                <Headphones size={14} className="text-lime-400" />
+                Dúvida na Fatura
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/portal/payments')}
+                className="px-3.5 py-2 rounded-xl bg-lime-500 hover:bg-lime-400 text-zinc-950 text-xs font-bold transition flex items-center gap-1.5 shadow-lg shadow-lime-500/10"
+              >
+                <Wrench size={14} />
+                Agendar Manutenção
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 rounded-xl bg-zinc-950/60 border border-white/5 space-y-1">
+              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">
+                Mês de Referência
+              </span>
+              <p className="text-base font-bold text-zinc-100">Setembro / 2026</p>
+              <p className="text-[11px] text-zinc-400">UC: 100482910-2 · Equatorial AL</p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-zinc-950/60 border border-white/5 space-y-1">
+              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">
+                Energia Injetada Solar
+              </span>
+              <p className="text-base font-bold text-lime-400 font-mono">
+                {telemetry?.monthly_generation_kwh ? `${telemetry.monthly_generation_kwh} kWh` : '520 kWh'}
+              </p>
+              <p className="text-[11px] text-zinc-400">Créditos injetados no sistema</p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-zinc-950/60 border border-white/5 space-y-1">
+              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">
+                Economia Neste Mês
+              </span>
+              <p className="text-base font-bold text-emerald-400 font-mono">
+                {formatCurrency(telemetry?.chart_data?.[telemetry.chart_data.length - 1]?.economia || 489.60)}
+              </p>
+              <p className="text-[11px] text-emerald-500 font-semibold">82% de redução na conta</p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-zinc-950/60 border border-white/5 space-y-1">
+              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">
+                Total Economizado Acumulado
+              </span>
+              <p className="text-base font-bold text-white font-mono">
+                {formatCurrency(telemetry?.total_savings_brl || 12450)}
+              </p>
+              <p className="text-[11px] text-zinc-400">Desde o comissionamento da usina</p>
+            </div>
+          </div>
+        </motion.div>
       </main>
     </div>
   );

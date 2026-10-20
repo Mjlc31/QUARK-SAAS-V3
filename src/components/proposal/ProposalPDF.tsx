@@ -455,11 +455,11 @@ const PDFContact = ({ content, styles, theme }: { content: ContactContent, style
         
         <View style={styles.contactRow}>
           <Text style={styles.contactLabel}>Telefone / WhatsApp</Text>
-          <Text style={styles.contactValue}>{theme.companyPhone || content.companyPhone || '(00) 00000-0000'}</Text>
+          <Text style={styles.contactValue}>{theme.companyPhone || content.companyPhone || '+55 (82) 99424-1835'}</Text>
         </View>
         <View style={styles.contactRow}>
           <Text style={styles.contactLabel}>E-mail</Text>
-          <Text style={styles.contactValue}>{theme.companyEmail || content.companyEmail || 'contato@quarkenergia.com.br'}</Text>
+          <Text style={styles.contactValue}>{theme.companyEmail || content.companyEmail || 'projetos@quarkenergia.com.br'}</Text>
         </View>
         <View style={styles.contactRow}>
           <Text style={styles.contactLabel}>Endereço</Text>

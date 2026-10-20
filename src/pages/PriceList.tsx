@@ -417,12 +417,21 @@ function KitFormModal({ initialData, onClose }: { initialData?: KitPreset, onClo
         newKits = [kit, ...newKits];
       }
 
-      const { error } = await supabase().from("settings").upsert({ 
-        id: 1, 
-        data: toStoredSettings({ ...settings, kits: newKits }) 
-      });
-      
-      if (error) throw error;
+      const updatedData = toStoredSettings({ ...settings, kits: newKits });
+      localStorage.setItem("quark_settings_cache", JSON.stringify(updatedData));
+
+      try {
+        const timeoutPromise = new Promise<never>((_, rej) =>
+          setTimeout(() => rej(new Error("timeout")), 1500)
+        );
+        await Promise.race([
+          supabase().from("settings").upsert({ id: 1, data: updatedData }),
+          timeoutPromise
+        ]);
+      } catch (upsertErr) {
+        console.warn("[PriceList] Salvo em cache local offline:", upsertErr);
+      }
+
       toast.success(isEdit ? "Kit atualizado com sucesso!" : "Kit salvo com sucesso!");
       window.location.reload(); // Quick refresh to update context
     } catch (err: any) {

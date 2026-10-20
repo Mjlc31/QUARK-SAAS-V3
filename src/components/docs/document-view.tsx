@@ -1,6 +1,6 @@
 import { ShieldCheck } from "lucide-react";
-import { maskDoc } from "@/lib/br";
-import { ROLE_LABEL, documentBlocks, signersFor, type DocData, type DocKind, type SignerInfo } from "@/lib/documents";
+import { maskDoc, digits } from "@/lib/br";
+import { ROLE_LABEL, documentBlocks, signersFor, type DocData, type DocKind, type SignerInfo, type ContratoData } from "@/lib/documents";
 
 const fmt = (iso: string) =>
   new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -24,7 +24,14 @@ export function DocumentView({
   hash?: string | null;
 }) {
   const blocks = documentBlocks(kind, data);
-  const list: SignerInfo[] = signers?.length ? signers : signersFor(kind, data).map((s) => ({ role: s.role, name: s.name }));
+  const list: SignerInfo[] = signers?.length
+    ? signers
+    : signersFor(kind, data).map((s) => ({
+        role: s.role,
+        name: s.name,
+        signed_cpf: s.cpf || null,
+        signature: s.role === "contratada" && kind === "contrato" ? (data as ContratoData).contractorSignature || "/brand/assinatura.png" : undefined,
+      }));
   const signed = list.filter((s) => s.signed_at);
 
   return (
@@ -67,7 +74,7 @@ export function DocumentView({
               <p className="text-sm font-semibold text-zinc-900">{s.signed_name ?? s.name}</p>
               <p className="text-xs text-zinc-500">
                 {ROLE_LABEL[s.role] ?? s.role}
-                {s.signed_cpf ? ` · CPF ${maskDoc(s.signed_cpf)}` : ""}
+                {s.signed_cpf ? ` · ${digits(s.signed_cpf).length > 11 ? "CNPJ" : "CPF"} ${maskDoc(s.signed_cpf)}` : ""}
               </p>
             </div>
           </div>

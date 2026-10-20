@@ -188,6 +188,54 @@ export const DEFAULT_INPUTS: ProposalInputs = {
   notes: "",
 };
 
+export const DEFAULT_KITS: KitPreset[] = [
+  {
+    id: "kit-res-5kw",
+    name: "Kit Residencial 5.5 kWp (Padrão Bifásico)",
+    kitPrice: 9800,
+    moduleBrand: "Canadian Solar",
+    moduleModel: "HiKu6 550W",
+    modulePowerW: 550,
+    moduleQty: 10,
+    inverterBrand: "Growatt",
+    inverterModel: "MIN 5000TL-X",
+    inverterPowerKw: 5,
+    inverterQty: 1,
+    structureType: "Telhado cerâmico",
+    priceHistory: [{ date: "2026-01-01T00:00:00Z", price: 9800 }]
+  },
+  {
+    id: "kit-res-7kw",
+    name: "Kit Médio Porte 7.7 kWp (Trifásico Residencial/Comercial)",
+    kitPrice: 13500,
+    moduleBrand: "JA Solar",
+    moduleModel: "JAM72S30 550W",
+    modulePowerW: 550,
+    moduleQty: 14,
+    inverterBrand: "Deye",
+    inverterModel: "SUN-8K-G",
+    inverterPowerKw: 8,
+    inverterQty: 1,
+    structureType: "Telhado cerâmico",
+    priceHistory: [{ date: "2026-01-01T00:00:00Z", price: 13500 }]
+  },
+  {
+    id: "kit-com-12kw",
+    name: "Kit Comercial 12.1 kWp (Comércio / Padarias / Clínicas)",
+    kitPrice: 21900,
+    moduleBrand: "Canadian Solar",
+    moduleModel: "TopBiHiKu6 550W",
+    modulePowerW: 550,
+    moduleQty: 22,
+    inverterBrand: "Growatt",
+    inverterModel: "MID 12KTL3-X",
+    inverterPowerKw: 12,
+    inverterQty: 1,
+    structureType: "Telhado metálico",
+    priceHistory: [{ date: "2026-01-01T00:00:00Z", price: 21900 }]
+  }
+];
+
 export const DEFAULT_SETTINGS: CompanySettings = {
   company_name: "Quark Energia",
   legal_name: "",
@@ -213,7 +261,7 @@ export const DEFAULT_SETTINGS: CompanySettings = {
   warranty_structure_years: 12,
   defaults: {},
   saveDefaults: {},
-  kits: [],
+  kits: DEFAULT_KITS,
   app: {
     splash: "daily",
     monthlyGoal: 150000,
@@ -267,7 +315,7 @@ export function mergeSettings(s: Partial<CompanySettings> | null | undefined): C
     ...DEFAULT_SETTINGS,
     ...(s ?? {}),
     defaults,
-    kits: kits ?? s?.kits ?? [],
+    kits: (kits && kits.length > 0) ? kits : (s?.kits && s.kits.length > 0) ? s.kits : DEFAULT_KITS,
     saveDefaults: save ?? {},
     app: { ...DEFAULT_SETTINGS.app, ...(s?.app ?? {}), ...(app ?? {}) },
     capture: { ...DEFAULT_CAPTURE, ...((s?.capture ?? {}) as Partial<CapturePrefs>) },

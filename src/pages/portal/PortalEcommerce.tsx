@@ -176,7 +176,7 @@ const PortalEcommerce: React.FC = () => {
 
   const handleWhatsAppProduct = (productName: string) => {
     const text = encodeURIComponent(`Olá equipe Quark! Tenho interesse no item do catálogo: ${productName}. Poderiam me atender?`);
-    window.open(`https://wa.me/5582999999999?text=${text}`, '_blank');
+    window.open(`https://wa.me/5582994241835?text=${text}`, '_blank');
   };
 
   return (

@@ -24,12 +24,18 @@ function generateFallbackLeads(segmento = 'Empresas', localizacao = 'Maceió, AL
     const name = `${item.prefix} ${surnames[idx % surnames.length]}`;
     const streetNum = 100 + idx * 45;
     return {
+      id: `prospect-${idx + 1}`,
       title: name,
+      nome: name,
       category: segmento,
+      categoria: segmento,
       address: `Av. Fernandes Lima, ${streetNum} - Farol, ${city} - AL`,
+      endereco: `Av. Fernandes Lima, ${streetNum} - Farol, ${city} - AL`,
       phone: `(82) 9${8000 + idx * 111}-${1000 + idx * 222}`,
+      telefone: `(82) 9${8000 + idx * 111}-${1000 + idx * 222}`,
       website: `https://${name.toLowerCase().replace(/[^a-z0-9]/g, '')}.com.br`,
       rating: +(4.2 + (idx % 8) * 0.1).toFixed(1),
+      avaliacao: +(4.2 + (idx % 8) * 0.1).toFixed(1),
       reviews_count: 24 + idx * 12,
       solar_fit: {
         estimated_monthly_consumption: item.consumption,

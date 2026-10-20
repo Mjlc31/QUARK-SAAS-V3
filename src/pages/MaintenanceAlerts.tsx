@@ -77,6 +77,7 @@ const MaintenanceAlerts: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          client_ids: ['intel-1', 'intel-2', 'intel-3'],
           alert_type: formData.alert_type,
           message: formData.message,
           channel: formData.channel,
@@ -87,19 +88,26 @@ const MaintenanceAlerts: React.FC = () => {
       if (res.ok) {
         const result = await res.json();
         setSuccessMessage(`✅ ${result.alerts_sent || 0} alerta(s) disparado(s) com sucesso via WhatsApp!`);
+        await createAlerts.mutateAsync({
+          intelligence_id: 'intel-1',
+          client_name: 'Dra. Luanda Vasconcelos',
+          alert_type: formData.alert_type,
+          message: formData.message,
+          scheduled_for: formData.scheduled_for || new Date().toISOString(),
+          channel: formData.channel,
+          status: 'enviado',
+        });
       } else {
         // Fallback local caso backend esteja offline
-        const alertsToCreate = [
-          {
-            intelligence_id: 'local-intel',
-            alert_type: formData.alert_type,
-            message: formData.message,
-            scheduled_for: formData.scheduled_for,
-            channel: formData.channel,
-            status: 'enviado'
-          }
-        ];
-        await createAlerts.mutateAsync(alertsToCreate as any);
+        await createAlerts.mutateAsync({
+          intelligence_id: 'local-intel',
+          client_name: 'Base de Clientes',
+          alert_type: formData.alert_type,
+          message: formData.message,
+          scheduled_for: formData.scheduled_for || new Date().toISOString(),
+          channel: formData.channel,
+          status: 'enviado'
+        });
         setSuccessMessage('Alerta registrado localmente com sucesso!');
       }
     } catch (e) {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Users, Calculator, CheckSquare, Package, LogOut, PieChart, X, HardHat, MessageSquare, DollarSign, FileText, Kanban, Instagram, MapPin, Headphones, Brain, Wrench, Bell, Bot, ShoppingCart, Table, FolderCog, Trophy, Sparkles, UserCheck } from 'lucide-react';
+import { LayoutDashboard, Users, Calculator, CheckSquare, Package, LogOut, PieChart, X, HardHat, MessageSquare, DollarSign, FileText, Kanban, Instagram, MapPin, Headphones, Brain, Wrench, Bell, Bot, ShoppingCart, Table, FolderCog, Trophy, Sparkles, UserCheck, ScrollText, Receipt } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -64,13 +64,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     { id: 'prospeccao', label: 'Prospecção', icon: MapPin, path: '/prospeccao' },
     { id: 'conversations', label: 'WhatsApp & IA', icon: MessageSquare, path: '/conversations' },
     { id: 'propostas', label: 'Propostas', icon: FileText, path: '/propostas' },
+    { id: 'contratos', label: 'Contratos', icon: ScrollText, path: '/contratos' },
     { id: 'price-list', label: 'Tabela de Preços', icon: Table, path: '/price-list' },
     { id: 'calculator', label: 'Calculadora', icon: Calculator, path: '/calculator' },
   ];
 
   const operationsItems = [
     { id: 'equipe', label: 'Equipe & Metas', icon: UserCheck, path: '/equipe' },
-    { id: 'follow-up', label: 'Acompanhamento', icon: HardHat, path: '/follow-up' },
+    { id: 'follow-up', label: 'Acompanhamento de Obras', icon: HardHat, path: '/follow-up' },
     { id: 'tasks', label: 'Tarefas', icon: CheckSquare, path: '/tasks' },
     { id: 'clientes', label: 'Clientes', icon: Users, path: '/clientes' },
     { id: 'maintenance', label: 'Manutenção', icon: Wrench, path: '/maintenance' },
@@ -80,6 +81,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
   const financeAdminItems = [
     { id: 'financeiro', label: 'Financeiro', icon: DollarSign, path: '/financeiro' },
+    { id: 'recibos', label: 'Recibos A4', icon: Receipt, path: '/recibos' },
     { id: 'utility-robot', label: 'Robô Faturas', icon: Bot, path: '/utility-robot' },
     { id: 'reports', label: 'Intelligence', icon: PieChart, path: '/reports' },
     { id: 'intelligence', label: 'CRM Inteligência', icon: Brain, path: '/intelligence' },

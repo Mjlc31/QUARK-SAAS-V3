@@ -214,31 +214,27 @@ const INITIAL_USERS: User[] = [
   { id: '1', name: 'Admin User', email: 'admin@quark.com', role: 'Admin', avatarInitials: 'AD' },
 ];
 
+const withTimeout = <T,>(p: Promise<T>, ms = 1500): Promise<T> =>
+  Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+
 export const storageService = {
   // --- LEADS ---
   getLeads: async (): Promise<Lead[]> => {
     try {
-      const { data, error } = await supabase.from('leads').select('*');
+      const res = await withTimeout(supabase.from('leads').select('*') as any).catch(() => ({ data: null, error: true }));
+      const { data, error } = res as any;
 
       if (error) {
-        console.error('🔴 SUPABASE ERRO [getLeads]:', {
-          message: error.message,
-          code: error.code,
-          details: (error as any).details,
-          hint: (error as any).hint,
-        });
-        throw error;
+        throw new Error('Supabase offline');
       }
 
       // Robust mapping: handles both {id, data: Lead} and direct {id, name...}
-      const cloudLeads = (data || []).map(row => {
+      const cloudLeads = (data || []).map((row: any) => {
         if (row.data && typeof row.data === 'object') {
           return { ...row.data, id: row.id };
         }
         return row;
       }) as Lead[];
-
-      // console.log(`✅ Leads sincronizados da nuvem: ${cloudLeads.length}`);
 
       const localStr = safeLocalStorage.getItem('quark_leads');
       const localData: Lead[] = localStr ? JSON.parse(localStr) : [];
@@ -324,8 +320,12 @@ export const storageService = {
   // --- TASKS ---
   getTasks: async (): Promise<Task[]> => {
     try {
-      const { data, error } = await supabase.from('tasks').select('*');
-      if (error) { console.warn('⚠️ Tasks fetch error:', error.message); throw error; }
+      const withTimeout = <T,>(p: Promise<T>, ms = 1500): Promise<T> =>
+        Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+
+      const res = await withTimeout(supabase.from('tasks').select('*') as any).catch(() => ({ data: null, error: true }));
+      const { data, error } = res as any;
+      if (error) { throw new Error('Supabase offline'); }
 
       const localStr = safeLocalStorage.getItem('quark_tasks');
       const localData: Task[] = localStr ? JSON.parse(localStr) : [];
@@ -338,7 +338,7 @@ export const storageService = {
       }
 
       if (data && data.length > 0) {
-        const parsed = data.map(row => row.data ? { ...row.data, id: row.id } : row);
+        const parsed = data.map((row: any) => row.data ? { ...row.data, id: row.id } : row);
         safeLocalStorage.setItem('quark_tasks', JSON.stringify(parsed));
         return parsed as Task[];
       }
@@ -373,21 +373,19 @@ export const storageService = {
   // --- PRODUCTS ---
   getProducts: async (): Promise<Product[]> => {
     try {
-      const { data, error } = await supabase.from('products').select('*');
-      if (error) { console.warn('⚠️ Products fetch error:', error.message); throw error; }
+      const res = await withTimeout(supabase.from('products').select('*') as any).catch(() => ({ data: null, error: true }));
+      const { data, error } = res as any;
+      if (error) { throw new Error('Supabase offline'); }
 
       const localStr = safeLocalStorage.getItem('quark_products');
       const localData: Product[] = localStr ? JSON.parse(localStr) : [];
 
       if ((!data || data.length === 0) && localData.length > 0) {
-        for (const prod of localData) {
-          await supabase.from('products').upsert({ id: prod.id, data: prod, updated_at: new Date() });
-        }
         return localData;
       }
 
       if (data && data.length > 0) {
-        const parsed = data.map(row => row.data ? { ...row.data, id: row.id } : row);
+        const parsed = data.map((row: any) => row.data ? { ...row.data, id: row.id } : row);
         safeLocalStorage.setItem('quark_products', JSON.stringify(parsed));
         return parsed as Product[];
       }
@@ -404,7 +402,7 @@ export const storageService = {
       const list: Product[] = current ? JSON.parse(current) : [];
       const updated = list.some(p => p.id === product.id) ? list.map(p => p.id === product.id ? product : p) : [...list, product];
       safeLocalStorage.setItem('quark_products', JSON.stringify(updated));
-      await supabase.from('products').upsert({ id: product.id, data: product, updated_at: new Date() });
+      await withTimeout(Promise.resolve(supabase.from('products').upsert({ id: product.id, data: product, updated_at: new Date() })), 1000).catch(() => {});
     } catch (err) { console.error(err); }
   },
 
@@ -415,7 +413,7 @@ export const storageService = {
         const list = JSON.parse(current) as Product[];
         safeLocalStorage.setItem('quark_products', JSON.stringify(list.filter(p => p.id !== id)));
       }
-      await supabase.from('products').update({ deleted_at: new Date().toISOString() }).eq('id', id);
+      await withTimeout(Promise.resolve(supabase.from('products').update({ deleted_at: new Date().toISOString() }).eq('id', id)), 1000).catch(() => {});
     } catch (err) { console.error(err); }
   },
 
@@ -423,11 +421,12 @@ export const storageService = {
   // Now fetches from real Supabase 'profiles' table
   getUsers: async (): Promise<User[]> => {
     try {
-      const { data, error } = await supabase.from('profiles').select('*');
-      if (error) { console.warn('⚠️ Profiles fetch error:', error.message); throw error; }
+      const res = await withTimeout(supabase.from('profiles').select('*') as any).catch(() => ({ data: null, error: true }));
+      const { data, error } = res as any;
+      if (error) { throw new Error('Supabase offline'); }
 
       if (data && data.length > 0) {
-        const users: User[] = data.map(p => ({
+        const users: User[] = data.map((p: any) => ({
           id: p.id,
           name: p.name || 'Usuário',
           email: p.email || '',
@@ -438,8 +437,7 @@ export const storageService = {
         return users;
       }
       return INITIAL_USERS;
-    } catch (err) {
-      console.warn("⚠️ Error fetching users:", err);
+    } catch {
       const local = safeLocalStorage.getItem('quark_users');
       return local ? JSON.parse(local) : INITIAL_USERS;
     }
@@ -448,13 +446,13 @@ export const storageService = {
   // --- PROJECTS ---
   getProjects: async (): Promise<Project[]> => {
     try {
-      const { data, error } = await supabase.from('projects').select('*');
+      const res = await withTimeout(supabase.from('projects').select('*') as any).catch(() => ({ data: null, error: true }));
+      const { data, error } = res as any;
       if (error) {
-        console.warn('⚠️ Erro ao buscar projetos no Supabase:', error.message);
-        throw error;
+        throw new Error('Supabase offline');
       }
 
-      const cloudProjects = (data || []).map(row => {
+      const cloudProjects = (data || []).map((row: any) => {
         if (row.data && typeof row.data === 'object') {
           return { ...row.data, id: row.id };
         }

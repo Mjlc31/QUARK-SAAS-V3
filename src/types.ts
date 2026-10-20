@@ -226,7 +226,7 @@ export type MaintenanceServiceStatus = 'pendente' | 'agendado' | 'em_campo' | 'c
 export type AlertType = 'manutencao_preventiva' | 'limpeza' | 'inspecao' | 'garantia';
 export type AlertChannel = 'whatsapp' | 'email' | 'sms' | 'portal';
 export type AlertStatus = 'pendente' | 'enviado' | 'lido' | 'respondido' | 'falha';
-export type ProjectPhase = 'venda_confirmada' | 'projeto_elaboracao' | 'projeto_enviado' | 'aprovacao_concessionaria' | 'logistica_entrega' | 'instalacao' | 'homologacao' | 'comissionamento' | 'finalizado';
+export type ProjectPhase = 'venda_confirmada' | 'projeto_elaboracao' | 'compra_kit' | 'projeto_enviado' | 'aprovacao_concessionaria' | 'logistica_entrega' | 'instalacao' | 'homologacao' | 'comissionamento' | 'finalizado';
 
 export interface ClientPortalUser {
   id: string;
@@ -243,6 +243,7 @@ export interface ClientPortalUser {
   referral_code?: string;
   last_login?: string;
   created_at?: string;
+  updated_at?: string;
   deleted_at?: string | null;
   city?: string | null;
   state?: string | null;

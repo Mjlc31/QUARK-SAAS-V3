@@ -26,12 +26,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (sbSession) {
          const parsed = JSON.parse(sbSession);
          if (parsed?.user) {
+            const isPartner = parsed.user.email === 'arthurmoraesp12@gmail.com' || parsed.user.email === 'ctt.andersonalves@gmail.com' || parsed.user.email?.includes('admin');
             return {
               id: parsed.user.id,
               email: parsed.user.email!,
-              name: parsed.user.user_metadata?.name || 'Usuário',
-              role: 'Sales',
-              avatarInitials: (parsed.user.user_metadata?.name || 'U').substring(0, 2).toUpperCase()
+              name: parsed.user.user_metadata?.name || parsed.user.email?.split('@')[0] || 'Usuário',
+              role: isPartner ? 'Admin' : 'Sales',
+              avatarInitials: (parsed.user.user_metadata?.name || parsed.user.email || 'U').substring(0, 2).toUpperCase()
             };
          }
       }
@@ -43,6 +44,45 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isRecoveryMode, setIsRecoveryMode] = useState(false);
   const [isSupabaseConnected, setIsSupabaseConnected] = useState(false);
 
+  const resolveUserProfile = async (sessionUser: any): Promise<User> => {
+    const isPartnerAdmin = 
+      sessionUser.email === 'arthurmoraesp12@gmail.com' || 
+      sessionUser.email === 'ctt.andersonalves@gmail.com' ||
+      sessionUser.email?.includes('admin');
+
+    let profileName = sessionUser.user_metadata?.name || sessionUser.email?.split('@')[0] || 'Usuário';
+    let profileRole: User['role'] = isPartnerAdmin ? 'Admin' : 'Sales';
+    let profileInitials = (profileName || sessionUser.email || 'U').substring(0, 2).toUpperCase();
+
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('name, role, avatar_initials')
+        .eq('id', sessionUser.id)
+        .maybeSingle();
+
+      if (profile) {
+        if (profile.name) profileName = profile.name;
+        if (profile.role) profileRole = profile.role as User['role'];
+        if (profile.avatar_initials) profileInitials = profile.avatar_initials;
+      }
+    } catch (e) {
+      console.warn('Could not fetch profile, using defaults:', e);
+    }
+
+    if (isPartnerAdmin) {
+      profileRole = 'Admin';
+    }
+
+    return {
+      id: sessionUser.id,
+      email: sessionUser.email!,
+      name: profileName,
+      role: profileRole,
+      avatarInitials: profileInitials
+    };
+  };
+
   useEffect(() => {
     if (window.location.hash && window.location.hash.includes('type=recovery')) {
       setIsRecoveryMode(true);
@@ -52,17 +92,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     let initialLoadHandled = false;
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
         initialLoadHandled = true;
-        const currentUser: User = {
-          id: session.user.id,
-          email: session.user.email!,
-          name: session.user.user_metadata?.name || 'Usuário',
-          role: 'Sales',
-          avatarInitials: (session.user.user_metadata?.name || 'U').substring(0, 2).toUpperCase()
-        };
-        if (!user) setUser(currentUser);
+        const currentUser = await resolveUserProfile(session.user);
+        setUser(currentUser);
       } else {
         const offlineUserStr = localStorage.getItem('quark_offline_user');
         if (offlineUserStr) {
@@ -72,20 +106,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'PASSWORD_RECOVERY') setIsRecoveryMode(true);
 
       if (session?.user) {
         if (initialLoadHandled && event === 'INITIAL_SESSION') return;
         initialLoadHandled = true;
 
-        const newUser: User = {
-          id: session.user.id,
-          email: session.user.email!,
-          name: session.user.user_metadata?.name || 'Usuário',
-          role: 'Sales',
-          avatarInitials: (session.user.user_metadata?.name || 'U').substring(0, 2).toUpperCase()
-        };
+        const newUser = await resolveUserProfile(session.user);
         setUser(newUser);
         localStorage.removeItem('quark_offline_user');
         checkSupabaseConnection();

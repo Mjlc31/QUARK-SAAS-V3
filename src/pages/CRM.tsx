@@ -24,13 +24,84 @@ interface CrmData {
 }
 
 async function loadCrm(): Promise<CrmData> {
-  const [oppRes, propRes] = await Promise.all([
-    supabase.from("opportunities").select("*").order("created_at", { ascending: false }),
-    supabase.from("proposals").select("id, number, lead_id, status, final_price, power_kwp, public_token, created_at, product:inputs->>product").order("created_at", { ascending: false }).limit(400),
-  ]);
-  const proposals = ((propRes.data ?? []) as any[]).map((p) => ({ ...p, inputs: { product: p.product } })) as OppProposal[];
-  const views = await fetchProposalViews(proposals.filter((p) => p.status !== "rascunho").map((p) => String(p.id)));
-  return { opps: (oppRes.data ?? []) as Opportunity[], proposals, views };
+  let opps: Opportunity[] = [];
+  let proposals: OppProposal[] = [];
+  let views: ProposalView[] = [];
+
+  try {
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Supabase query timeout")), 3000)
+    );
+
+    const queryPromise = Promise.all([
+      supabase.from("opportunities").select("*").order("created_at", { ascending: false }),
+      supabase.from("proposals").select("id, number, lead_id, status, final_price, power_kwp, public_token, created_at, product:inputs->>product").order("created_at", { ascending: false }).limit(400),
+    ]);
+
+    const [oppRes, propRes] = await Promise.race([queryPromise, timeoutPromise]);
+
+    if (oppRes.data && oppRes.data.length > 0) {
+      opps = oppRes.data as Opportunity[];
+      try {
+        localStorage.setItem("quark_opportunities", JSON.stringify(opps));
+      } catch (_) {}
+    }
+    if (propRes.data) {
+      proposals = ((propRes.data ?? []) as any[]).map((p) => ({ ...p, inputs: { product: p.product } })) as OppProposal[];
+      views = await fetchProposalViews(proposals.filter((p) => p.status !== "rascunho").map((p) => String(p.id)));
+    }
+  } catch (e) {
+    console.warn("⚠️ CRM: Falha ou timeout na conexão remota, carregando do cache offline:", e);
+  }
+
+  // Fallback 1: cache de oportunidades local
+  if (opps.length === 0) {
+    try {
+      const cached = localStorage.getItem("quark_opportunities");
+      if (cached) {
+        opps = JSON.parse(cached);
+      }
+    } catch (_) {}
+  }
+
+  // Fallback 2: mapeamento resiliente a partir de 'quark_leads'
+  if (opps.length === 0) {
+    try {
+      const leadsRaw = localStorage.getItem("quark_leads");
+      if (leadsRaw) {
+        const leads = JSON.parse(leadsRaw);
+        if (Array.isArray(leads) && leads.length > 0) {
+          opps = leads.map((l: any) => ({
+            id: String(l.id),
+            title: l.name || l.title || "Sem título",
+            phone: l.phone || "",
+            email: l.email || "",
+            city: l.city || "Maceió",
+            status:
+              l.status === "novo" || l.status === "Lead" ? "Lead" :
+              l.status === "contato" || l.status === "Qualificacao" || l.status === "visita" ? "Qualificado" :
+              l.status === "proposta" || l.status === "Proposta" ? "Proposta" :
+              l.status === "ganho" || l.status === "Ganho" ? "Ganho" :
+              l.status === "perdido" || l.status === "Perdido" ? "Perdido" : "Lead",
+            amount: l.value || l.amount || l.estimated_value || 25000,
+            services: l.services || ["solar"],
+            source: l.source || "Manual",
+            temperature: l.temperature || "morno",
+            avg_bill: l.avg_bill || (l.monthlyConsumption ? l.monthlyConsumption * 0.95 : 650),
+            consumption_kwh: l.monthlyConsumption || l.consumption_kwh || 650,
+            notes: l.notes || "",
+            created_at: l.createdAt || l.created_at || new Date().toISOString(),
+            updated_at: l.updatedAt || l.updated_at || new Date().toISOString(),
+          }));
+          try {
+            localStorage.setItem("quark_opportunities", JSON.stringify(opps));
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
+  }
+
+  return { opps, proposals, views };
 }
 
 const CRM: React.FC = () => {
@@ -107,33 +178,46 @@ const CRM: React.FC = () => {
 
   const executeStatusChange = async (opp: Opportunity, status: string, reason?: string) => {
     if (opp.status === status) return;
-    setOpps((prev) => prev.map((o) => (o.id === opp.id ? { ...o, status, loss_reason: reason || o.loss_reason } : o)));
-    if (status === "Ganho") await convertToClient(opp);
+    const nextOpps = opportunities.map((o) => (o.id === opp.id ? { ...o, status, loss_reason: reason || o.loss_reason } : o));
+    setOpps(() => nextOpps);
+    try {
+      localStorage.setItem("quark_opportunities", JSON.stringify(nextOpps));
+    } catch (_) {}
+
+    if (status === "Ganho") await convertToClient(opp).catch(() => {});
 
     const updatePayload: Partial<Opportunity> = { status };
     if (reason) updatePayload.loss_reason = reason;
-    const { error } = await supabase.from("opportunities").update(updatePayload).eq("id", opp.id);
-    if (error) {
-      toast.error(friendly(error.message));
-      return reload();
+    try {
+      const { error } = await supabase.from("opportunities").update(updatePayload).eq("id", opp.id);
+      if (error) {
+        console.warn("Supabase update error (salvo localmente):", error.message);
+      }
+    } catch (e) {
+      console.warn("Supabase offline, mantido localmente:", e);
     }
-    await supabase.from("agent_notes").insert({
-      entity_type: "opportunity",
-      entity_id: opp.id,
-      note: `Fase alterada de '${opp.status || "Lead"}' para '${status}'.${reason ? " Motivo: " + reason : ""}`,
-      created_by_ai: false,
-    });
+
+    try {
+      await supabase.from("agent_notes").insert({
+        entity_type: "opportunity",
+        entity_id: opp.id,
+        note: `Fase alterada de '${opp.status || "Lead"}' para '${status}'.${reason ? " Motivo: " + reason : ""}`,
+        created_by_ai: false,
+      });
+    } catch (_) {}
 
     // 1. Gamificação: Pontuar vendedor
-    const userRes = await supabase.auth.getUser();
-    const currentUserId = userRes.data.user?.id;
-    if (currentUserId) {
-      if (status === "Ganho") {
-        recordXpEvent(currentUserId, "venda", { opp_id: opp.id, title: opp.title });
-      } else {
-        recordXpEvent(currentUserId, "followup", { opp_id: opp.id, status });
+    try {
+      const userRes = await supabase.auth.getUser();
+      const currentUserId = userRes.data.user?.id;
+      if (currentUserId) {
+        if (status === "Ganho") {
+          recordXpEvent(currentUserId, "venda", { opp_id: opp.id, title: opp.title });
+        } else {
+          recordXpEvent(currentUserId, "followup", { opp_id: opp.id, status });
+        }
       }
-    }
+    } catch (_) {}
 
     if (status === "Ganho") toast.success(`🎉 ${opp.title} virou cliente! (+100 XP)`);
 
@@ -163,7 +247,7 @@ const CRM: React.FC = () => {
       const cadenceTask = {
         id: crypto.randomUUID(),
         title: `${step.title}: ${opp.title}`,
-        assignee: (userRes.data.user?.user_metadata?.full_name) || "Consultor Quark",
+        assignee: "Consultor Quark",
         deadline,
         priority: (step.priority === "alta" ? "High" : step.priority === "media" ? "Medium" : "Low") as "High" | "Medium" | "Low",
         completed: false,
@@ -212,22 +296,32 @@ const CRM: React.FC = () => {
     if (!before) return;
     if (updates.status === "Perdido" && before.status !== "Perdido" && !updates.loss_reason) return setLossModal(id);
     if (updates.status && updates.status !== before.status) return executeStatusChange(before, updates.status);
-    setOpps((prev) => prev.map((o) => (o.id === id ? { ...o, ...updates } : o)));
-    const { error } = await supabase.from("opportunities").update(updates).eq("id", id);
-    if (error) {
-      toast.error(friendly(error.message));
-      reload();
+    const nextOpps = opportunities.map((o) => (o.id === id ? { ...o, ...updates } : o));
+    setOpps(() => nextOpps);
+    try {
+      localStorage.setItem("quark_opportunities", JSON.stringify(nextOpps));
+    } catch (_) {}
+    try {
+      const { error } = await supabase.from("opportunities").update(updates).eq("id", id);
+      if (error) console.warn("Supabase update error (salvo localmente):", error.message);
+    } catch (e) {
+      console.warn("Supabase offline, mantido localmente:", e);
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Excluir esta oportunidade? Esta ação não pode ser desfeita.")) return;
-    setOpps((prev) => prev.filter((o) => o.id !== id));
+    const nextOpps = opportunities.filter((o) => o.id !== id);
+    setOpps(() => nextOpps);
+    try {
+      localStorage.setItem("quark_opportunities", JSON.stringify(nextOpps));
+    } catch (_) {}
     setSelectedId(null);
-    const { error } = await supabase.from("opportunities").update({ deleted_at: new Date().toISOString() }).eq("id", id);
-    if (error) {
-      toast.error(error.message);
-      reload();
+    try {
+      const { error } = await supabase.from("opportunities").update({ deleted_at: new Date().toISOString() }).eq("id", id);
+      if (error) console.warn("Supabase delete error (excluído localmente):", error.message);
+    } catch (e) {
+      console.warn("Supabase offline, excluído localmente:", e);
     }
   };
 
@@ -391,7 +485,13 @@ const CRM: React.FC = () => {
         <NewOpportunityModal
           onClose={() => setIsFormOpen(false)}
           onSaved={(o, merged) => {
-            setOpps((prev) => (merged ? prev.map((x) => (x.id === o.id ? o : x)) : [o, ...prev]));
+            setOpps((prev) => {
+              const next = merged ? prev.map((x) => (x.id === o.id ? o : x)) : [o, ...prev];
+              try {
+                localStorage.setItem("quark_opportunities", JSON.stringify(next));
+              } catch (_) {}
+              return next;
+            });
             setSelectedId(o.id);
           }}
         />

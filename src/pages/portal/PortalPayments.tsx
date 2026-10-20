@@ -84,7 +84,24 @@ const PortalPayments: React.FC = () => {
   const { data: servicesHistory = [], isLoading: loadingHistory } = useQuery({
     queryKey: ['portal-client-services', client?.id, client?.name],
     queryFn: async () => {
-      if (!client?.id && !client?.name) return fallbackHistory;
+      let localList: any[] = [];
+      try {
+        const rawMaint = localStorage.getItem('quark_maintenance_services');
+        if (rawMaint) {
+          const parsed = JSON.parse(rawMaint);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            localList = parsed.filter((s: any) => 
+              (client?.id && s.client_id === client.id) ||
+              (client?.name && s.client_name && s.client_name.toLowerCase().includes(client.name.toLowerCase())) ||
+              (s.notes && s.notes.includes(client?.name || ''))
+            );
+          }
+        }
+      } catch (e) {}
+
+      if (!client?.id && !client?.name) {
+        return localList.length > 0 ? localList : fallbackHistory;
+      }
 
       try {
         let query = supabase
@@ -99,20 +116,22 @@ const PortalPayments: React.FC = () => {
           query = query.ilike('notes', `%${client.name}%`);
         }
 
-        const { data, error } = await query;
-        if (error) {
-          console.warn('[PortalPayments] Erro ao buscar maintenance_services:', error.message);
-          return fallbackHistory;
-        }
+        const timeoutPromise = new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), 1000));
+        const res: any = await Promise.race([query, timeoutPromise]);
+        const data = res?.data;
 
         if (data && data.length > 0) {
-          return data;
+          const combined = [...localList];
+          data.forEach((d: any) => {
+            if (!combined.some(c => c.id === d.id)) combined.push(d);
+          });
+          return combined;
         }
       } catch (err) {
-        console.warn('[PortalPayments] Falha ao carregar serviços:', err);
+        console.warn('[PortalPayments] Falha ao carregar serviços remotos:', err);
       }
 
-      return fallbackHistory;
+      return localList.length > 0 ? localList : fallbackHistory;
     },
     enabled: true,
   });
@@ -141,6 +160,29 @@ const PortalPayments: React.FC = () => {
       (problemDescription ? `Observações: ${problemDescription.trim()}` : '');
 
     try {
+      const nowIso = new Date().toISOString();
+      const newServiceOrder = {
+        id: `srv-${Date.now()}`,
+        client_id: client?.id || 'cli_portal',
+        client_name: clientName,
+        service_type: serviceType,
+        status: 'pendente',
+        price: estimatedPrice,
+        cost: 0,
+        technician: 'Equipe Técnica Quark',
+        notes: fullNotes,
+        before_photos: [],
+        after_photos: [],
+        created_at: nowIso,
+        updated_at: nowIso,
+      };
+
+      try {
+        const rawMaint = localStorage.getItem('quark_maintenance_services');
+        const list = rawMaint ? JSON.parse(rawMaint) : [];
+        localStorage.setItem('quark_maintenance_services', JSON.stringify([newServiceOrder, ...list]));
+      } catch (err) {}
+
       // 1. Tenta envio via API do backend
       let saved = false;
       try {

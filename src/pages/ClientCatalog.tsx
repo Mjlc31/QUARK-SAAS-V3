@@ -4,7 +4,8 @@ import {
   Calendar, User, Edit2, Trash2, RotateCcw, MessageCircle, 
   Building2, Activity, Check, Copy, Shield, 
   Sparkles, ExternalLink, FileText, ChevronLeft, ChevronRight,
-  LayoutGrid, List, ArrowUpDown, Filter, ChevronDown
+  LayoutGrid, List, ArrowUpDown, Filter, ChevronDown,
+  Clock, ArrowRight, HardHat, CheckCircle2, Key, RefreshCw
 } from 'lucide-react';
 import { 
   useClients, 
@@ -15,6 +16,12 @@ import {
   useHardDeleteClient, 
   ClientData 
 } from '../hooks/useClients';
+import { 
+  useClientProjectTracking, 
+  useSetClientPhase, 
+  SOLAR_PROJECT_PHASES 
+} from '../hooks/useProjectTracking';
+import type { ProjectPhase } from '../types';
 import toast from 'react-hot-toast';
 import { formatPhone, whatsappUrl, initials, formatDate } from '../lib/format';
 import { formatDoc, formatCep } from '../lib/br';
@@ -216,6 +223,293 @@ const ClientCard = React.memo(function ClientCard({
     </div>
   );
 });
+
+// ─── SEÇÃO DE ACOMPANHAMENTO DE OBRA INTEGRADA AO PORTAL ────────────────────
+const ClientTrackingSection: React.FC<{ 
+  client: ClientData; 
+  onCopy: (text: string, label: string) => void;
+  copiedField: string | null;
+}> = ({ client, onCopy, copiedField }) => {
+  const { data: trackingRecords, isLoading } = useClientProjectTracking(client.id);
+  const setPhaseMutation = useSetClientPhase();
+
+  const currentTracking = useMemo(() => {
+    return trackingRecords?.find(t => t.is_current) || trackingRecords?.[0];
+  }, [trackingRecords]);
+
+  const [selectedPhase, setSelectedPhase] = useState<ProjectPhase>(
+    (currentTracking?.phase as ProjectPhase) || 'compra_kit'
+  );
+  const [phaseNotes, setPhaseNotes] = useState(currentTracking?.notes || '');
+
+  useEffect(() => {
+    if (currentTracking) {
+      setSelectedPhase(currentTracking.phase as ProjectPhase);
+      setPhaseNotes(currentTracking.notes || '');
+    }
+  }, [currentTracking]);
+
+  const completedCount = trackingRecords?.filter(t => !!t.completed_at).length || 0;
+  const progressPercent = trackingRecords?.length 
+    ? Math.min(100, Math.round((completedCount / (SOLAR_PROJECT_PHASES.length - 1 || 1)) * 100))
+    : 25;
+
+  const currentConfig = SOLAR_PROJECT_PHASES.find(p => p.id === (currentTracking?.phase || selectedPhase));
+
+  const handleSavePhase = async () => {
+    const config = SOLAR_PROJECT_PHASES.find(p => p.id === selectedPhase);
+    if (!config) return;
+
+    try {
+      await setPhaseMutation.mutateAsync({
+        clientId: client.id,
+        phase: selectedPhase,
+        phaseLabel: config.label,
+        notes: phaseNotes || config.description,
+      });
+      toast.success(`Etapa atualizada para: ${config.shortLabel}! Sincronizado com o portal.`);
+    } catch (err: any) {
+      toast.error('Erro ao atualizar etapa: ' + (err.message || err));
+    }
+  };
+
+  const handleAdvance = async () => {
+    if (!currentConfig?.next) {
+      toast('A obra já está na fase finalizada!', { icon: '🏁' });
+      return;
+    }
+    const nextConfig = SOLAR_PROJECT_PHASES.find(p => p.id === currentConfig.next);
+    if (!nextConfig) return;
+
+    try {
+      await setPhaseMutation.mutateAsync({
+        clientId: client.id,
+        phase: currentConfig.next,
+        phaseLabel: nextConfig.label,
+        notes: nextConfig.description,
+      });
+      setSelectedPhase(currentConfig.next);
+      setPhaseNotes(nextConfig.description);
+      toast.success(`Obra avançada para: ${nextConfig.shortLabel}!`);
+    } catch (err: any) {
+      toast.error('Erro ao avançar etapa: ' + (err.message || err));
+    }
+  };
+
+  const cleanDigits = (client.cpf || '').replace(/\D/g, '');
+  const defaultInitialPass = cleanDigits.length >= 6 ? cleanDigits.substring(0, 6) : 'quark2026';
+  const [clientPassword, setClientPassword] = useState(defaultInitialPass);
+  const [isProvisioning, setIsProvisioning] = useState(false);
+
+  const handleProvisionAccess = async () => {
+    setIsProvisioning(true);
+    try {
+      const res = await fetch('/api/portal/provision-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: client.id,
+          customPassword: clientPassword
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Erro ao gerar acesso');
+      }
+      toast.success(`Acesso ativado! Senha definida: ${data.temporaryPassword}`);
+    } catch (err: any) {
+      toast.error('Erro ao provisionar acesso: ' + (err.message || err));
+    } finally {
+      setIsProvisioning(false);
+    }
+  };
+
+  const portalLoginUrl = `${window.location.origin}/portal/login`;
+  const inviteMsg = `Olá, ${client.name.split(' ')[0]}! ☀️⚡\n\nSeu acesso ao *Portal Quark Energia* está liberado!\n\n📲 *Acesse pelo link:* ${portalLoginUrl}\n👤 *Seu Usuário (CPF):* ${client.cpf || 'Seu CPF'}\n🔑 *Sua Senha Inicial:* ${clientPassword}\n\nPor lá você pode acompanhar em tempo real cada etapa da sua obra, conferir a geração da sua usina e falar direto com a gente!`;
+  const inviteWhatsapp = whatsappUrl(client.phone, inviteMsg);
+
+  return (
+    <div className="glass-panel p-4 rounded-2xl border border-orange-500/25 bg-gradient-to-b from-orange-500/10 via-zinc-950 to-zinc-950 space-y-4 relative overflow-hidden shadow-lg">
+      <div className="flex items-center justify-between border-b border-white/5 pb-3">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 rounded-xl bg-orange-500/15 text-orange-400 border border-orange-500/30">
+            <HardHat className="w-4 h-4" />
+          </div>
+          <div>
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+              Acompanhamento de Obra
+            </h3>
+            <p className="text-[11px] text-zinc-400">
+              Sincronizado em tempo real com o Portal do Cliente
+            </p>
+          </div>
+        </div>
+
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-orange-400 bg-orange-500/15 border border-orange-500/30 px-2.5 py-1 rounded-full">
+          <Clock className="w-3 h-3 text-orange-400 animate-pulse" />
+          {currentConfig?.shortLabel || 'Em andamento'}
+        </span>
+      </div>
+
+      {/* Barra de Progresso */}
+      <div className="space-y-1.5">
+        <div className="flex justify-between items-center text-xs">
+          <span className="text-zinc-400 font-medium">Evolução do Projeto ({completedCount}/{SOLAR_PROJECT_PHASES.length} fases)</span>
+          <span className="text-lime-400 font-mono font-bold">{progressPercent}% Concluído</span>
+        </div>
+        <div className="w-full h-2 bg-zinc-900 rounded-full overflow-hidden border border-white/5 p-0.5">
+          <div 
+            className="h-full bg-gradient-to-r from-lime-500 to-emerald-400 rounded-full transition-all duration-500 shadow-sm"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Seletor de Fase e Anotação */}
+      <div className="space-y-2.5 pt-1">
+        <div>
+          <label className="block text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-1">
+            Fase Atual da Obra
+          </label>
+          <select
+            value={selectedPhase}
+            onChange={(e) => {
+              const val = e.target.value as ProjectPhase;
+              setSelectedPhase(val);
+              const conf = SOLAR_PROJECT_PHASES.find(p => p.id === val);
+              if (conf && !phaseNotes) setPhaseNotes(conf.description);
+            }}
+            className="w-full bg-zinc-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-lime-500 transition-colors"
+          >
+            {SOLAR_PROJECT_PHASES.map((p, idx) => (
+              <option key={p.id} value={p.id} className="bg-zinc-900 text-white">
+                {idx + 1}. {p.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-1">
+            Anotações / Detalhes para o Cliente (visível no Portal)
+          </label>
+          <input
+            type="text"
+            value={phaseNotes}
+            onChange={(e) => setPhaseNotes(e.target.value)}
+            placeholder="Ex: NF emitida, materiais expedidos com entrega na sexta-feira..."
+            className="w-full bg-zinc-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-lime-500 transition-colors"
+          />
+        </div>
+
+        <div className="flex items-center gap-2 pt-1">
+          <button
+            onClick={handleSavePhase}
+            disabled={setPhaseMutation.isPending}
+            className="flex-1 py-2 px-3 bg-zinc-800 hover:bg-zinc-700 text-white font-semibold rounded-xl text-xs transition-colors border border-white/10 active:scale-95 disabled:opacity-50"
+          >
+            {setPhaseMutation.isPending ? 'Salvando...' : 'Salvar Etapa'}
+          </button>
+
+          {currentConfig?.next && (
+            <button
+              onClick={handleAdvance}
+              disabled={setPhaseMutation.isPending}
+              className="py-2 px-3.5 bg-lime-500 hover:bg-lime-400 text-zinc-950 font-bold rounded-xl text-xs transition-all flex items-center gap-1 active:scale-95 shadow-md shadow-lime-500/20 disabled:opacity-50"
+              title="Avança para a próxima etapa imediatamente"
+            >
+              Avançar <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Credenciais de Acesso do Cliente ao Portal (Login por CPF) */}
+      <div className="p-3.5 rounded-xl bg-zinc-900/90 border border-white/10 space-y-2.5">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-bold text-lime-400 uppercase tracking-wider flex items-center gap-1.5">
+            <Key className="w-3.5 h-3.5" /> Credenciais de Acesso (Login por CPF)
+          </span>
+          <span className="text-[10px] text-zinc-500 font-mono">
+            {client.auth_user_id ? '✅ Acesso Ativo' : '⚠️ Pendente'}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="bg-black/50 p-2.5 rounded-lg border border-white/5">
+            <span className="block text-[10px] text-zinc-500 font-semibold uppercase">Usuário / CPF</span>
+            <span className="font-mono font-bold text-white truncate block">
+              {client.cpf || 'Sem CPF cadastrado'}
+            </span>
+          </div>
+
+          <div className="bg-black/50 p-2.5 rounded-lg border border-white/5">
+            <span className="block text-[10px] text-zinc-500 font-semibold uppercase">Senha Inicial</span>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <input
+                type="text"
+                value={clientPassword}
+                onChange={(e) => setClientPassword(e.target.value)}
+                className="bg-transparent font-mono font-bold text-lime-400 text-xs w-full focus:outline-none"
+                placeholder="6 dígitos"
+              />
+              <button
+                type="button"
+                onClick={handleProvisionAccess}
+                disabled={isProvisioning}
+                className="p-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors shrink-0"
+                title="Salvar / Ativar Senha no Supabase"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isProvisioning ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between text-[11px] text-zinc-400 pt-0.5">
+          <span className="text-zinc-500">Padrão: 6 primeiros dígitos do CPF</span>
+          <button
+            type="button"
+            onClick={handleProvisionAccess}
+            disabled={isProvisioning}
+            className="text-xs font-semibold text-lime-400 hover:text-lime-300 transition-colors"
+          >
+            {isProvisioning ? 'Ativando...' : 'Gerar / Salvar Senha'}
+          </button>
+        </div>
+      </div>
+
+      {/* Convite do Portal via WhatsApp */}
+      <div className="pt-2 border-t border-white/5 space-y-2">
+        {client.phone ? (
+          <a
+            href={inviteWhatsapp}
+            target="_blank"
+            rel="noreferrer"
+            className="w-full py-2.5 px-3 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 font-semibold rounded-xl text-xs transition-all flex items-center justify-center gap-2 active:scale-95"
+          >
+            <MessageCircle className="w-4 h-4" /> Enviar Acesso ao Portal via WhatsApp
+          </a>
+        ) : (
+          <p className="text-[11px] text-zinc-500 text-center italic">
+            Cadastre o WhatsApp do cliente para enviar o convite de acesso.
+          </p>
+        )}
+
+        <div className="flex items-center justify-between text-[11px] text-zinc-400 px-1">
+          <span>Link de Acesso:</span>
+          <button
+            onClick={() => onCopy(portalLoginUrl, 'Link do Portal')}
+            className="text-lime-400 hover:text-lime-300 font-semibold flex items-center gap-1"
+          >
+            {copiedField === 'Link do Portal' ? <Check className="w-3 h-3 text-lime-400" /> : <Copy className="w-3 h-3" />}
+            Copiar Link
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // ─── PÁGINA PRINCIPAL ───────────────────────────────────────────────────────
 export default function ClientCatalog() {
@@ -1157,6 +1451,13 @@ export default function ClientCatalog() {
                     </div>
                   </div>
                 </div>
+
+                {/* Seção 3.5: Acompanhamento de Obra em Tempo Real */}
+                <ClientTrackingSection 
+                  client={selectedClient} 
+                  onCopy={handleCopy} 
+                  copiedField={copiedField} 
+                />
 
                 {/* Seção 4: Portal do Cliente & Indicação */}
                 <div className="glass-panel p-4 rounded-2xl border border-white/5 space-y-3 bg-zinc-900/30">

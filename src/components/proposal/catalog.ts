@@ -141,7 +141,7 @@ export const BLOCK_CATALOG: BlockCatalogItem[] = [
     defaultContent: {
       companyName: 'Quark Energia',
       companyPhone: '(00) 00000-0000',
-      companyEmail: 'contato@quarkenergia.com.br',
+      companyEmail: 'projetos@quarkenergia.com.br',
       companyAddress: 'Av. Principal, 1000 - Centro',
       companyCnpj: '00.000.000/0001-00',
       validityDays: 7,

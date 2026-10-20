@@ -4,6 +4,7 @@ import { CheckCircle, Clock, Plus, User, AlertCircle, Trash2, X, Calendar as Cal
 import { useApp } from '../contexts/AppContext';
 import { whatsappUrl } from '../lib/format';
 import toast from 'react-hot-toast';
+import { AttentionAlerts } from '../components/AttentionAlerts';
 
 // 1. Mock Data
 const TEAM_MEMBERS = [
@@ -270,6 +271,9 @@ const Tasks: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Alertas Inteligentes: Oportunidades que podem esfriar */}
+      <AttentionAlerts className="mb-2" />
 
       {viewMode === 'list' ? (
         <>
