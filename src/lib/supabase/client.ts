@@ -218,6 +218,31 @@ export const INITIAL_PROPOSALS: StoredProposal[] = [
   }
 ];
 
+function resolveLeadForProposal(leadId?: string | null): any {
+  if (!leadId) return null;
+  try {
+    const rawClients = localStorage.getItem("quark_clients_cache");
+    if (rawClients) {
+      const parsed: any[] = JSON.parse(rawClients);
+      const c = parsed.find(x => x.id === leadId);
+      if (c) return { id: c.id, name: c.name, city: c.city || "Maceió - AL", phone: c.phone || null };
+    }
+    const rawLeads = localStorage.getItem("quark_leads");
+    if (rawLeads) {
+      const parsed: any[] = JSON.parse(rawLeads);
+      const l = parsed.find(x => x.id === leadId);
+      if (l) return { id: l.id, name: l.name, city: l.city || "Maceió - AL", phone: l.phone || null };
+    }
+    const rawOpps = localStorage.getItem("quark_opportunities");
+    if (rawOpps) {
+      const parsed: any[] = JSON.parse(rawOpps);
+      const o = parsed.find(x => x.id === leadId);
+      if (o) return { id: o.id, name: o.title || o.name, city: o.city || "Maceió - AL", phone: o.phone || null };
+    }
+  } catch (_) {}
+  return null;
+}
+
 function getStoredProposals(): StoredProposal[] {
   try {
     const raw = localStorage.getItem("quark_proposals_cache");
@@ -393,6 +418,7 @@ class ProposalMutationBuilder {
         accepted_by: this.payload.accepted_by || null,
         created_by: this.payload.created_by || "usr_admin",
         ...this.payload,
+        lead: this.payload.lead || resolveLeadForProposal(this.payload.lead_id) || { id: this.payload.lead_id, name: "Cliente Quark", city: "Maceió - AL" },
       };
 
       // Tenta persistir no Supabase

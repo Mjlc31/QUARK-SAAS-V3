@@ -1,8 +1,9 @@
 import { useLive } from "./live";
 import type { ConnectionType } from "./pricing";
 import { supabase } from "./supabaseClient";
+import { SAMPLE_CLIENTS } from "../hooks/useClients";
 
-/** Cliente do CRM (tabela `opportunities`) no formato usado pelos editores de orçamento. */
+/** Cliente do CRM (tabela `client_portal_users` ou `opportunities`) no formato usado pelos editores de orçamento. */
 export interface CrmLead {
   id: string;
   name: string;
@@ -21,6 +22,7 @@ export interface CrmLead {
   roof_type: string | null;
   segment: string | null;
   services: string[];
+  isClient?: boolean;
 }
 
 function connection(v: unknown): ConnectionType | null {
@@ -35,7 +37,7 @@ const num = (v: unknown) => (v == null || v === "" || !Number.isFinite(Number(v)
 
 export function mapOpportunity(o: Record<string, any>): CrmLead {
   return {
-    id: o.id,
+    id: String(o.id),
     name: o.title || "Sem nome",
     phone: o.phone ?? null,
     email: o.email ?? null,
@@ -48,11 +50,38 @@ export function mapOpportunity(o: Record<string, any>): CrmLead {
     // Conta de luz e consumo vêm dos campos próprios — nunca do valor do negócio.
     avg_bill: num(o.avg_bill),
     consumption_kwh: num(o.consumption_kwh),
-    tariff: num(o.tariff),
-    connection_type: connection(o.connection_type),
-    roof_type: o.roof_type ?? null,
-    segment: o.segment ?? null,
-    services: Array.isArray(o.services) ? o.services : [],
+    tariff: num(o.tariff) || 1.10,
+    connection_type: connection(o.connection_type) || "bi",
+    roof_type: o.roof_type ?? "Telhado cerâmico",
+    segment: o.segment ?? "residencial",
+    services: Array.isArray(o.services) ? o.services : ["solar"],
+    isClient: false,
+  };
+}
+
+export function mapClientUser(c: Record<string, any>): CrmLead {
+  const kwh = num(c.monthly_avg_kwh) || (num(c.system_size_kw) ? Math.round(Number(c.system_size_kw) * 135) : null);
+  const avgBill = kwh ? Math.round(kwh * 1.10) : num(c.avg_bill) || null;
+  const kw = Number(c.system_size_kw) || 0;
+  return {
+    id: String(c.id),
+    name: c.name || "Cliente sem nome",
+    phone: c.phone ?? null,
+    email: c.email ?? null,
+    city: c.city || "Maceió",
+    state: c.state || "AL",
+    address: c.address ?? null,
+    document: c.cpf ?? null,
+    status: c.is_active ? "Cliente Ativo" : "Cliente",
+    amount: 0,
+    avg_bill: avgBill,
+    consumption_kwh: kwh,
+    tariff: 1.10,
+    connection_type: kw > 10 ? "tri" : "bi",
+    roof_type: "Telhado cerâmico",
+    segment: kw > 15 ? "comercial" : "residencial",
+    services: ["solar"],
+    isClient: true,
   };
 }
 
@@ -66,7 +95,7 @@ export const FALLBACK_LEADS: CrmLead[] = [
     state: "AL",
     address: "Av. Álvaro Otacílio, 3400 - Ponta Verde",
     document: "105.558.774-85",
-    status: "Qualificado",
+    status: "Cliente Ativo",
     amount: 25000,
     avg_bill: 980,
     consumption_kwh: 890,
@@ -75,6 +104,7 @@ export const FALLBACK_LEADS: CrmLead[] = [
     roof_type: "Telhado cerâmico",
     segment: "comercial",
     services: ["solar"],
+    isClient: true,
   },
   {
     id: "lead_silva_001",
@@ -104,7 +134,7 @@ export const FALLBACK_LEADS: CrmLead[] = [
     state: "AL",
     address: "Rua São Francisco, 45",
     document: "321.654.987-11",
-    status: "Qualificado",
+    status: "Cliente Ativo",
     amount: 35000,
     avg_bill: 1100,
     consumption_kwh: 980,
@@ -113,65 +143,169 @@ export const FALLBACK_LEADS: CrmLead[] = [
     roof_type: "Telhado cerâmico",
     segment: "residencial",
     services: ["solar"],
+    isClient: true,
   },
 ];
+
+export function saveQuickLead(lead: CrmLead) {
+  try {
+    const raw = localStorage.getItem("quark_leads");
+    const list: any[] = raw ? JSON.parse(raw) : [];
+    const exists = list.some((x: any) => x.id === lead.id || (x.name && x.name.toLowerCase() === lead.name.toLowerCase()));
+    if (!exists) {
+      list.unshift(lead);
+      localStorage.setItem("quark_leads", JSON.stringify(list));
+    }
+  } catch (_) {}
+}
+
+export function getLocalLeadById(id: string | null | undefined): CrmLead | null {
+  if (!id) return null;
+  try {
+    // 1. Busca em quark_leads
+    const rawLeads = localStorage.getItem("quark_leads");
+    if (rawLeads) {
+      const parsed: any[] = JSON.parse(rawLeads);
+      const found = parsed.find(l => l.id === id);
+      if (found) return found;
+    }
+    // 2. Busca em quark_clients_cache
+    const rawClients = localStorage.getItem("quark_clients_cache");
+    if (rawClients) {
+      const parsed: any[] = JSON.parse(rawClients);
+      const found = parsed.find(c => c.id === id);
+      if (found) return mapClientUser(found);
+    }
+    // 3. Busca em SAMPLE_CLIENTS
+    const foundSample = SAMPLE_CLIENTS.find(s => s.id === id);
+    if (foundSample) return mapClientUser(foundSample);
+    // 4. Busca em FALLBACK_LEADS
+    const foundFallback = FALLBACK_LEADS.find(f => f.id === id);
+    if (foundFallback) return foundFallback;
+  } catch (_) {}
+  return null;
+}
 
 export function useCrmLeads() {
   return useLive(
     async () => {
-      let opps: any[] = [];
+      let clientsData: any[] = [];
+      let oppsData: any[] = [];
+
       try {
-        const timeoutPromise = new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), 1500));
-        const res: any = await Promise.race([
-          supabase.from("opportunities").select("*").order("created_at", { ascending: false }).limit(1000),
+        const timeoutPromise = new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), 2500));
+        const [clientsRes, oppsRes] = await Promise.race([
+          Promise.allSettled([
+            supabase.from("client_portal_users").select("*").is("deleted_at", null).order("name", { ascending: true }).limit(1000),
+            supabase.from("opportunities").select("*").order("created_at", { ascending: false }).limit(1000)
+          ]),
           timeoutPromise
         ]);
-        if (res.data && res.data.length > 0) {
-          opps = res.data;
+
+        if (clientsRes.status === "fulfilled" && clientsRes.value.data && clientsRes.value.data.length > 0) {
+          clientsData = clientsRes.value.data;
           try {
-            localStorage.setItem("quark_opportunities", JSON.stringify(opps));
+            localStorage.setItem("quark_clients_cache", JSON.stringify(clientsData));
+          } catch (_) {}
+        }
+
+        if (oppsRes.status === "fulfilled" && oppsRes.value.data && oppsRes.value.data.length > 0) {
+          oppsData = oppsRes.value.data;
+          try {
+            localStorage.setItem("quark_opportunities", JSON.stringify(oppsData));
           } catch (_) {}
         }
       } catch (e) {
-        // Fallback local
+        // Fallback local em caso de erro ou lentidão
       }
 
-      // Fallback 1: cache local de oportunidades
-      if (opps.length === 0) {
+      // Fallback 1: cache local de clientes do portal
+      if (clientsData.length === 0) {
+        try {
+          const cached = localStorage.getItem("quark_clients_cache");
+          if (cached) clientsData = JSON.parse(cached);
+        } catch (_) {}
+      }
+
+      // Se ainda vazio, usa amostras de clientes
+      if (clientsData.length === 0) {
+        clientsData = SAMPLE_CLIENTS;
+      }
+
+      // Fallback 2: cache local de oportunidades
+      if (oppsData.length === 0) {
         try {
           const cached = localStorage.getItem("quark_opportunities");
-          if (cached) opps = JSON.parse(cached);
+          if (cached) oppsData = JSON.parse(cached);
         } catch (_) {}
       }
 
-      // Fallback 2: cache local de leads
-      if (opps.length === 0) {
-        try {
-          const leadsRaw = localStorage.getItem("quark_leads");
-          if (leadsRaw) {
-            const parsed = JSON.parse(leadsRaw);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              opps = parsed.map((l: any) => ({
-                id: String(l.id),
-                title: l.name || l.title || "Sem título",
-                phone: l.phone || "",
-                email: l.email || "",
-                city: l.city || "Maceió",
-                status: l.status || "Lead",
-                amount: l.value || l.amount || 25000,
-                avg_bill: l.avg_bill || (l.monthlyConsumption ? l.monthlyConsumption * 0.95 : 650),
-                consumption_kwh: l.monthlyConsumption || l.consumption_kwh || 650,
-              }));
+      // Montagem do mapa unificado
+      const leadsMap = new Map<string, CrmLead>();
+
+      // 1. Prioridade: Clientes reais do portal (client_portal_users)
+      for (const c of clientsData) {
+        if (!c.name) continue;
+        const mapped = mapClientUser(c);
+        leadsMap.set(mapped.id, mapped);
+      }
+
+      // 2. Oportunidades do CRM
+      for (const o of oppsData) {
+        const mapped = mapOpportunity(o);
+        if (!leadsMap.has(mapped.id)) {
+          leadsMap.set(mapped.id, mapped);
+        }
+      }
+
+      // 3. Leads extras gravados no localStorage
+      try {
+        const leadsRaw = localStorage.getItem("quark_leads");
+        if (leadsRaw) {
+          const parsed = JSON.parse(leadsRaw);
+          if (Array.isArray(parsed)) {
+            for (const l of parsed) {
+              const id = String(l.id || l.name);
+              if (!leadsMap.has(id)) {
+                leadsMap.set(id, {
+                  id,
+                  name: l.name || l.title || "Sem nome",
+                  phone: l.phone || null,
+                  email: l.email || null,
+                  city: l.city || "Maceió",
+                  state: l.state || "AL",
+                  address: l.address || null,
+                  document: l.cpf_cnpj || l.document || null,
+                  status: l.status || "Lead",
+                  amount: l.value || l.amount || 25000,
+                  avg_bill: l.avg_bill || (l.monthlyConsumption ? l.monthlyConsumption * 0.95 : 650),
+                  consumption_kwh: l.monthlyConsumption || l.consumption_kwh || 650,
+                  tariff: 1.10,
+                  connection_type: "bi",
+                  roof_type: "Telhado cerâmico",
+                  segment: "residencial",
+                  services: ["solar"],
+                });
+              }
             }
           }
-        } catch (_) {}
+        }
+      } catch (_) {}
+
+      // Fallback final
+      if (leadsMap.size === 0) {
+        for (const f of FALLBACK_LEADS) {
+          leadsMap.set(f.id, f);
+        }
       }
 
-      const mapped = opps.map(mapOpportunity);
-      return mapped.length > 0 ? mapped : FALLBACK_LEADS;
+      const list = Array.from(leadsMap.values());
+      // Ordenação estritamente alfabética A-Z
+      list.sort((a, b) => (a.name || "").localeCompare(b.name || "", "pt-BR"));
+      return list;
     },
     [],
-    ["opportunities"],
+    ["client_portal_users", "opportunities"],
   );
 }
 

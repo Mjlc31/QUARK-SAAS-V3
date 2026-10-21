@@ -32,7 +32,7 @@ import { useReward } from "@/components/app/rewards";
 import { useQuick } from "@/components/app/shell";
 import { Badge, Button, Card, CardHeader, Field, ImageField, Input, MoneyInput, NumberInput, Segmented, Select, Textarea, cx } from "@/components/ui";
 import { PROPOSAL_STATUS, ROOF_TYPES } from "@/lib/constants";
-import { useCrmLeads, logCrmNote, type CrmLead } from "@/lib/crm-leads";
+import { useCrmLeads, logCrmNote, saveQuickLead, getLocalLeadById, type CrmLead } from "@/lib/crm-leads";
 import { servicesOf } from "@/lib/services";
 import { ViewsPill } from "@/components/ProposalViews";
 import { MACEIO_TARIFF, effectiveTariff, mergeInputs, toStoredSettings, type KitPreset } from "@/lib/defaults";
@@ -123,7 +123,7 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
   current.current = proposal;
 
   
-  const lead = leads?.find((l) => l.id === leadId) ?? null;
+  const lead = leads?.find((l) => l.id === leadId) ?? getLocalLeadById(leadId) ?? null;
 
   // Novo orçamento: parte dos padrões configurados + dados de consumo do lead.
   useEffect(() => {
@@ -939,74 +939,242 @@ export function Collapsible({ icon, title, subtitle, children }: { icon: ReactNo
 
 export function LeadPicker({ leads, value, onChange, onNew }: { leads: any[]; value: string | null; onChange: (id: string) => void; onNew: () => void }) {
   const [open, setOpen] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [q, setQ] = useState("");
   const ref = useRef<HTMLDivElement>(null);
-  const selected = leads.find((l) => l.id === value);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const selected = leads.find((l) => l.id === value) ?? getLocalLeadById(value);
 
   useEffect(() => {
-    const close = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false);
+    const close = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setIsSearching(false);
+      }
+    };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
-  const filtered = leads.filter((l) => `${l.name} ${l.city ?? ""} ${l.phone ?? ""}`.toLowerCase().includes(q.toLowerCase())).slice(0, 50);
+  // Filtra por nome, cidade, telefone ou documento (CPF/CNPJ)
+  const filtered = useMemo(() => {
+    const query = q.toLowerCase().trim();
+    if (!query) return leads.slice(0, 100);
+    return leads
+      .filter((l) => `${l.name} ${l.city ?? ""} ${l.phone ?? ""} ${l.document ?? ""}`.toLowerCase().includes(query))
+      .slice(0, 100);
+  }, [leads, q]);
 
+  const exactMatch = useMemo(() => {
+    if (!q.trim()) return true;
+    return leads.some((l) => l.name.toLowerCase().trim() === q.toLowerCase().trim());
+  }, [leads, q]);
+
+  const handleSelect = (id: string) => {
+    onChange(id);
+    setOpen(false);
+    setIsSearching(false);
+    setQ("");
+  };
+
+  const handleQuickCreate = () => {
+    const name = q.trim();
+    if (!name) return;
+    const newLead: CrmLead = {
+      id: `lead_quick_${Date.now()}`,
+      name,
+      phone: null,
+      email: null,
+      city: "Maceió",
+      state: "AL",
+      address: null,
+      document: null,
+      status: "Lead",
+      amount: 0,
+      avg_bill: 450,
+      consumption_kwh: 400,
+      tariff: 1.10,
+      connection_type: "bi",
+      roof_type: "Telhado cerâmico",
+      segment: "residencial",
+      services: ["solar"],
+    };
+    saveQuickLead(newLead);
+    onChange(newLead.id);
+    setOpen(false);
+    setIsSearching(false);
+    setQ("");
+  };
+
+  // Se já há cliente selecionado e não está em modo de busca ativa
+  if (selected && !isSearching) {
+    return (
+      <div ref={ref} className="relative z-40">
+        <div className="flex items-center justify-between gap-3 rounded-xl bg-zinc-900/90 p-3 ring-1 ring-white/10 hover:ring-white/20 transition">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-lime-400 font-bold text-zinc-950 text-sm shadow-md shadow-lime-400/20">
+              {selected.name[0]?.toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="truncate text-sm font-semibold text-white">{selected.name}</p>
+                <span className={cx(
+                  "px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider",
+                  selected.isClient ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20" : "bg-lime-500/15 text-lime-400 border border-lime-500/20"
+                )}>
+                  {selected.isClient ? "Cliente" : "Lead"}
+                </span>
+              </div>
+              <p className="truncate text-xs text-zinc-400 mt-0.5">
+                {[selected.city, selected.document, formatPhone(selected.phone)].filter(Boolean).join(" · ") || "Sem contato adicional"}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setIsSearching(true);
+                setOpen(true);
+                setTimeout(() => inputRef.current?.focus(), 50);
+              }}
+              className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-zinc-300 hover:text-white hover:bg-zinc-800 transition ring-1 ring-white/10"
+            >
+              Trocar
+            </button>
+            <button
+              type="button"
+              onClick={() => onChange("")}
+              title="Remover cliente"
+              className="rounded-lg p-1.5 text-zinc-500 hover:text-rose-400 hover:bg-zinc-800 transition"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Modo de busca e seleção / digitação direta
   return (
     <div ref={ref} className="relative z-40">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex h-12 w-full items-center gap-3 rounded-xl bg-zinc-900 px-3.5 text-left ring-1 ring-white/10 transition hover:ring-white/20 focus:ring-2 focus:ring-lime-400 focus:outline-none"
-      >
-        {selected ? (
-          <>
-            <div className="grid h-8 w-8 place-items-center rounded-full bg-lime-400 text-xs font-bold text-zinc-950">{selected.name[0]?.toUpperCase()}</div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold">{selected.name}</p>
-              <p className="truncate text-xs text-zinc-400">{[selected.city, formatPhone(selected.phone)].filter(Boolean).join(" · ") || "Sem contato"}</p>
-            </div>
-          </>
-        ) : (
-          <span className="flex-1 text-sm text-zinc-500">Selecione um cliente…</span>
+      <div className="relative flex h-12 w-full items-center gap-2 rounded-xl bg-zinc-900 px-3.5 ring-1 ring-white/10 transition focus-within:ring-2 focus-within:ring-lime-400 focus-within:ring-offset-1 focus-within:ring-offset-zinc-950">
+        <Search className="h-4 w-4 text-zinc-400 shrink-0" />
+        <input
+          ref={inputRef}
+          type="text"
+          value={q}
+          onChange={(e) => {
+            setQ(e.target.value);
+            if (!open) setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          placeholder="Digite o nome do cliente ou selecione na lista..."
+          className="w-full bg-transparent text-sm text-white placeholder-zinc-500 focus:outline-none"
+        />
+        {q && (
+          <button type="button" onClick={() => setQ("")} className="text-zinc-400 hover:text-white p-1">
+            <X className="h-3.5 w-3.5" />
+          </button>
         )}
-        <ChevronDown className="h-4 w-4 text-zinc-500" />
-      </button>
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="text-zinc-400 hover:text-white p-1"
+          aria-label="Abrir lista de clientes"
+        >
+          <ChevronDown className={cx("h-4 w-4 transition-transform duration-200", open && "rotate-180")} />
+        </button>
+      </div>
+
       {open && (
-        <div className="animate-fade-up absolute inset-x-0 top-full z-50 mt-2 overflow-hidden rounded-2xl bg-zinc-900 shadow-2xl shadow-black/40 ring-1 ring-white/10">
-          <div className="flex items-center gap-2 border-b border-white/5 px-3.5">
-            <Search className="h-4 w-4 text-zinc-500" />
-            <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nome, cidade ou telefone" className="h-11 w-full bg-transparent text-sm focus:outline-none" />
+        <div className="animate-fade-up absolute inset-x-0 top-full z-50 mt-2 overflow-hidden rounded-2xl bg-zinc-900 shadow-2xl shadow-black/60 ring-1 ring-white/10 backdrop-blur-md">
+          {/* Header de contagem */}
+          <div className="flex items-center justify-between border-b border-white/5 px-3.5 py-2 text-[11px] text-zinc-400 bg-zinc-950/40">
+            <span>
+              {q.trim()
+                ? `${filtered.length} ${filtered.length === 1 ? "resultado" : "resultados"} para "${q.trim()}"`
+                : `${leads.length} clientes e leads disponíveis (Ordem A-Z)`}
+            </span>
+            <span className="text-[10px] font-mono text-zinc-500 uppercase">Ordem A-Z</span>
           </div>
-          <div className="max-h-64 overflow-y-auto p-1.5">
-            {filtered.map((l) => (
-              <button
-                type="button"
-                key={l.id}
-                onClick={() => {
-                  onChange(l.id);
-                  setOpen(false);
-                  setQ("");
-                }}
-                className={cx("flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left hover:bg-zinc-800", l.id === value && "bg-lime-400/10")}
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{l.name}</p>
-                  <p className="truncate text-xs text-zinc-400">{[l.city, l.consumption_kwh ? `${fmtNum(l.consumption_kwh)} kWh/mês` : null].filter(Boolean).join(" · ")}</p>
-                </div>
-                {l.id === value && <Check className="h-4 w-4 text-lime-400" />}
-              </button>
-            ))}
-            {!filtered.length && <p className="px-3 py-6 text-center text-sm text-zinc-400">Nenhum lead encontrado</p>}
+
+          {/* Opção de criação rápida com o nome digitado */}
+          {q.trim() && !exactMatch && (
+            <button
+              type="button"
+              onClick={handleQuickCreate}
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-xs font-semibold text-lime-400 bg-lime-400/10 hover:bg-lime-400/20 border-b border-white/5 transition"
+            >
+              <Sparkles className="h-4 w-4 text-lime-400 shrink-0" />
+              <span className="truncate">
+                Usar <b>"{q.trim()}"</b> nesta proposta (Criar na hora)
+              </span>
+            </button>
+          )}
+
+          {/* Lista de clientes */}
+          <div className="max-h-72 overflow-y-auto p-1.5 custom-scrollbar">
+            {filtered.map((l) => {
+              const isCurr = l.id === value;
+              return (
+                <button
+                  type="button"
+                  key={l.id}
+                  onClick={() => handleSelect(l.id)}
+                  className={cx(
+                    "flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition hover:bg-zinc-800",
+                    isCurr && "bg-lime-400/10 text-white"
+                  )}
+                >
+                  <div className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-zinc-800 text-xs font-bold text-zinc-300">
+                    {l.name[0]?.toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm font-medium text-zinc-200">{l.name}</p>
+                      <span className={cx(
+                        "px-1 py-0.2 text-[9px] rounded font-semibold",
+                        l.isClient ? "bg-emerald-500/15 text-emerald-400" : "bg-zinc-800 text-zinc-400"
+                      )}>
+                        {l.isClient ? "Cliente" : "Lead"}
+                      </span>
+                    </div>
+                    <p className="truncate text-xs text-zinc-400">
+                      {[l.city, formatPhone(l.phone), l.consumption_kwh ? `${fmtNum(l.consumption_kwh)} kWh/mês` : null]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  </div>
+                  {isCurr && <Check className="h-4 w-4 text-lime-400 shrink-0" />}
+                </button>
+              );
+            })}
+
+            {!filtered.length && !q.trim() && (
+              <p className="px-3 py-6 text-center text-sm text-zinc-400">Nenhum cliente cadastrado no sistema</p>
+            )}
+
+            {!filtered.length && q.trim() && (
+              <div className="px-3 py-5 text-center text-sm text-zinc-400">
+                <p>Nenhum cliente cadastrado com esse nome.</p>
+                <p className="text-xs text-zinc-500 mt-1">Clique na opção acima para usar "{q.trim()}" diretamente.</p>
+              </div>
+            )}
           </div>
+
+          {/* Ação de cadastro completo */}
           <button
             type="button"
             onClick={() => {
               setOpen(false);
+              setIsSearching(false);
               onNew();
             }}
-            className="flex w-full items-center gap-2 border-t border-white/5 px-4 py-3 text-sm font-semibold text-lime-400 hover:bg-lime-400/10"
+            className="flex w-full items-center justify-center gap-2 border-t border-white/5 bg-zinc-950/60 px-4 py-3 text-xs font-semibold text-lime-400 hover:bg-lime-400/10 transition"
           >
-            <Plus className="h-4 w-4" /> Cadastrar novo lead
+            <Plus className="h-4 w-4" /> Cadastrar novo lead completo no CRM
           </button>
         </div>
       )}
