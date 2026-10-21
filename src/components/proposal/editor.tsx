@@ -417,7 +417,7 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
       <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_400px] xl:grid-cols-[minmax(0,1fr)_420px]">
         <div className="grid gap-5">
           {/* Cliente */}
-          <Card id="sec-cliente" className="scroll-mt-28">
+          <Card id="sec-cliente" className="scroll-mt-28 relative z-30">
             <CardHeader icon={<User className="h-[18px] w-[18px]" />} title="1. Cliente" subtitle="Quem vai receber a proposta" />
             <div className="grid gap-4 px-5 pb-5 sm:grid-cols-2">
               <Field label="Cliente *" className="sm:col-span-2">
@@ -952,7 +952,7 @@ export function LeadPicker({ leads, value, onChange, onNew }: { leads: any[]; va
   const filtered = leads.filter((l) => `${l.name} ${l.city ?? ""} ${l.phone ?? ""}`.toLowerCase().includes(q.toLowerCase())).slice(0, 50);
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative z-40">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -972,7 +972,7 @@ export function LeadPicker({ leads, value, onChange, onNew }: { leads: any[]; va
         <ChevronDown className="h-4 w-4 text-zinc-500" />
       </button>
       {open && (
-        <div className="animate-fade-up absolute inset-x-0 top-full z-20 mt-2 overflow-hidden rounded-2xl bg-zinc-900 shadow-2xl shadow-black/40 ring-1 ring-white/10">
+        <div className="animate-fade-up absolute inset-x-0 top-full z-50 mt-2 overflow-hidden rounded-2xl bg-zinc-900 shadow-2xl shadow-black/40 ring-1 ring-white/10">
           <div className="flex items-center gap-2 border-b border-white/5 px-3.5">
             <Search className="h-4 w-4 text-zinc-500" />
             <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nome, cidade ou telefone" className="h-11 w-full bg-transparent text-sm focus:outline-none" />
