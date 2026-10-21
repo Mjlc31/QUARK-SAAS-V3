@@ -1,0 +1,2422 @@
+[
+  {
+    "id": 1518255,
+    "contrato": null,
+    "denominacao": "Ademir Barros",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 758102,
+    "contrato": "4164750",
+    "denominacao": "Ademir Pereira",
+    "concessionaria": {
+      "id": 107,
+      "sigla": "EQUATORIALAL",
+      "denominacao": "Equatorial Energia Alagoas",
+      "estado": {
+        "uf": "AL",
+        "denominacao": "Alagoas",
+        "regiao": "Nordeste",
+        "id": "AL"
+      }
+    },
+    "endereco": null,
+    "subGrupo": {
+      "id": 7,
+      "denominacao": "B1",
+      "grupo": {
+        "id": 2,
+        "denominacao": "B"
+      }
+    },
+    "subClasse": {
+      "id": 1,
+      "denominacao": "",
+      "classe": {
+        "id": 3,
+        "denominacao": "Comercial"
+      }
+    },
+    "apiConcessionariaCredencial": {
+      "id": 6168556257
+    },
+    "tipoLigacao": null,
+    "modalidadeTarifaria": "Convencional Monômia",
+    "usinas": [
+      {
+        "id": 678827,
+        "denominacao": "Ademir Pereira",
+        "responsavel": null,
+        "usuarioId": 541713,
+        "unidadeConsumidoraId": 758102
+      }
+    ],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 1518253,
+    "contrato": null,
+    "denominacao": "Adolfo Assis ",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 1011491,
+    "contrato": null,
+    "denominacao": "Adrimara Tonial ",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 808260,
+    "contrato": null,
+    "denominacao": "Alan Almeida - 3,42kWp",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 1040208,
+    "contrato": "3002211202",
+    "denominacao": "Ana Claire - ED Dom Pietro",
+    "concessionaria": {
+      "id": 107,
+      "sigla": "EQUATORIALAL",
+      "denominacao": "Equatorial Energia Alagoas",
+      "estado": {
+        "uf": "AL",
+        "denominacao": "Alagoas",
+        "regiao": "Nordeste",
+        "id": "AL"
+      }
+    },
+    "endereco": null,
+    "subGrupo": {
+      "id": 7,
+      "denominacao": "B1",
+      "grupo": {
+        "id": 2,
+        "denominacao": "B"
+      }
+    },
+    "subClasse": {
+      "id": 3,
+      "denominacao": "",
+      "classe": {
+        "id": 1,
+        "denominacao": "Residencial"
+      }
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": "Convencional Monômia",
+    "usinas": [
+      {
+        "id": 798486,
+        "denominacao": "Ana Claire  - Wagner (Geração)",
+        "responsavel": null,
+        "usuarioId": 444352,
+        "unidadeConsumidoraId": 1040208
+      }
+    ],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 1040209,
+    "contrato": "6728472",
+    "denominacao": "Ana Claire - Ticiane",
+    "concessionaria": {
+      "id": 107,
+      "sigla": "EQUATORIALAL",
+      "denominacao": "Equatorial Energia Alagoas",
+      "estado": {
+        "uf": "AL",
+        "denominacao": "Alagoas",
+        "regiao": "Nordeste",
+        "id": "AL"
+      }
+    },
+    "endereco": null,
+    "subGrupo": {
+      "id": 7,
+      "denominacao": "B1",
+      "grupo": {
+        "id": 2,
+        "denominacao": "B"
+      }
+    },
+    "subClasse": {
+      "id": 3,
+      "denominacao": "",
+      "classe": {
+        "id": 1,
+        "denominacao": "Residencial"
+      }
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": "Convencional Monômia",
+    "usinas": [
+      {
+        "id": 798486,
+        "denominacao": "Ana Claire  - Wagner (Geração)",
+        "responsavel": null,
+        "usuarioId": 444352,
+        "unidadeConsumidoraId": 1040209
+      }
+    ],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 908060,
+    "contrato": "3002129506",
+    "denominacao": "Ana Claire  - Wagner (Geração)",
+    "concessionaria": {
+      "id": 107,
+      "sigla": "EQUATORIALAL",
+      "denominacao": "Equatorial Energia Alagoas",
+      "estado": {
+        "uf": "AL",
+        "denominacao": "Alagoas",
+        "regiao": "Nordeste",
+        "id": "AL"
+      }
+    },
+    "endereco": null,
+    "subGrupo": {
+      "id": 7,
+      "denominacao": "B1",
+      "grupo": {
+        "id": 2,
+        "denominacao": "B"
+      }
+    },
+    "subClasse": {
+      "id": 3,
+      "denominacao": "",
+      "classe": {
+        "id": 1,
+        "denominacao": "Residencial"
+      }
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": "Convencional Monômia",
+    "usinas": [
+      {
+        "id": 798486,
+        "denominacao": "Ana Claire  - Wagner (Geração)",
+        "responsavel": null,
+        "usuarioId": 444352,
+        "unidadeConsumidoraId": 908060
+      }
+    ],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 1518412,
+    "contrato": null,
+    "denominacao": "Ana Clia",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 1518423,
+    "contrato": null,
+    "denominacao": "Anderson Alves ",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 1315756,
+    "contrato": null,
+    "denominacao": "ARLINDO ANTONIO OLIVEIRA NOBRE",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 359945,
+    "contrato": "16511581",
+    "denominacao": "Arthur Lima",
+    "concessionaria": {
+      "id": 107,
+      "sigla": "EQUATORIALAL",
+      "denominacao": "Equatorial Energia Alagoas",
+      "estado": {
+        "uf": "AL",
+        "denominacao": "Alagoas",
+        "regiao": "Nordeste",
+        "id": "AL"
+      }
+    },
+    "endereco": null,
+    "subGrupo": {
+      "id": 7,
+      "denominacao": "B1",
+      "grupo": {
+        "id": 2,
+        "denominacao": "B"
+      }
+    },
+    "subClasse": {
+      "id": 3,
+      "denominacao": "",
+      "classe": {
+        "id": 1,
+        "denominacao": "Residencial"
+      }
+    },
+    "apiConcessionariaCredencial": {
+      "id": 3315962427
+    },
+    "tipoLigacao": null,
+    "modalidadeTarifaria": "Convencional Monômia",
+    "usinas": [
+      {
+        "id": 317780,
+        "denominacao": "Arthur Lima",
+        "responsavel": null,
+        "usuarioId": 118064,
+        "unidadeConsumidoraId": 359945
+      }
+    ],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 571814,
+    "contrato": "3000623287",
+    "denominacao": "B - ARTHUR LIMA",
+    "concessionaria": {
+      "id": 107,
+      "sigla": "EQUATORIALAL",
+      "denominacao": "Equatorial Energia Alagoas",
+      "estado": {
+        "uf": "AL",
+        "denominacao": "Alagoas",
+        "regiao": "Nordeste",
+        "id": "AL"
+      }
+    },
+    "endereco": null,
+    "subGrupo": {
+      "id": 7,
+      "denominacao": "B1",
+      "grupo": {
+        "id": 2,
+        "denominacao": "B"
+      }
+    },
+    "subClasse": {
+      "id": 3,
+      "denominacao": "",
+      "classe": {
+        "id": 1,
+        "denominacao": "Residencial"
+      }
+    },
+    "apiConcessionariaCredencial": {
+      "id": 4128195167
+    },
+    "tipoLigacao": null,
+    "modalidadeTarifaria": "Convencional Monômia",
+    "usinas": [
+      {
+        "id": 317780,
+        "denominacao": "Arthur Lima",
+        "responsavel": null,
+        "usuarioId": 118064,
+        "unidadeConsumidoraId": 571814
+      }
+    ],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 571414,
+    "contrato": "15463826",
+    "denominacao": "[BENEFICIÁRIA] - ACADEMIA VIP FITNESS MCZ",
+    "concessionaria": {
+      "id": 107,
+      "sigla": "EQUATORIALAL",
+      "denominacao": "Equatorial Energia Alagoas",
+      "estado": {
+        "uf": "AL",
+        "denominacao": "Alagoas",
+        "regiao": "Nordeste",
+        "id": "AL"
+      }
+    },
+    "endereco": null,
+    "subGrupo": {
+      "id": 7,
+      "denominacao": "B1",
+      "grupo": {
+        "id": 2,
+        "denominacao": "B"
+      }
+    },
+    "subClasse": {
+      "id": 1,
+      "denominacao": "",
+      "classe": {
+        "id": 3,
+        "denominacao": "Comercial"
+      }
+    },
+    "apiConcessionariaCredencial": {
+      "id": 4126967671
+    },
+    "tipoLigacao": null,
+    "modalidadeTarifaria": "Convencional Monômia",
+    "usinas": [
+      {
+        "id": 497210,
+        "denominacao": "[GERAÇÃO] - RESIDÊNCIA WAGNER",
+        "responsavel": null,
+        "usuarioId": 224201,
+        "unidadeConsumidoraId": 571414
+      }
+    ],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 571834,
+    "contrato": "3000589135",
+    "denominacao": "B - Marcos Antônio",
+    "concessionaria": {
+      "id": 107,
+      "sigla": "EQUATORIALAL",
+      "denominacao": "Equatorial Energia Alagoas",
+      "estado": {
+        "uf": "AL",
+        "denominacao": "Alagoas",
+        "regiao": "Nordeste",
+        "id": "AL"
+      }
+    },
+    "endereco": null,
+    "subGrupo": {
+      "id": 7,
+      "denominacao": "B1",
+      "grupo": {
+        "id": 2,
+        "denominacao": "B"
+      }
+    },
+    "subClasse": {
+      "id": 3,
+      "denominacao": "",
+      "classe": {
+        "id": 1,
+        "denominacao": "Residencial"
+      }
+    },
+    "apiConcessionariaCredencial": {
+      "id": 4128442193
+    },
+    "tipoLigacao": null,
+    "modalidadeTarifaria": "Convencional Monômia",
+    "usinas": [
+      {
+        "id": 377487,
+        "denominacao": "Marcos Antônio ",
+        "responsavel": null,
+        "usuarioId": 179245,
+        "unidadeConsumidoraId": 571834
+      }
+    ],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 1945794,
+    "contrato": null,
+    "denominacao": "Carlos Eduardo",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 565412,
+    "contrato": "3000211159",
+    "denominacao": "CELIAMARTINS",
+    "concessionaria": {
+      "id": 107,
+      "sigla": "EQUATORIALAL",
+      "denominacao": "Equatorial Energia Alagoas",
+      "estado": {
+        "uf": "AL",
+        "denominacao": "Alagoas",
+        "regiao": "Nordeste",
+        "id": "AL"
+      }
+    },
+    "endereco": null,
+    "subGrupo": {
+      "id": 7,
+      "denominacao": "B1",
+      "grupo": {
+        "id": 2,
+        "denominacao": "B"
+      }
+    },
+    "subClasse": {
+      "id": 3,
+      "denominacao": "",
+      "classe": {
+        "id": 1,
+        "denominacao": "Residencial"
+      }
+    },
+    "apiConcessionariaCredencial": {
+      "id": 4208380918
+    },
+    "tipoLigacao": null,
+    "modalidadeTarifaria": "Convencional Monômia",
+    "usinas": [
+      {
+        "id": 492136,
+        "denominacao": "CELIAMARTINS",
+        "responsavel": null,
+        "usuarioId": 234646,
+        "unidadeConsumidoraId": 565412
+      }
+    ],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 1824489,
+    "contrato": null,
+    "denominacao": "Cervejaria Deodora ",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 1011492,
+    "contrato": null,
+    "denominacao": "Cicera Lopes ",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 1518484,
+    "contrato": null,
+    "denominacao": "Cícero Eleuterio",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 1620119,
+    "contrato": null,
+    "denominacao": "claudetecariri",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 2106834,
+    "contrato": null,
+    "denominacao": "Deleon Pereira",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 2106837,
+    "contrato": null,
+    "denominacao": "Diane Cristina",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 1518485,
+    "contrato": null,
+    "denominacao": "diogopereira",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 1558372,
+    "contrato": null,
+    "denominacao": "diogopereira",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 1315753,
+    "contrato": null,
+    "denominacao": "Douglas Aparecido Sakumoto",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 565413,
+    "contrato": null,
+    "denominacao": "Douglas sakumoto",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 1315752,
+    "contrato": "3002808284",
+    "denominacao": "ELITECH FIT CLUB",
+    "concessionaria": {
+      "id": 107,
+      "sigla": "EQUATORIALAL",
+      "denominacao": "Equatorial Energia Alagoas",
+      "estado": {
+        "uf": "AL",
+        "denominacao": "Alagoas",
+        "regiao": "Nordeste",
+        "id": "AL"
+      }
+    },
+    "endereco": null,
+    "subGrupo": {
+      "id": 7,
+      "denominacao": "B1",
+      "grupo": {
+        "id": 2,
+        "denominacao": "B"
+      }
+    },
+    "subClasse": {
+      "id": 1,
+      "denominacao": "",
+      "classe": {
+        "id": 3,
+        "denominacao": "Comercial"
+      }
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": "Convencional Monômia",
+    "usinas": [
+      {
+        "id": 1144427,
+        "denominacao": "ELITECH FIT CLUB",
+        "responsavel": null,
+        "usuarioId": 224201,
+        "unidadeConsumidoraId": 1315752
+      }
+    ],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 2354043,
+    "contrato": null,
+    "denominacao": "Everson Braz ",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 1648997,
+    "contrato": null,
+    "denominacao": "Gabriel Sampaio",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 1011493,
+    "contrato": null,
+    "denominacao": "Gedir Medeiros 6kWp",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 908019,
+    "contrato": null,
+    "denominacao": "genivaldopedro",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 571422,
+    "contrato": "15463761",
+    "denominacao": "[GERAÇÃO] - ACADEMIA VIP FITNESS MCZ",
+    "concessionaria": {
+      "id": 107,
+      "sigla": "EQUATORIALAL",
+      "denominacao": "Equatorial Energia Alagoas",
+      "estado": {
+        "uf": "AL",
+        "denominacao": "Alagoas",
+        "regiao": "Nordeste",
+        "id": "AL"
+      }
+    },
+    "endereco": null,
+    "subGrupo": {
+      "id": 7,
+      "denominacao": "B1",
+      "grupo": {
+        "id": 2,
+        "denominacao": "B"
+      }
+    },
+    "subClasse": {
+      "id": 1,
+      "denominacao": "",
+      "classe": {
+        "id": 3,
+        "denominacao": "Comercial"
+      }
+    },
+    "apiConcessionariaCredencial": {
+      "id": 5095055400
+    },
+    "tipoLigacao": null,
+    "modalidadeTarifaria": "Convencional Monômia",
+    "usinas": [
+      {
+        "id": 497210,
+        "denominacao": "[GERAÇÃO] - RESIDÊNCIA WAGNER",
+        "responsavel": null,
+        "usuarioId": 224201,
+        "unidadeConsumidoraId": 571422
+      }
+    ],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 571372,
+    "contrato": "3000839220",
+    "denominacao": "[GERAÇÃO] - RESIDÊNCIA WAGNER",
+    "concessionaria": {
+      "id": 107,
+      "sigla": "EQUATORIALAL",
+      "denominacao": "Equatorial Energia Alagoas",
+      "estado": {
+        "uf": "AL",
+        "denominacao": "Alagoas",
+        "regiao": "Nordeste",
+        "id": "AL"
+      }
+    },
+    "endereco": null,
+    "subGrupo": {
+      "id": 7,
+      "denominacao": "B1",
+      "grupo": {
+        "id": 2,
+        "denominacao": "B"
+      }
+    },
+    "subClasse": {
+      "id": 3,
+      "denominacao": "",
+      "classe": {
+        "id": 1,
+        "denominacao": "Residencial"
+      }
+    },
+    "apiConcessionariaCredencial": {
+      "id": 5095064249
+    },
+    "tipoLigacao": null,
+    "modalidadeTarifaria": "Convencional Monômia",
+    "usinas": [
+      {
+        "id": 497210,
+        "denominacao": "[GERAÇÃO] - RESIDÊNCIA WAGNER",
+        "responsavel": null,
+        "usuarioId": 224201,
+        "unidadeConsumidoraId": 571372
+      }
+    ],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 808261,
+    "contrato": null,
+    "denominacao": "Gessé Teixeira",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 1518402,
+    "contrato": null,
+    "denominacao": "glauciamd",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 375873,
+    "contrato": null,
+    "denominacao": "joseclaudioduda",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 279306,
+    "contrato": "911950",
+    "denominacao": "José Claudio  Duda",
+    "concessionaria": {
+      "id": 107,
+      "sigla": "EQUATORIALAL",
+      "denominacao": "Equatorial Energia Alagoas",
+      "estado": {
+        "uf": "AL",
+        "denominacao": "Alagoas",
+        "regiao": "Nordeste",
+        "id": "AL"
+      }
+    },
+    "endereco": null,
+    "subGrupo": {
+      "id": 7,
+      "denominacao": "B1",
+      "grupo": {
+        "id": 2,
+        "denominacao": "B"
+      }
+    },
+    "subClasse": {
+      "id": 3,
+      "denominacao": "",
+      "classe": {
+        "id": 1,
+        "denominacao": "Residencial"
+      }
+    },
+    "apiConcessionariaCredencial": {
+      "id": 3213363348
+    },
+    "tipoLigacao": null,
+    "modalidadeTarifaria": "Convencional Monômia",
+    "usinas": [
+      {
+        "id": 248787,
+        "denominacao": "José Claudio  Duda",
+        "responsavel": null,
+        "usuarioId": 118058,
+        "unidadeConsumidoraId": 279306
+      }
+    ],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 493592,
+    "contrato": "16319699",
+    "denominacao": "JOSIVALDO",
+    "concessionaria": {
+      "id": 107,
+      "sigla": "EQUATORIALAL",
+      "denominacao": "Equatorial Energia Alagoas",
+      "estado": {
+        "uf": "AL",
+        "denominacao": "Alagoas",
+        "regiao": "Nordeste",
+        "id": "AL"
+      }
+    },
+    "endereco": null,
+    "subGrupo": {
+      "id": 7,
+      "denominacao": "B1",
+      "grupo": {
+        "id": 2,
+        "denominacao": "B"
+      }
+    },
+    "subClasse": {
+      "id": 1,
+      "denominacao": "",
+      "classe": {
+        "id": 3,
+        "denominacao": "Comercial"
+      }
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": "Convencional Monômia",
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 444397,
+    "contrato": "9255869",
+    "denominacao": "Josivania Santana",
+    "concessionaria": {
+      "id": 107,
+      "sigla": "EQUATORIALAL",
+      "denominacao": "Equatorial Energia Alagoas",
+      "estado": {
+        "uf": "AL",
+        "denominacao": "Alagoas",
+        "regiao": "Nordeste",
+        "id": "AL"
+      }
+    },
+    "endereco": null,
+    "subGrupo": {
+      "id": 7,
+      "denominacao": "B1",
+      "grupo": {
+        "id": 2,
+        "denominacao": "B"
+      }
+    },
+    "subClasse": {
+      "id": 1,
+      "denominacao": "",
+      "classe": {
+        "id": 3,
+        "denominacao": "Comercial"
+      }
+    },
+    "apiConcessionariaCredencial": {
+      "id": 3692310863
+    },
+    "tipoLigacao": null,
+    "modalidadeTarifaria": "Convencional Monômia",
+    "usinas": [
+      {
+        "id": 390452,
+        "denominacao": "Josivania Santana",
+        "responsavel": null,
+        "usuarioId": 179210,
+        "unidadeConsumidoraId": 444397
+      }
+    ],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 1558373,
+    "contrato": null,
+    "denominacao": "Ki barato Supermercado",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 2106836,
+    "contrato": null,
+    "denominacao": "Luanda Vieira",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 2354044,
+    "contrato": null,
+    "denominacao": "Lucas Diogo",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 1518426,
+    "contrato": null,
+    "denominacao": "Márcio Alves",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 1591906,
+    "contrato": null,
+    "denominacao": "Marcio Costa",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 429012,
+    "contrato": "9162631",
+    "denominacao": "Marcos Antônio ",
+    "concessionaria": {
+      "id": 107,
+      "sigla": "EQUATORIALAL",
+      "denominacao": "Equatorial Energia Alagoas",
+      "estado": {
+        "uf": "AL",
+        "denominacao": "Alagoas",
+        "regiao": "Nordeste",
+        "id": "AL"
+      }
+    },
+    "endereco": null,
+    "subGrupo": {
+      "id": 7,
+      "denominacao": "B1",
+      "grupo": {
+        "id": 2,
+        "denominacao": "B"
+      }
+    },
+    "subClasse": {
+      "id": 1,
+      "denominacao": "",
+      "classe": {
+        "id": 3,
+        "denominacao": "Comercial"
+      }
+    },
+    "apiConcessionariaCredencial": {
+      "id": 3693233763
+    },
+    "tipoLigacao": null,
+    "modalidadeTarifaria": "Convencional Monômia",
+    "usinas": [
+      {
+        "id": 377487,
+        "denominacao": "Marcos Antônio ",
+        "responsavel": null,
+        "usuarioId": 179245,
+        "unidadeConsumidoraId": 429012
+      }
+    ],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 2008889,
+    "contrato": null,
+    "denominacao": "Marcos Santos",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 493586,
+    "contrato": "11082828",
+    "denominacao": "Maria José",
+    "concessionaria": {
+      "id": 107,
+      "sigla": "EQUATORIALAL",
+      "denominacao": "Equatorial Energia Alagoas",
+      "estado": {
+        "uf": "AL",
+        "denominacao": "Alagoas",
+        "regiao": "Nordeste",
+        "id": "AL"
+      }
+    },
+    "endereco": null,
+    "subGrupo": {
+      "id": 7,
+      "denominacao": "B1",
+      "grupo": {
+        "id": 2,
+        "denominacao": "B"
+      }
+    },
+    "subClasse": {
+      "id": 1,
+      "denominacao": "",
+      "classe": {
+        "id": 3,
+        "denominacao": "Comercial"
+      }
+    },
+    "apiConcessionariaCredencial": {
+      "id": 3692347869
+    },
+    "tipoLigacao": null,
+    "modalidadeTarifaria": "Convencional Monômia",
+    "usinas": [
+      {
+        "id": 430451,
+        "denominacao": "Maria José",
+        "responsavel": null,
+        "usuarioId": 179209,
+        "unidadeConsumidoraId": 493586
+      }
+    ],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 1518424,
+    "contrato": null,
+    "denominacao": "Maria Luci - Innovation Solar",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 1620116,
+    "contrato": null,
+    "denominacao": "marianelly",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 2106835,
+    "contrato": null,
+    "denominacao": "Natanael Bestel",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 1122072,
+    "contrato": null,
+    "denominacao": "onoriopeiter",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 1558374,
+    "contrato": null,
+    "denominacao": "onoriopeiter",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 493587,
+    "contrato": "3000497001",
+    "denominacao": "Paulo Cesar",
+    "concessionaria": {
+      "id": 107,
+      "sigla": "EQUATORIALAL",
+      "denominacao": "Equatorial Energia Alagoas",
+      "estado": {
+        "uf": "AL",
+        "denominacao": "Alagoas",
+        "regiao": "Nordeste",
+        "id": "AL"
+      }
+    },
+    "endereco": null,
+    "subGrupo": {
+      "id": 7,
+      "denominacao": "B1",
+      "grupo": {
+        "id": 2,
+        "denominacao": "B"
+      }
+    },
+    "subClasse": {
+      "id": 3,
+      "denominacao": "",
+      "classe": {
+        "id": 1,
+        "denominacao": "Residencial"
+      }
+    },
+    "apiConcessionariaCredencial": {
+      "id": 4209514593
+    },
+    "tipoLigacao": null,
+    "modalidadeTarifaria": "Convencional Monômia",
+    "usinas": [
+      {
+        "id": 430452,
+        "denominacao": "Paulo Cesar",
+        "responsavel": null,
+        "usuarioId": 179204,
+        "unidadeConsumidoraId": 493587
+      }
+    ],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 808010,
+    "contrato": null,
+    "denominacao": "Pedro Jorge - 8,325kWp",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 2008890,
+    "contrato": null,
+    "denominacao": "Posto Santa Rita",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 2008891,
+    "contrato": null,
+    "denominacao": "Posto Santo Antônio ",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 2106838,
+    "contrato": null,
+    "denominacao": "Quark Energia",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 2106839,
+    "contrato": null,
+    "denominacao": "Raul Santana",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 908061,
+    "contrato": null,
+    "denominacao": "Renata Rubielle - 8,85kWp",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 1518256,
+    "contrato": null,
+    "denominacao": "ronaldobarbosa",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 908052,
+    "contrato": null,
+    "denominacao": "rosenildocandido",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 493589,
+    "contrato": "14593424",
+    "denominacao": "Silvanio José",
+    "concessionaria": {
+      "id": 107,
+      "sigla": "EQUATORIALAL",
+      "denominacao": "Equatorial Energia Alagoas",
+      "estado": {
+        "uf": "AL",
+        "denominacao": "Alagoas",
+        "regiao": "Nordeste",
+        "id": "AL"
+      }
+    },
+    "endereco": null,
+    "subGrupo": {
+      "id": 7,
+      "denominacao": "B1",
+      "grupo": {
+        "id": 2,
+        "denominacao": "B"
+      }
+    },
+    "subClasse": {
+      "id": 3,
+      "denominacao": "",
+      "classe": {
+        "id": 1,
+        "denominacao": "Residencial"
+      }
+    },
+    "apiConcessionariaCredencial": {
+      "id": 3692958719
+    },
+    "tipoLigacao": null,
+    "modalidadeTarifaria": "Convencional Monômia",
+    "usinas": [
+      {
+        "id": 430454,
+        "denominacao": "Silvanio José",
+        "responsavel": null,
+        "usuarioId": 179298,
+        "unidadeConsumidoraId": 493589
+      }
+    ],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 1011494,
+    "contrato": null,
+    "denominacao": "Silvano Vieira",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 1620117,
+    "contrato": null,
+    "denominacao": "sirmanifrazao ",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 303355,
+    "contrato": null,
+    "denominacao": "suzanajeronimo",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 375874,
+    "contrato": null,
+    "denominacao": "suzanajeronimo",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 427400,
+    "contrato": "12645",
+    "denominacao": "Suzana Jerônimo",
+    "concessionaria": {
+      "id": 107,
+      "sigla": "EQUATORIALAL",
+      "denominacao": "Equatorial Energia Alagoas",
+      "estado": {
+        "uf": "AL",
+        "denominacao": "Alagoas",
+        "regiao": "Nordeste",
+        "id": "AL"
+      }
+    },
+    "endereco": null,
+    "subGrupo": {
+      "id": 7,
+      "denominacao": "B1",
+      "grupo": {
+        "id": 2,
+        "denominacao": "B"
+      }
+    },
+    "subClasse": {
+      "id": 3,
+      "denominacao": "",
+      "classe": {
+        "id": 1,
+        "denominacao": "Residencial"
+      }
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": "Convencional Monômia",
+    "usinas": [
+      {
+        "id": 376236,
+        "denominacao": "Suzana Jerônimo",
+        "responsavel": null,
+        "usuarioId": 138713,
+        "unidadeConsumidoraId": 427400
+      }
+    ],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 267219,
+    "contrato": "6467822",
+    "denominacao": "Talvanes Oliveira",
+    "concessionaria": {
+      "id": 107,
+      "sigla": "EQUATORIALAL",
+      "denominacao": "Equatorial Energia Alagoas",
+      "estado": {
+        "uf": "AL",
+        "denominacao": "Alagoas",
+        "regiao": "Nordeste",
+        "id": "AL"
+      }
+    },
+    "endereco": null,
+    "subGrupo": {
+      "id": 7,
+      "denominacao": "B1",
+      "grupo": {
+        "id": 2,
+        "denominacao": "B"
+      }
+    },
+    "subClasse": {
+      "id": 3,
+      "denominacao": "",
+      "classe": {
+        "id": 1,
+        "denominacao": "Residencial"
+      }
+    },
+    "apiConcessionariaCredencial": {
+      "id": 2212373794
+    },
+    "tipoLigacao": null,
+    "modalidadeTarifaria": "Convencional Monômia",
+    "usinas": [
+      {
+        "id": 238049,
+        "denominacao": "Talvanes Oliveira",
+        "responsavel": null,
+        "usuarioId": 118063,
+        "unidadeConsumidoraId": 267219
+      }
+    ],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 375875,
+    "contrato": null,
+    "denominacao": "Talvanes Oliveira",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 1620118,
+    "contrato": null,
+    "denominacao": "Vip Fitness",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 1173211,
+    "contrato": "3002536543",
+    "denominacao": "Vitorcosta - Beneficiária ",
+    "concessionaria": {
+      "id": 107,
+      "sigla": "EQUATORIALAL",
+      "denominacao": "Equatorial Energia Alagoas",
+      "estado": {
+        "uf": "AL",
+        "denominacao": "Alagoas",
+        "regiao": "Nordeste",
+        "id": "AL"
+      }
+    },
+    "endereco": null,
+    "subGrupo": {
+      "id": 7,
+      "denominacao": "B1",
+      "grupo": {
+        "id": 2,
+        "denominacao": "B"
+      }
+    },
+    "subClasse": {
+      "id": 3,
+      "denominacao": "",
+      "classe": {
+        "id": 1,
+        "denominacao": "Residencial"
+      }
+    },
+    "apiConcessionariaCredencial": {
+      "id": 6191137609
+    },
+    "tipoLigacao": null,
+    "modalidadeTarifaria": "Convencional Monômia",
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 908062,
+    "contrato": "3002101814",
+    "denominacao": "Vitorcosta - Geradora",
+    "concessionaria": {
+      "id": 107,
+      "sigla": "EQUATORIALAL",
+      "denominacao": "Equatorial Energia Alagoas",
+      "estado": {
+        "uf": "AL",
+        "denominacao": "Alagoas",
+        "regiao": "Nordeste",
+        "id": "AL"
+      }
+    },
+    "endereco": null,
+    "subGrupo": {
+      "id": 7,
+      "denominacao": "B1",
+      "grupo": {
+        "id": 2,
+        "denominacao": "B"
+      }
+    },
+    "subClasse": {
+      "id": 3,
+      "denominacao": "",
+      "classe": {
+        "id": 1,
+        "denominacao": "Residencial"
+      }
+    },
+    "apiConcessionariaCredencial": {
+      "id": 6191110359
+    },
+    "tipoLigacao": null,
+    "modalidadeTarifaria": "Convencional Monômia",
+    "usinas": [
+      {
+        "id": 798488,
+        "denominacao": "Vitorcosta - Geradora",
+        "responsavel": null,
+        "usuarioId": 78904,
+        "unidadeConsumidoraId": 908062
+      }
+    ],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  },
+  {
+    "id": 2106840,
+    "contrato": null,
+    "denominacao": "Yasmine Cavalcante ",
+    "concessionaria": null,
+    "endereco": null,
+    "subGrupo": {
+      "id": 0,
+      "denominacao": null,
+      "grupo": null
+    },
+    "subClasse": {
+      "id": 0,
+      "denominacao": null,
+      "classe": null
+    },
+    "apiConcessionariaCredencial": null,
+    "tipoLigacao": null,
+    "modalidadeTarifaria": null,
+    "usinas": [],
+    "usinaResponsavelList": [],
+    "ucAlias": null,
+    "emailLog": null,
+    "senhaPdf": null
+  }
+]

@@ -7,47 +7,47 @@ const withTimeout = <T,>(p: PromiseLike<T>, ms = 1200): Promise<T> =>
 
 export const PORTAL_FALLBACK_CLIENTS: ClientPortalUser[] = [
   {
-    id: 'f87a8b42-d6c1-4b47-bce4-6338b2512345',
-    auth_user_id: 'auth_arthur_duda',
+    id: '031501e6-e659-469f-bcfc-c9bd1ac8f4db',
+    auth_user_id: '031501e6-e659-469f-bcfc-c9bd1ac8f4db',
     name: 'Arthur Duda',
     cpf: '105.558.774-85',
     email: 'arthurmoraesp12@gmail.com',
     phone: '(82) 99424-1835',
     city: 'Maceió',
     state: 'AL',
-    system_size_kw: 6.6,
+    system_size_kw: 14.85,
     is_active: true,
     quark_points: 1000,
     created_at: '2026-01-10T10:00:00Z',
     updated_at: '2026-10-20T10:00:00Z',
   },
   {
-    id: 'c1234567-89ab-cdef-0123-456789abcdef',
-    auth_user_id: 'auth_luanda_vasconcelos',
-    name: 'Dra. Luanda Vasconcelos',
-    cpf: '123.456.789-00',
-    email: 'luanda@clinicavasconcelos.med.br',
+    id: '8ac0e20c-b5df-43d6-b880-bd27a474f41f',
+    auth_user_id: '8ac0e20c-b5df-43d6-b880-bd27a474f41f',
+    name: 'Luanda Vieira',
+    cpf: '013.012.744-29',
+    email: 'luandavieira01@hotmail.com',
     phone: '(82) 98888-1122',
     city: 'Maceió',
     state: 'AL',
-    system_size_kw: 7.7,
+    system_size_kw: 4.0,
     is_active: true,
     quark_points: 2000,
     created_at: '2026-02-15T10:00:00Z',
     updated_at: '2026-10-20T10:00:00Z',
   },
   {
-    id: 'd9876543-21ba-fedc-ba98-76543210fedc',
-    auth_user_id: 'auth_haroldo_mendonca',
-    name: 'Haroldo Mendonça',
-    cpf: '321.654.987-11',
-    email: 'haroldo.mendonca@gmail.com',
+    id: 'f5e92ab1-97a9-4a85-8f1e-fa814fc82ddc',
+    auth_user_id: 'f5e92ab1-97a9-4a85-8f1e-fa814fc82ddc',
+    name: 'Natanael Bestel',
+    cpf: '540.472.344-00',
+    email: 'natanaelbn1@gmail.com',
     phone: '(82) 99123-4567',
-    city: 'Arapiraca',
+    city: 'Maceió',
     state: 'AL',
-    system_size_kw: 10.5,
+    system_size_kw: 8.19,
     is_active: true,
-    quark_points: 500,
+    quark_points: 1500,
     created_at: '2026-03-01T10:00:00Z',
     updated_at: '2026-10-20T10:00:00Z',
   }
@@ -239,6 +239,24 @@ export const PortalProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         if (found) matchedClient = found;
       }
     } catch {}
+
+    // A.2. Busca diretamente na tabela client_portal_users do Supabase
+    if (!matchedClient) {
+      try {
+        let dbQuery = supabase.from('client_portal_users').select('*');
+        if (cleanDigits && cleanDigits.length >= 11) {
+          dbQuery = dbQuery.or(`cpf.eq.${cleanDigits},cpf.eq.${identifier.trim()}`);
+        } else if (cleanLower) {
+          dbQuery = dbQuery.or(`email.ilike.${cleanLower},name.ilike.%${cleanLower}%`);
+        }
+        const { data: dbUser } = await withTimeout(dbQuery.maybeSingle(), 1500);
+        if (dbUser) {
+          matchedClient = dbUser as ClientPortalUser;
+        }
+      } catch (dbErr) {
+        console.warn('[PortalContext] Busca em client_portal_users falhou:', dbErr);
+      }
+    }
 
     // B. Verifica lista de clientes padrão de demonstração e produção
     if (!matchedClient) {

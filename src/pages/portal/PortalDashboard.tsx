@@ -78,15 +78,20 @@ const PortalDashboard: React.FC = () => {
 
   // Cálculo preciso da fase atual e porcentagem de evolução
   const currentTrackingPhase = clientTracking?.find(t => t.is_current) || clientTracking?.[0];
-  const currentPhaseId = currentTrackingPhase?.phase || projectData?.current_phase?.phase;
-  const currentPhaseLabel = currentTrackingPhase?.phase_label || projectData?.current_phase?.label || projectData?.current_phase?.phase_label || 'Em Instalação e Montagem';
+  const currentPhaseId = projectData?.current_phase?.phase || currentTrackingPhase?.phase;
+  const currentPhaseLabel = projectData?.current_phase?.label || projectData?.current_phase?.phase_label || currentTrackingPhase?.phase_label || 'Em Instalação e Montagem';
   const completedTrackingCount = clientTracking?.filter(t => !!t.completed_at).length || 0;
-  const completionPercent = (clientTracking && clientTracking.length > 0)
-    ? Math.min(100, Math.round((completedTrackingCount / (clientTracking.length - 1 || 1)) * 100))
-    : (projectData?.completion_percent ?? 25);
 
   // REGRA DE NEGÓCIO: O sistema só tem geração ativa quando a obra foi finalizada e conectada à rede
-  const isSystemInstalled = currentPhaseId === 'finalizado';
+  const isSystemInstalled = telemetry?.is_installed !== undefined 
+    ? telemetry.is_installed 
+    : (currentPhaseId === 'finalizado');
+
+  const completionPercent = (currentPhaseId === 'finalizado' || isSystemInstalled)
+    ? 100
+    : ((clientTracking && clientTracking.length > 0)
+        ? Math.min(100, Math.round((completedTrackingCount / (clientTracking.length - 1 || 1)) * 100))
+        : (projectData?.completion_percent ?? 25));
 
   const systemSizeKw = Number(telemetry?.system_size_kw || client?.system_size_kw || 6.6);
   const expectedMonthlyGen = Math.round(systemSizeKw * 5.4 * 30 * 0.78);

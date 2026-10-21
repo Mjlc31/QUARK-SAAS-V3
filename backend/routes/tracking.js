@@ -85,9 +85,38 @@ router.get('/project/:clientId', async (req, res) => {
       (a, b) => (phaseOrderMap.get(a.phase) ?? 99) - (phaseOrderMap.get(b.phase) ?? 99)
     );
 
-    const completedCount = sortedPhases.filter((p) => !!p.completed_at).length;
-    const completionPercent = Math.round((completedCount / SOLAR_PHASES.length) * 100);
-    const currentPhase = sortedPhases.find((p) => p.is_current) || sortedPhases[0];
+    const isFinalizado = sortedPhases.some((p) => p.phase === 'finalizado' && (p.is_current || !!p.completed_at));
+
+    let finalPhasesList = sortedPhases;
+    let completionPercent = 0;
+
+    if (isFinalizado) {
+      completionPercent = 100;
+      // Garante que todas as fases anteriores apareçam como concluídas
+      const finalizadoRecord = sortedPhases.find((p) => p.phase === 'finalizado');
+      const baseFinishDate = finalizadoRecord?.completed_at ? new Date(finalizadoRecord.completed_at) : new Date();
+
+      finalPhasesList = SOLAR_PHASES.map((sp, idx) => {
+        const existing = sortedPhases.find((p) => p.phase === sp.phase);
+        const daysBefore = (SOLAR_PHASES.length - 1 - idx) * 5;
+        const estDate = new Date(baseFinishDate.getTime() - daysBefore * 86400000);
+
+        return {
+          id: existing?.id || `auto-${sp.phase}`,
+          phase: sp.phase,
+          phase_label: sp.label,
+          notes: existing?.notes || sp.desc,
+          is_current: sp.phase === 'finalizado',
+          started_at: existing?.started_at || estDate.toISOString(),
+          completed_at: existing?.completed_at || estDate.toISOString(),
+        };
+      });
+    } else {
+      const completedCount = sortedPhases.filter((p) => !!p.completed_at).length;
+      completionPercent = Math.round((completedCount / SOLAR_PHASES.length) * 100);
+    }
+
+    const currentPhase = finalPhasesList.find((p) => p.is_current) || finalPhasesList[finalPhasesList.length - 1];
 
     res.json({
       success: true,
@@ -99,7 +128,7 @@ router.get('/project/:clientId', async (req, res) => {
       },
       completion_percent: completionPercent,
       current_phase: currentPhase,
-      phases: sortedPhases.map((p) => ({
+      phases: finalPhasesList.map((p) => ({
         id: p.id,
         phase: p.phase,
         label: p.phase_label,

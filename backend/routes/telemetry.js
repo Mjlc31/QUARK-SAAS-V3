@@ -1,6 +1,6 @@
 import express from 'express';
 import { supabase } from '../services/supabase.js';
-import { syncClientWithSolarZ } from '../services/solarz.js';
+import { syncClientWithSolarZ, syncAllSolarZ, getAllSolarZPlants } from '../services/solarz.js';
 
 const router = express.Router();
 
@@ -254,6 +254,27 @@ router.post(['/solarz/sync/:clientId', '/api/portal/solarz/sync/:clientId'], asy
     res.json(result);
   } catch (error) {
     console.error('[SOLARZ] Erro na rota de sincronização:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /solarz/sync-all - Ingestão e sincronização em massa de todas as usinas do SolarZ
+router.post(['/solarz/sync-all', '/api/portal/solarz/sync-all'], async (req, res) => {
+  try {
+    const result = await syncAllSolarZ();
+    res.json(result);
+  } catch (error) {
+    console.error('[SOLARZ] Erro ao sincronizar todas as usinas:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /solarz/plants - Retorna todas as 58 usinas monitoradas
+router.get(['/solarz/plants', '/api/portal/solarz/plants'], async (req, res) => {
+  try {
+    const plants = getAllSolarZPlants();
+    res.json({ success: true, count: plants.length, plants });
+  } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
