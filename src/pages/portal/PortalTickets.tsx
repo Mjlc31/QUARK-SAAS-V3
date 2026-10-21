@@ -1,21 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Headphones, Plus, MessageSquare, X, Send, LogOut } from 'lucide-react';
+import { Headphones, Plus, MessageSquare, X, Send, LogOut, ArrowLeft, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import { usePortal } from '../../contexts/PortalContext';
-
-const initialTickets = [
-  { id: 'TKT-1234', subject: 'Dúvida sobre a fatura', category: 'Financeiro', priority: 'Normal', status: 'Resolvido', date: '12 Set, 2026', messages: [
-    { sender: 'client', text: 'Olá, não entendi a cobrança na minha última fatura da concessionária.', time: '10:00' },
-    { sender: 'operator', text: 'Bom dia, João! A fatura inclui a taxa mínima de disponibilidade. Vamos te enviar um material explicativo.', time: '10:15' },
-    { sender: 'system', text: 'Ticket marcado como resolvido', time: '14:30' }
-  ]},
-  { id: 'TKT-1235', subject: 'Agendar limpeza dos painéis', category: 'Manutenção', priority: 'Normal', status: 'Aberto', date: '15 Set, 2026', messages: [
-    { sender: 'client', text: 'Gostaria de agendar a limpeza anual dos meus painéis.', time: '09:00' },
-    { sender: 'operator', text: 'Claro! Temos disponibilidade para a próxima terça-feira às 14h. Fica bom para você?', time: '09:30' }
-  ]},
-];
 
 const PortalTickets: React.FC = () => {
   const navigate = useNavigate();
@@ -25,18 +13,22 @@ const PortalTickets: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [replyText, setReplyText] = useState('');
 
-  const [tickets, setTickets] = useState(initialTickets);
+  const [tickets, setTickets] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [newSubject, setNewSubject] = useState('');
-  const [newCategory, setNewCategory] = useState('Manutenção');
+  const [newCategory, setNewCategory] = useState('Inversor Parou / Falha de Geração');
   const [newPriority, setNewPriority] = useState('Normal');
   const [newDescription, setNewDescription] = useState('');
 
-  // Sincroniza chamados reais do backend e do cache local compartilhado com o painel interno
+  // Sincroniza chamados reais do cliente (sem tickets fictícios/dummy)
   useEffect(() => {
     async function loadTickets() {
+      setIsLoading(true);
       const mergedTickets: any[] = [];
+      const clientId = client?.id;
+      const clientName = client?.name?.trim().toLowerCase();
 
-      // 1. Carrega chamados salvos localmente (compartilhados com o Admin em TicketAdmin.tsx)
+      // 1. Carrega chamados salvos localmente vinculados a ESTE cliente
       try {
         const localTicketsRaw = localStorage.getItem('quark_support_tickets');
         const msgsRaw = localStorage.getItem('quark_ticket_messages');
@@ -44,8 +36,14 @@ const PortalTickets: React.FC = () => {
 
         if (localTicketsRaw) {
           const localList = JSON.parse(localTicketsRaw);
-          localList.forEach((t: any) => {
-            const ticketMsgs = msgsMap[t.id] || [];
+          const clientLocalTickets = localList.filter((t: any) => {
+            if (clientId && t.client_id === clientId) return true;
+            if (clientName && t.client_name && t.client_name.trim().toLowerCase() === clientName) return true;
+            return false;
+          });
+
+          clientLocalTickets.forEach((t: any) => {
+            const ticketMsgs = msgsMap[t.id] || msgsMap[t.realId] || [];
             mergedTickets.push({
               id: t.id.length > 8 ? t.id.substring(0, 8).toUpperCase() : t.id,
               realId: t.id,
@@ -72,51 +70,51 @@ const PortalTickets: React.FC = () => {
         }
       } catch (e) {}
 
-      // 2. Tenta buscar da API do backend
+      // 2. Busca do Supabase e da API filtrando exclusivamente por este cliente
       try {
-        const res = await fetch('/api/tickets');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.tickets && data.tickets.length > 0) {
-            data.tickets.forEach((t: any) => {
-              if (!mergedTickets.some(m => m.realId === t.id)) {
-                mergedTickets.push({
-                  id: t.id.substring(0, 8).toUpperCase(),
-                  realId: t.id,
-                  subject: t.subject,
-                  category: t.category ? (t.category.charAt(0).toUpperCase() + t.category.slice(1)) : 'Suporte',
-                  priority: t.priority ? (t.priority.charAt(0).toUpperCase() + t.priority.slice(1)) : 'Normal',
-                  status: t.status === 'resolvido' ? 'Resolvido' : 'Aberto',
-                  date: new Date(t.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' }),
-                  messages: [
-                    {
-                      sender: 'client',
-                      text: t.description || 'Chamado registrado pelo portal.',
-                      time: new Date(t.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-                    },
-                  ],
-                });
-              }
-            });
+        if (clientId) {
+          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientId);
+          if (isUuid) {
+            const { data: remoteTickets } = await supabase
+              .from('support_tickets')
+              .select('*')
+              .eq('client_id', clientId)
+              .order('created_at', { ascending: false });
+
+            if (remoteTickets && remoteTickets.length > 0) {
+              remoteTickets.forEach((t: any) => {
+                if (!mergedTickets.some(m => m.realId === t.id)) {
+                  mergedTickets.push({
+                    id: t.id.substring(0, 8).toUpperCase(),
+                    realId: t.id,
+                    subject: t.subject,
+                    category: t.category ? (t.category.charAt(0).toUpperCase() + t.category.slice(1)) : 'Suporte',
+                    priority: t.priority ? (t.priority.charAt(0).toUpperCase() + t.priority.slice(1)) : 'Normal',
+                    status: t.status === 'resolvido' ? 'Resolvido' : 'Aberto',
+                    date: new Date(t.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' }),
+                    messages: [
+                      {
+                        sender: 'client',
+                        text: t.description || 'Chamado registrado pelo portal.',
+                        time: new Date(t.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+                      },
+                    ],
+                  });
+                }
+              });
+            }
           }
         }
       } catch (err) {
-        console.warn('[PortalTickets] Offline fallback ativado:', err);
+        console.warn('[PortalTickets] Erro ao sincronizar tickets com Supabase:', err);
       }
 
-      // Adiciona tickets iniciais se lista estiver vazia
-      if (mergedTickets.length === 0) {
-        setTickets(initialTickets);
-      } else {
-        // Mantém tickets iniciais como exemplos
-        const ids = new Set(mergedTickets.map(m => m.id));
-        const nonDupInitials = initialTickets.filter(init => !ids.has(init.id));
-        setTickets([...mergedTickets, ...nonDupInitials]);
-      }
+      setTickets(mergedTickets);
+      setIsLoading(false);
     }
 
     loadTickets();
-  }, [client?.id]);
+  }, [client?.id, client?.name]);
 
   const handleCreateTicket = async () => {
     if (!newSubject.trim() || !newDescription.trim()) return;
@@ -280,45 +278,56 @@ const PortalTickets: React.FC = () => {
     }
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate('/login');
+  const openWhatsAppSupport = () => {
+    const text = encodeURIComponent(
+      `Olá! Sou o cliente ${client?.name || ''} e gostaria de suporte com o meu sistema solar Quark.`
+    );
+    window.open(`https://wa.me/5582994241835?text=${text}`, '_blank');
   };
 
   return (
-    <div className="min-h-screen bg-quark-bg text-zinc-200 font-sans pb-10">
-      <header className="sticky top-0 z-50 bg-zinc-900/80 backdrop-blur-xl border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/portal/dashboard')}>
-            <div className="w-8 h-8 rounded-lg bg-lime-500/20 flex items-center justify-center border border-lime-500/30 text-lime-400 font-display font-bold">
-              Q
-            </div>
-            <span className="font-display font-bold text-white tracking-tight hidden sm:block">Portal Quark Energia</span>
-          </div>
-          <button onClick={handleLogout} className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
-            <LogOut size={18} />
+    <div className="min-h-screen bg-quark-bg text-zinc-200 font-sans pb-16">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8">
+        {/* Breadcrumb / Navegação Desktop */}
+        <div className="flex items-center gap-2 mb-6 text-xs text-zinc-400">
+          <button 
+            onClick={() => navigate('/portal')}
+            className="hover:text-lime-400 transition-colors flex items-center gap-1 font-medium"
+          >
+            <ArrowLeft size={14} /> Início
           </button>
+          <span>/</span>
+          <span className="text-zinc-200 font-semibold">Central de Chamados</span>
         </div>
-      </header>
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-8">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
             <h1 className="text-2xl sm:text-3xl font-display font-bold text-white tracking-tight flex items-center gap-3">
-              <div className="p-2 bg-purple-500/10 text-purple-400 rounded-xl">
+              <div className="p-2.5 bg-purple-500/15 border border-purple-500/30 text-purple-400 rounded-2xl shadow-lg shadow-purple-500/10">
                 <Headphones size={24} />
               </div>
-              Meus Chamados
+              Meus Chamados & Suporte
             </h1>
-            <p className="text-zinc-500 text-sm mt-1">Acompanhe suas solicitações e tire dúvidas</p>
+            <p className="text-zinc-400 text-xs sm:text-sm mt-1">
+              Acompanhe suas solicitações técnicas, dúvidas de faturas e garantias.
+            </p>
           </div>
-          <button 
-            onClick={() => setIsModalOpen(true)}
-            className="btn-primary px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg shadow-lime-500/10 active:scale-95"
-          >
-            <Plus size={18} />
-            Novo Chamado
-          </button>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button 
+              onClick={openWhatsAppSupport}
+              className="px-3.5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 text-xs font-semibold transition flex items-center gap-2 active:scale-95"
+            >
+              <MessageSquare size={16} className="text-emerald-400" />
+              WhatsApp
+            </button>
+            <button 
+              onClick={() => setIsModalOpen(true)}
+              className="btn-primary px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-lime-500/10 active:scale-95 text-xs sm:text-sm flex-1 sm:flex-none justify-center"
+            >
+              <Plus size={18} />
+              Novo Chamado
+            </button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -327,23 +336,79 @@ const PortalTickets: React.FC = () => {
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
-                filter === f ? 'bg-zinc-100 text-zinc-900' : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300 border border-white/5'
+              className={`px-4 py-2 rounded-full text-xs font-semibold transition-colors whitespace-nowrap ${
+                filter === f 
+                  ? 'bg-zinc-100 text-zinc-950 font-bold shadow-sm' 
+                  : 'bg-zinc-900/80 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300 border border-white/5'
               }`}
             >
               {f}
+              {f === 'Todos' && tickets.length > 0 && ` (${tickets.length})`}
+              {f === 'Aberto' && tickets.filter(t => t.status === 'Aberto').length > 0 && ` (${tickets.filter(t => t.status === 'Aberto').length})`}
+              {f === 'Resolvido' && tickets.filter(t => t.status === 'Resolvido').length > 0 && ` (${tickets.filter(t => t.status === 'Resolvido').length})`}
             </button>
           ))}
         </div>
 
         {/* Tickets List */}
         <div className="space-y-4">
-          {filteredTickets.map(ticket => (
-            <motion.div 
-              key={ticket.id}
-              layout
-              className="glass-panel rounded-2xl overflow-hidden border border-white/5"
-            >
+          {isLoading ? (
+            <div className="glass-panel p-12 rounded-2xl border border-white/5 text-center">
+              <Clock size={28} className="text-zinc-500 animate-spin mx-auto mb-3" />
+              <p className="text-sm text-zinc-400">Carregando seus chamados...</p>
+            </div>
+          ) : filteredTickets.length === 0 ? (
+            tickets.length === 0 ? (
+              // Empty State - Nenhum chamado aberto
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="glass-panel p-8 sm:p-12 rounded-2xl border border-white/5 text-center max-w-xl mx-auto"
+              >
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500/20 to-lime-500/10 border border-purple-500/30 flex items-center justify-center mx-auto mb-4 text-purple-400 shadow-xl">
+                  <Headphones size={32} />
+                </div>
+                <h3 className="text-lg sm:text-xl font-bold text-white mb-2">
+                  Você ainda não possui chamados abertos
+                </h3>
+                <p className="text-xs sm:text-sm text-zinc-400 max-w-md mx-auto mb-6 leading-relaxed">
+                  Precisa de assistência técnica para o inversor, tirar dúvidas sobre a compensação de energia ou solicitar uma revisão preventiva? Estamos à disposição.
+                </p>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <button
+                    onClick={() => setIsModalOpen(true)}
+                    className="btn-primary px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 shadow-lg shadow-lime-500/10 w-full sm:w-auto justify-center"
+                  >
+                    <Plus size={16} /> Abrir Primeiro Chamado
+                  </button>
+                  <button
+                    onClick={openWhatsAppSupport}
+                    className="px-5 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs sm:text-sm font-semibold transition flex items-center gap-2 w-full sm:w-auto justify-center"
+                  >
+                    <MessageSquare size={16} className="text-emerald-400" /> Falar via WhatsApp
+                  </button>
+                </div>
+              </motion.div>
+            ) : (
+              // Empty State - Filtro vazio
+              <div className="glass-panel p-8 rounded-2xl border border-white/5 text-center">
+                <AlertCircle size={28} className="text-zinc-500 mx-auto mb-2" />
+                <p className="text-sm text-zinc-300 font-medium">Nenhum chamado com status "{filter}".</p>
+                <button
+                  onClick={() => setFilter('Todos')}
+                  className="mt-3 text-xs text-lime-400 hover:underline font-semibold"
+                >
+                  Ver todos os chamados
+                </button>
+              </div>
+            )
+          ) : (
+            filteredTickets.map(ticket => (
+              <motion.div 
+                key={ticket.id}
+                layout
+                className="glass-panel rounded-2xl overflow-hidden border border-white/5"
+              >
               <div 
                 className="p-5 sm:p-6 cursor-pointer hover:bg-white/[0.02] transition-colors"
                 onClick={() => setExpandedTicket(expandedTicket === ticket.id ? null : ticket.id)}
@@ -377,7 +442,7 @@ const PortalTickets: React.FC = () => {
                     className="border-t border-white/5 bg-zinc-950/50"
                   >
                     <div className="p-5 sm:p-6 space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar">
-                      {ticket.messages.map((msg, i) => (
+                      {ticket.messages?.map((msg: any, i: number) => (
                         <div key={i} className={`flex ${msg.sender === 'client' ? 'justify-end' : msg.sender === 'system' ? 'justify-center' : 'justify-start'}`}>
                           {msg.sender === 'system' ? (
                             <span className="text-xs text-zinc-500 font-medium bg-zinc-900 px-3 py-1 rounded-full border border-white/5">
@@ -423,9 +488,10 @@ const PortalTickets: React.FC = () => {
                 )}
               </AnimatePresence>
             </motion.div>
-          ))}
-        </div>
-      </main>
+          ))
+        )}
+      </div>
+    </main>
 
       {/* New Ticket Modal */}
       <AnimatePresence>

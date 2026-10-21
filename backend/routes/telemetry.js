@@ -1,5 +1,6 @@
 import express from 'express';
 import { supabase } from '../services/supabase.js';
+import { syncClientWithSolarZ } from '../services/solarz.js';
 
 const router = express.Router();
 
@@ -12,14 +13,14 @@ async function resolveClientUser(clientId) {
   if (!clientId) return null;
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientId);
 
-  let query = supabase.from('client_portal_users').select('*');
-  if (isUuid) {
-    query = query.or(`id.eq.${clientId},auth_user_id.eq.${clientId}`);
-  } else {
-    query = query.eq('id', clientId);
-  }
+  if (!isUuid) return null;
 
-  const { data, error } = await query.maybeSingle();
+  const { data, error } = await supabase
+    .from('client_portal_users')
+    .select('*')
+    .or(`id.eq.${clientId},auth_user_id.eq.${clientId}`)
+    .maybeSingle();
+
   if (error) {
     console.warn('[TELEMETRY] Erro ao resolver client_portal_users:', error.message);
   }
@@ -68,14 +69,20 @@ router.get(['/:clientId', '/api/portal/telemetry/:clientId'], async (req, res) =
     const actualClientId = clientUser?.id || clientId;
 
     // 2. Busca dados de inteligência solar do cliente
-    let { data: intelligence, error: intelErr } = await supabase
-      .from('client_intelligence')
-      .select('*')
-      .eq('client_id', actualClientId)
-      .maybeSingle();
+    let intelligence = null;
+    const isActualUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(actualClientId);
+    if (isActualUuid) {
+      const { data: intelData, error: intelErr } = await supabase
+        .from('client_intelligence')
+        .select('*')
+        .eq('client_id', actualClientId)
+        .maybeSingle();
 
-    if (intelErr) {
-      console.warn('[TELEMETRY] Erro ao buscar client_intelligence:', intelErr.message);
+      if (intelErr) {
+        console.warn('[TELEMETRY] Erro ao buscar client_intelligence:', intelErr.message);
+      } else {
+        intelligence = intelData;
+      }
     }
 
     // Se não encontrou por client_id, tenta buscar pelo nome do cliente se disponível
@@ -95,6 +102,35 @@ router.get(['/:clientId', '/api/portal/telemetry/:clientId'], async (req, res) =
     const systemSizeKw = Number(intelligence?.system_size_kw || clientUser?.system_size_kw || 6.6);
     // Fórmula padrão Quark: Potência (kW) * Irradiação média (5.4) * 30 dias * Performance Ratio (0.78)
     const expectedMonthlyGen = Math.round(systemSizeKw * 5.4 * 30 * 0.78);
+
+    // 3.5 REGRA DE NEGÓCIO: Se o sistema NÃO está instalado e finalizado, NÃO deve haver geração nem faturas
+    let isInstalled = false;
+    try {
+      if (isActualUuid) {
+        const { data: trackingRecords } = await supabase
+          .from('project_tracking')
+          .select('phase, is_current')
+          .eq('client_id', actualClientId);
+
+        const currentPhase = trackingRecords?.find(t => t.is_current) || trackingRecords?.[0];
+        isInstalled = currentPhase?.phase === 'finalizado';
+      }
+    } catch (e) {}
+
+    if (!isInstalled) {
+      return res.json({
+        success: true,
+        system_size_kw: systemSizeKw,
+        monthly_generation_kwh: 0,
+        expected_monthly_kwh: expectedMonthlyGen,
+        total_savings_brl: 0,
+        chart_data: [],
+        system_health: 'Em Implantação · Aguardando Energização',
+        last_maintenance_date: '',
+        next_maintenance_date: '',
+        is_installed: false,
+      });
+    }
 
     // 4. Busca histórico de faturas em utility_invoices se houver intelligence cadastrada
     let invoices = [];
@@ -173,10 +209,24 @@ router.get(['/:clientId', '/api/portal/telemetry/:clientId'], async (req, res) =
       system_health: systemHealth,
       last_maintenance_date: lastMaintenanceDate,
       next_maintenance_date: nextMaintenanceDate,
+      is_installed: true,
     });
   } catch (error) {
     console.error('[TELEMETRY] Erro ao obter telemetria solar:', error);
     res.status(500).json({ success: false, error: 'Erro ao obter telemetria solar', details: error.message });
+  }
+});
+
+// POST /solarz/sync/:clientId - Sincroniza telemetria do SolarZ para um cliente instalado
+router.post(['/solarz/sync/:clientId', '/api/portal/solarz/sync/:clientId'], async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const { ucCode } = req.body;
+    const result = await syncClientWithSolarZ(clientId, ucCode);
+    res.json(result);
+  } catch (error) {
+    console.error('[SOLARZ] Erro na rota de sincronização:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

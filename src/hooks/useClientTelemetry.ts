@@ -18,11 +18,13 @@ export interface ClientTelemetryData {
   install_start_date?: string;
   system_size_kw: number;
   monthly_generation_kwh: number;
+  expected_monthly_kwh: number;
   total_savings_brl: number;
   chart_data: TelemetryChartPoint[];
   system_health: string;
   last_maintenance_date: string;
   next_maintenance_date: string;
+  is_installed: boolean;
 }
 
 export type ClientIntelligence = ClientTelemetryData;
@@ -69,15 +71,18 @@ export function useClientTelemetry(clientId?: string | null) {
         if (response.ok) {
           const data = await response.json();
           if (data && data.success) {
+            const sysKw = Number(data.system_size_kw) || 6.6;
             return {
-              system_size_kw: Number(data.system_size_kw) || 6.6,
+              system_size_kw: sysKw,
               monthly_generation_kwh: Number(data.monthly_generation_kwh) || 0,
+              expected_monthly_kwh: Number(data.expected_monthly_kwh) || Math.round(sysKw * 5.4 * 30 * 0.78),
               total_savings_brl: Number(data.total_savings_brl) || 0,
               chart_data: (data.chart_data as TelemetryChartPoint[]) || [],
               system_health: data.system_health || 'Operação Normal - Eficiência 98%',
               last_maintenance_date: data.last_maintenance_date || '2026-08-10',
               next_maintenance_date: data.next_maintenance_date || '2027-02-10',
               client_name: client?.name || 'Cliente',
+              is_installed: Boolean(data.is_installed),
             };
           }
         }
@@ -115,8 +120,40 @@ export function useClientTelemetry(clientId?: string | null) {
         }
       } catch (e) {}
 
+      // 3. Verifica se a usina já está instalada e energizada (Fase 'finalizado')
+      let isInstalled = false;
+      try {
+        const { data: trackingRecords } = await withTimeout(
+          supabase
+            .from('project_tracking')
+            .select('phase, is_current, completed_at')
+            .eq('client_id', effectiveClientId),
+          1000
+        );
+        const currentPhase = trackingRecords?.find(t => t.is_current) || trackingRecords?.[0];
+        isInstalled = currentPhase?.phase === 'finalizado';
+      } catch (e) {}
+
       const systemSizeKw = Number(intelligence?.system_size_kw || client?.system_size_kw || 6.6);
       const expectedMonthlyGen = Math.round(systemSizeKw * 5.4 * 30 * 0.78);
+
+      // REGRA CRÍTICA DE PRODUTO: Se o sistema NÃO está instalado, NÃO deve haver geração nem economia acumulada
+      if (!isInstalled) {
+        return {
+          id: intelligence?.id,
+          client_name: intelligence?.client_name || client?.name || 'Cliente',
+          install_start_date: intelligence?.install_start_date,
+          system_size_kw: systemSizeKw,
+          monthly_generation_kwh: 0,
+          expected_monthly_kwh: expectedMonthlyGen,
+          total_savings_brl: 0,
+          chart_data: [],
+          system_health: 'Em Implantação · Aguardando Energização',
+          last_maintenance_date: '',
+          next_maintenance_date: '',
+          is_installed: false,
+        };
+      }
 
       let chartData: TelemetryChartPoint[] = [];
       let systemHealth = 'Operação Normal - Eficiência 98%';
@@ -184,11 +221,13 @@ export function useClientTelemetry(clientId?: string | null) {
         install_start_date: intelligence?.install_start_date,
         system_size_kw: systemSizeKw,
         monthly_generation_kwh: monthlyGenerationKwh,
+        expected_monthly_kwh: expectedMonthlyGen,
         total_savings_brl: totalSavingsBrl,
         chart_data: chartData,
         system_health: systemHealth,
         last_maintenance_date: lastMaintenanceDate,
         next_maintenance_date: nextMaintenanceDate,
+        is_installed: true,
       };
     },
     enabled: !!effectiveClientId,

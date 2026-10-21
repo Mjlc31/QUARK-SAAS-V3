@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   ShoppingBag, Zap, Truck, Shield, MessageCircle, X, LogOut, CheckCircle2, 
   Loader2, Gift, Users, Send, Copy, Check, Droplets, Tag, ShieldCheck, 
-  Wrench, ArrowUpRight, ArrowDownLeft, Clock, AlertTriangle, Sparkles, Award
+  Wrench, ArrowUpRight, ArrowDownLeft, Clock, AlertTriangle, Sparkles, Award, ArrowLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -85,6 +85,13 @@ const PortalEcommerce: React.FC = () => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     }
+  };
+
+  const handleShareWhatsAppReferral = () => {
+    const text = encodeURIComponent(
+      `Oi! Instalei energia solar com a Quark Energia e estou tendo uma excelente experiência. Eles estão com condições especiais para quem eu indicar! Fale com o time de especialistas pelo WhatsApp usando meu código *${referralCode}*: https://wa.me/5582994241835`
+    );
+    window.open(`https://wa.me/?text=${text}`, '_blank');
   };
 
   const handleLogout = async () => {
@@ -181,40 +188,18 @@ const PortalEcommerce: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#090d16] text-zinc-200 font-sans pb-16">
-      {/* Top Header */}
-      <header className="sticky top-0 z-50 bg-[#0c1222]/90 backdrop-blur-xl border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div 
-            className="flex items-center gap-3 cursor-pointer group" 
-            onClick={() => navigate('/portal/dashboard')}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8">
+        {/* Breadcrumb / Navegação */}
+        <div className="flex items-center gap-2 mb-6 text-xs text-zinc-400">
+          <button 
+            onClick={() => navigate('/portal')}
+            className="hover:text-lime-400 transition-colors flex items-center gap-1 font-medium"
           >
-            <div className="w-8 h-8 rounded-lg bg-lime-500/20 flex items-center justify-center border border-lime-500/40 text-lime-400 font-display font-bold group-hover:scale-105 transition-transform">
-              Q
-            </div>
-            <span className="font-display font-bold text-white tracking-tight hidden sm:block">
-              Portal Quark Energia
-            </span>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={() => navigate('/portal/dashboard')}
-              className="text-xs font-medium text-zinc-400 hover:text-white transition-colors"
-            >
-              Voltar ao Dashboard
-            </button>
-            <button 
-              onClick={handleLogout} 
-              className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
-              title="Sair do Portal"
-            >
-              <LogOut size={18} />
-            </button>
-          </div>
+            <ArrowLeft size={14} /> Início
+          </button>
+          <span>/</span>
+          <span className="text-zinc-200 font-semibold">Loja & Fidelidade (Quark Points)</span>
         </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
         {/* Title & Introduction */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8">
           <div>
@@ -279,6 +264,15 @@ const PortalEcommerce: React.FC = () => {
                 >
                   {copied ? <Check size={14} className="text-lime-400" /> : <Copy size={14} />}
                   {copied ? 'Copiado!' : 'Copiar'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleShareWhatsAppReferral}
+                  className="px-3.5 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 shrink-0"
+                  title="Compartilhar no WhatsApp"
+                >
+                  <MessageCircle size={14} className="text-emerald-400" />
+                  WhatsApp
                 </button>
               </div>
             </div>

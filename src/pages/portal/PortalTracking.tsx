@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   MapPin, CheckCircle2, Clock, Calendar, Navigation, LogOut, 
-  Headphones, Zap, ArrowLeft, ShieldCheck, Sparkles 
+  Headphones, Zap, ArrowLeft, ShieldCheck, Sparkles, FileText, Download, MessageSquare, ExternalLink
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -136,13 +136,27 @@ const PortalTracking: React.FC = () => {
               Transparência total em cada etapa do seu projeto de energia solar.
             </p>
           </div>
-          <button 
-            onClick={() => navigate('/portal/tickets')}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-xl border border-white/10 transition-colors text-xs sm:text-sm font-semibold active:scale-95 shadow-sm"
-          >
-            <Headphones size={16} className="text-lime-400" />
-            Falar com a Engenharia
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => {
+                const text = encodeURIComponent(
+                  `Olá engenharia Quark! Sou ${clientName} e gostaria de informações sobre a etapa "${currentPhase.label}" da minha obra de ${systemSize}.`
+                );
+                window.open(`https://wa.me/5582994241835?text=${text}`, '_blank');
+              }}
+              className="flex items-center gap-2 px-3.5 py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-xl border border-emerald-500/30 transition-colors text-xs sm:text-sm font-semibold active:scale-95 shadow-sm"
+            >
+              <MessageSquare size={16} />
+              Engenharia via WhatsApp
+            </button>
+            <button 
+              onClick={() => navigate('/portal/tickets')}
+              className="flex items-center gap-2 px-3.5 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-xl border border-white/10 transition-colors text-xs sm:text-sm font-semibold active:scale-95 shadow-sm"
+            >
+              <Headphones size={16} className="text-lime-400" />
+              Abrir Chamado
+            </button>
+          </div>
         </div>
 
         {/* Destaque da Fase Atual */}
@@ -288,6 +302,80 @@ const PortalTracking: React.FC = () => {
                   </p>
                 </div>
               </motion.div>
+            ))}
+          </div>
+        </div>
+
+        {/* Cofre de Documentos da Obra */}
+        <div className="mt-8 glass-panel p-6 sm:p-8 rounded-2xl border border-white/5">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
+            <div>
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <FileText size={20} className="text-lime-400" />
+                Cofre de Documentos do Projeto
+              </h3>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                Acesse a documentação técnica, laudos de homologação e garantias da sua usina
+              </p>
+            </div>
+            <span className="text-[11px] text-zinc-500 font-mono bg-zinc-900 px-3 py-1 rounded-full border border-white/5">
+              4 documentos registrados
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {[
+              {
+                title: 'Projeto Elétrico & Diagrama',
+                category: 'Engenharia',
+                desc: 'Diagrama unifilar, memorial descritivo e planta de locação dos módulos.',
+                action: 'Solicitar PDF',
+              },
+              {
+                title: 'Parecer de Acesso Equatorial',
+                category: 'Concessionária',
+                desc: 'Documento oficial autorizando a conexão e conexão à rede de distribuição.',
+                action: 'Solicitar Cópia',
+              },
+              {
+                title: 'ART de Execução (CREA/CFT)',
+                category: 'Engenheiro Responsável',
+                desc: 'Anotação de Responsabilidade Técnica com assinatura digital do engenheiro.',
+                action: 'Solicitar ART',
+              },
+              {
+                title: 'Nota Fiscal & Garantias',
+                category: 'Faturamento',
+                desc: 'NF-e dos módulos e inversor com certificado de garantia de 12 a 25 anos.',
+                action: 'Solicitar NF-e',
+              },
+            ].map((doc, idx) => (
+              <div 
+                key={idx}
+                className="p-4 rounded-xl bg-zinc-950/60 border border-white/5 hover:border-lime-500/30 transition-all flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex justify-between items-start gap-2 mb-2">
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-lime-400 bg-lime-500/10 px-2 py-0.5 rounded-md">
+                      {doc.category}
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-bold text-white mb-1">{doc.title}</h4>
+                  <p className="text-xs text-zinc-400 leading-relaxed mb-4">{doc.desc}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const text = encodeURIComponent(
+                      `Olá equipe Quark! Gostaria de receber o documento "${doc.title}" do meu projeto (${clientName}).`
+                    );
+                    window.open(`https://wa.me/5582994241835?text=${text}`, '_blank');
+                  }}
+                  className="w-full py-2 px-3 rounded-lg bg-white/5 hover:bg-lime-500 hover:text-black border border-white/10 text-xs font-semibold text-zinc-200 transition-all flex items-center justify-center gap-1.5 active:scale-98"
+                >
+                  <Download size={13} /> {doc.action} via WhatsApp
+                </button>
+              </div>
             ))}
           </div>
         </div>

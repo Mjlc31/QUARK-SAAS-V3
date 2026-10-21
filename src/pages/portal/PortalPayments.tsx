@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   CreditCard, ShieldCheck, Zap, Droplets, PenTool as Tool, LogOut, 
-  CheckCircle2, ChevronDown, Loader2, Calendar, Clock, AlertCircle, Wrench
+  CheckCircle2, ChevronDown, Loader2, Calendar, Clock, AlertCircle, Wrench, ArrowLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -60,11 +60,6 @@ const mockServices = [
   },
 ];
 
-const fallbackHistory = [
-  { id: 'INV-001', service_type: 'limpeza', created_at: '2026-05-10T10:00:00Z', price: 250, status: 'concluido', notes: 'Limpeza semestral de 12 módulos' },
-  { id: 'INV-002', service_type: 'manutencao', created_at: '2025-12-15T14:30:00Z', price: 350, status: 'concluido', notes: 'Revisão preventiva de inversores' },
-];
-
 const PortalPayments: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -100,7 +95,7 @@ const PortalPayments: React.FC = () => {
       } catch (e) {}
 
       if (!client?.id && !client?.name) {
-        return localList.length > 0 ? localList : fallbackHistory;
+        return localList;
       }
 
       try {
@@ -131,7 +126,7 @@ const PortalPayments: React.FC = () => {
         console.warn('[PortalPayments] Falha ao carregar serviços remotos:', err);
       }
 
-      return localList.length > 0 ? localList : fallbackHistory;
+      return localList;
     },
     enabled: true,
   });
@@ -317,37 +312,18 @@ const PortalPayments: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#090d16] text-zinc-200 font-sans pb-16">
-      {/* Top Header */}
-      <header className="sticky top-0 z-50 bg-[#0c1222]/90 backdrop-blur-xl border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/portal/dashboard')}>
-            <div className="w-8 h-8 rounded-lg bg-lime-500/20 flex items-center justify-center border border-lime-500/40 text-lime-400 font-display font-bold">
-              Q
-            </div>
-            <span className="font-display font-bold text-white tracking-tight hidden sm:block">
-              Portal Quark Energia
-            </span>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={() => navigate('/portal/dashboard')}
-              className="text-xs font-medium text-zinc-400 hover:text-white transition-colors"
-            >
-              Voltar ao Dashboard
-            </button>
-            <button 
-              onClick={handleLogout} 
-              className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
-              title="Sair do Portal"
-            >
-              <LogOut size={18} />
-            </button>
-          </div>
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8 space-y-10">
+        {/* Breadcrumb / Navegação */}
+        <div className="flex items-center gap-2 text-xs text-zinc-400">
+          <button 
+            onClick={() => navigate('/portal')}
+            className="hover:text-lime-400 transition-colors flex items-center gap-1 font-medium"
+          >
+            <ArrowLeft size={14} /> Início
+          </button>
+          <span>/</span>
+          <span className="text-zinc-200 font-semibold">Serviços & Manutenção</span>
         </div>
-      </header>
-
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-8 space-y-10">
         <div>
           <h1 className="text-2xl sm:text-3xl font-display font-bold text-white tracking-tight flex items-center gap-3 mb-2">
             <div className="p-2 bg-blue-500/10 text-blue-400 rounded-xl border border-blue-500/20">
@@ -442,8 +418,9 @@ const PortalPayments: React.FC = () => {
                       </tr>
                     ) : servicesHistory.length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="py-6 text-center text-zinc-500">
-                          Nenhum serviço solicitado ainda.
+                        <td colSpan={4} className="py-8 text-center text-zinc-400">
+                          <p className="text-sm font-semibold text-zinc-300">Nenhum serviço contratado ainda</p>
+                          <p className="text-xs text-zinc-500 mt-1 max-w-sm mx-auto">Quando você agendar limpezas técnicas ou revisões preventivas, o histórico e laudos aparecerão aqui.</p>
                         </td>
                       </tr>
                     ) : (
