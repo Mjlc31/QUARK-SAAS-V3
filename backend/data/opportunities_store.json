@@ -1,11 +1,45 @@
 [
   {
+    "id": "opp_gabriel_conde_39",
+    "title": "Gabriel Conde",
+    "status": "Proposta",
+    "amount": 17486.72,
+    "phone": "(82) 99981-1566",
+    "email": "gabrielconde@gmail.com",
+    "city": "Maceió - AL",
+    "services": [
+      "solar"
+    ],
+    "source": "Catálogo de Clientes",
+    "temperature": "quente",
+    "notes": "Orçamento solar #4211 / #39 de 8.06 kWp (R$ 17.486,72).",
+    "created_at": "2026-10-22T03:17:35.534Z",
+    "updated_at": "2026-10-22T03:17:35.534Z"
+  },
+  {
+    "id": "opp_cassiano_41",
+    "title": "Cassiano Victor de Moraes Belo Neto",
+    "status": "Proposta",
+    "amount": 37647,
+    "phone": "(82) 99915-5848",
+    "email": "cvmbneto@hotmail.com",
+    "city": "Maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "Catálogo de Clientes",
+    "temperature": "quente",
+    "notes": "Orçamento solar #41 de 16.50 kWp (R$ 37.647,00) gerado.",
+    "created_at": "2026-10-22T03:17:35.533Z",
+    "updated_at": "2026-10-22T03:17:35.534Z"
+  },
+  {
     "id": "opp_1792625783875",
-    "title": "Hugo Ferro",
-    "status": "Qualificado",
-    "amount": 0,
-    "phone": null,
-    "email": null,
+    "title": "Jose Hugo Ferro",
+    "status": "Proposta",
+    "amount": 17626.7,
+    "phone": "(82) 99689-0002",
+    "email": "hugo.ferro@email.com",
     "city": "Maceió",
     "services": [
       "solar"
@@ -14,7 +48,7 @@
     "temperature": "quente",
     "avg_bill": null,
     "consumption_kwh": 1000,
-    "notes": null,
+    "notes": "Orçamento solar #4212 / #40 (8.06 kWp).",
     "created_at": "2026-10-21T23:36:23.875Z",
     "updated_at": "2026-10-22T00:42:53.544Z"
   },
@@ -351,10 +385,10 @@
   },
   {
     "id": "opp_0126",
-    "title": "Flexeiras",
+    "title": "Luiz Flexeiras",
     "status": "Qualificado",
     "amount": 24000,
-    "phone": "82999999999",
+    "phone": "(82) 99999-9999",
     "city": "Flexeiras",
     "services": [
       "solar"
@@ -362,7 +396,9 @@
     "source": "CRM",
     "temperature": "morno",
     "created_at": "2026-10-15T10:00:00.000Z",
-    "updated_at": "2026-10-21T23:24:42.212Z"
+    "updated_at": "2026-10-21T23:24:42.212Z",
+    "email": "luiz.flexeiras@email.com",
+    "notes": "Cliente cadastrado no Catálogo e no CRM."
   },
   {
     "id": "opp_0127",

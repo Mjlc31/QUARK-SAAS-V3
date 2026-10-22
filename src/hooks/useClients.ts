@@ -145,6 +145,8 @@ export const SAMPLE_CLIENTS: ClientData[] = [
 /** Helper para extrair apenas dígitos */
 const onlyDigits = (str?: string | null): string => (typeof str === 'string' ? str.replace(/\D/g, '') : '');
 
+const KNOWN_MOCK_CLIENT_IDS = new Set(['cli_luanda_001', 'cli_clinica_002']);
+
 /** Mescla clientes remotos e em cache local sem jamais perder cadastros recentes */
 function mergeClientsList(remote: ClientData[], cached: ClientData[], includeDeleted: boolean): ClientData[] {
   const map = new Map<string, ClientData>();
@@ -156,32 +158,24 @@ function mergeClientsList(remote: ClientData[], cached: ClientData[], includeDel
     }
   }
 
-  // 2. Preserva apenas clientes criados explicitamente de forma local (offline / pendente de sincronização)
+  // 2. Preserva todos os clientes locais cadastrados pelo usuário sem perder dados
   for (const c of cached) {
     if (!c || !c.id) continue;
-    // Ignora oportunidades do CRM que porventura estiverem no cache
+    // Ignora apenas mocks clássicos de demonstração
+    if (KNOWN_MOCK_CLIENT_IDS.has(c.id) || c.id.startsWith('sample_')) continue;
     if (c.id.startsWith('cli_opp_') || c.id.startsWith('opp_')) continue;
 
-    // Ignora registros de mock ou amostras antigas
-    if (c.id.startsWith('cli_') || c.id.startsWith('sample_')) continue;
-
-    // Registros que eram do banco (UUID) mas não constam mais em remote foram excluídos/mesclados no banco.
-    // Apenas mantemos itens temporários locais não sincronizados (temp_ ou local_)
-    const isLocalPending = c.id.startsWith('temp_') || c.id.startsWith('local_');
-    if (!isLocalPending) continue;
-
     if (!map.has(c.id)) {
-      // Verifica se há correspondência por CPF limpo, email ou nome idêntico para não duplicar
+      // Verifica se há correspondência por CPF limpo ou email idêntico para não duplicar
       const cCpfDigits = onlyDigits(c.cpf);
       const cEmail = c.email?.trim().toLowerCase();
       const existingMatch = Array.from(map.values()).find(r => {
         if (cCpfDigits && cCpfDigits.length >= 11 && onlyDigits(r.cpf) === cCpfDigits) return true;
         if (cEmail && r.email?.trim().toLowerCase() === cEmail) return true;
-        if (c.name && r.name && c.name.trim().toLowerCase() === r.name.trim().toLowerCase()) return true;
         return false;
       });
 
-      // Só insere se não houver correspondência com cliente já existente
+      // Se não existe correspondente remoto, preserva o cliente localmente
       if (!existingMatch) {
         map.set(c.id, c);
       }
