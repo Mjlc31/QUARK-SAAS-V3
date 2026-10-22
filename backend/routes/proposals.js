@@ -123,7 +123,7 @@ router.post('/', async (req, res) => {
     const list = readStore();
 
     const id = body.id || `prop_${Date.now()}`;
-    const nextNumber = body.number || (list.reduce((max, p) => Math.max(max, Number(p.number) || 0), 4210) + 1);
+    const nextNumber = body.number || (list.reduce((max, p) => Math.max(max, Number(p.number) || 0), 41) + 1);
     const publicToken = body.public_token || `tok_${Math.random().toString(36).slice(2, 10)}`;
 
     const proposal = {

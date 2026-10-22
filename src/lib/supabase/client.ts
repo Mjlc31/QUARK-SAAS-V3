@@ -10,9 +10,20 @@ export interface StoredProposal extends Proposal {
 
 export const INITIAL_PROPOSALS: StoredProposal[] = [];
 
-function filterRealProposals(list: any[]): StoredProposal[] {
+const MOCK_PROPOSAL_NUMBERS = new Set([4202, 4203, 4204, 4205, 4206, 4207, 4208, 4209, 4210, 4211, 4212]);
+
+export function filterRealProposals(list: any[]): StoredProposal[] {
   if (!Array.isArray(list)) return [];
-  return list.filter(p => p && p.id && !p.deleted_at);
+  return list.filter(p => {
+    if (!p || !p.id || p.deleted_at) return false;
+    const num = Number(p.number);
+    if (MOCK_PROPOSAL_NUMBERS.has(num)) return false;
+    const name = `${p.client_name || ''} ${p.lead?.name || ''} ${p.title || ''}`.toLowerCase();
+    if (name.includes('haroldo mendonça') || name.includes('santo antônio de pádua') || name.includes('samuel vasconcelos - sítio')) {
+      return false;
+    }
+    return true;
+  });
 }
 
 function resolveLeadForProposal(leadId?: string | null): any {
@@ -211,9 +222,10 @@ class ProposalMutationBuilder {
     const list = getStoredProposals();
 
     if (this.mode === "insert") {
-      let nextNumber = 4220;
+      let nextNumber = 42;
       if (list.length > 0) {
-        const maxNum = Math.max(...list.map(p => Number(p.number) || 0));
+        const validNumbers = list.map(p => Number(p.number) || 0).filter(n => n < 1000);
+        const maxNum = validNumbers.length > 0 ? Math.max(...validNumbers) : 41;
         nextNumber = maxNum + 1;
       }
       const newProp: StoredProposal = {

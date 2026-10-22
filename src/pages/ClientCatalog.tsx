@@ -1582,17 +1582,17 @@ export default function ClientCatalog() {
 
         {/* ─── MODAL DE NOVO CLIENTE / EDIÇÃO ─── */}
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
-            <div className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto shadow-2xl flex flex-col custom-scrollbar animate-fade-scale">
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex min-h-full items-center justify-center p-3 sm:p-4 animate-fade-in">
+            <div className="relative bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-2xl my-auto shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-fade-scale">
               
               {/* Header do Modal */}
-              <div className="p-6 border-b border-zinc-800 flex justify-between items-center sticky top-0 bg-zinc-950/90 backdrop-blur-md z-10">
+              <div className="p-5 sm:p-6 border-b border-zinc-800 flex justify-between items-center bg-zinc-950 shrink-0 z-10">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-lime-500/10 rounded-xl text-lime-400 border border-lime-500/20">
                     <User className="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-white font-display">
+                    <h2 className="text-lg sm:text-xl font-bold text-white font-display">
                       {editingClient ? 'Editar Cliente' : 'Adicionar Novo Cliente'}
                     </h2>
                     <p className="text-xs text-zinc-400">
@@ -1609,8 +1609,9 @@ export default function ClientCatalog() {
                 </button>
               </div>
               
-              {/* Formulário */}
-              <form onSubmit={handleSubmit} className="p-6 space-y-6 flex-1">
+              {/* Formulário com corpo rolável e rodapé fixo */}
+              <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden min-h-0">
+                <div className="p-5 sm:p-6 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
                 
                 {/* 1. Dados Pessoais */}
                 <div className="space-y-4">
@@ -1832,9 +1833,10 @@ export default function ClientCatalog() {
                     className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:border-lime-500 outline-none transition-colors resize-none"
                   />
                 </div>
+              </div>
 
-                {/* Botões do Formulário */}
-                <div className="pt-4 border-t border-zinc-800 flex justify-end gap-3 sticky bottom-0 bg-zinc-950/90 py-2">
+              {/* Botões do Formulário (Rodapé Fixo) */}
+                <div className="p-4 sm:p-5 border-t border-zinc-800 flex justify-end gap-3 bg-zinc-950 shrink-0">
                   <button 
                     type="button"
                     onClick={() => setIsModalOpen(false)}
@@ -1845,7 +1847,7 @@ export default function ClientCatalog() {
                   <button 
                     type="submit"
                     disabled={isSubmitting}
-                    className="px-6 py-2.5 bg-lime-500 hover:bg-lime-400 text-zinc-950 font-bold rounded-xl text-xs transition-all shadow-lg shadow-lime-500/20 disabled:opacity-50 flex items-center gap-2"
+                    className="px-6 py-2.5 bg-lime-500 hover:bg-lime-400 text-zinc-950 font-bold rounded-xl text-xs transition-all shadow-lg shadow-lime-500/20 disabled:opacity-50 flex items-center gap-2 cursor-pointer"
                   >
                     {isSubmitting ? (
                       <>

@@ -169,6 +169,8 @@ router.post('/', async (req, res) => {
       utility_company: body.utility_company?.trim() || 'Equatorial',
       utility_account: body.utility_account?.trim() || null,
       system_size_kw: sanitizeNumber(body.system_size_kw),
+      contract_value: sanitizeNumber(body.contract_value ?? body.system_cost),
+      system_cost: sanitizeNumber(body.contract_value ?? body.system_cost),
       install_date,
       monthly_avg_kwh: sanitizeNumber(body.monthly_avg_kwh),
       notes: body.notes?.trim() || null,
@@ -178,11 +180,13 @@ router.post('/', async (req, res) => {
     // 1. Verifica se já existe cliente com mesmo CPF ou Email
     let existingId = null;
     if (cpf) {
-      const { data: byCpf } = await supabase
-        .from('client_portal_users')
-        .select('id, name')
-        .or(`cpf.eq.${cpf},cpf.eq.${rawCpf}`)
-        .maybeSingle();
+      let q = supabase.from('client_portal_users').select('id, name');
+      if (rawCpf && rawCpf !== cpf) {
+        q = q.in('cpf', [cpf, rawCpf]);
+      } else {
+        q = q.eq('cpf', cpf);
+      }
+      const { data: byCpf } = await q.maybeSingle();
       if (byCpf) existingId = byCpf.id;
     }
 
@@ -278,6 +282,11 @@ router.put('/:id', async (req, res) => {
     if (body.utility_company !== undefined) updates.utility_company = body.utility_company ? body.utility_company.trim() : null;
     if (body.utility_account !== undefined) updates.utility_account = body.utility_account ? body.utility_account.trim() : null;
     if (body.system_size_kw !== undefined) updates.system_size_kw = sanitizeNumber(body.system_size_kw);
+    if (body.contract_value !== undefined || body.system_cost !== undefined) {
+      const cVal = sanitizeNumber(body.contract_value ?? body.system_cost);
+      updates.contract_value = cVal;
+      updates.system_cost = cVal;
+    }
     if (body.install_date !== undefined) updates.install_date = body.install_date ? body.install_date.trim() : null;
     if (body.monthly_avg_kwh !== undefined) updates.monthly_avg_kwh = sanitizeNumber(body.monthly_avg_kwh);
     if (body.notes !== undefined) updates.notes = body.notes ? body.notes.trim() : null;

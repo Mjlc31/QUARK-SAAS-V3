@@ -13,7 +13,7 @@ import { must, useLive } from "@/lib/live";
 import { brl, fmtNum } from "@/lib/pricing";
 import { downloadCsv, today } from "@/lib/csv";
 import { Mantra } from "@/components/app/mantra";
-import { supabase } from "@/lib/supabase/client";
+import { supabase, filterRealProposals } from "@/lib/supabase/client";
 import { ViewsPill } from "@/components/ProposalViews";
 import { fetchProposalViews, type ProposalView } from "@/lib/proposal-tracking";
 import type { Product, Proposal, ProposalStatus } from "@/lib/types";
@@ -48,7 +48,11 @@ function Proposals() {
       const raw = localStorage.getItem("quark_proposals_cache");
       if (raw) {
         const list = JSON.parse(raw);
-        return list.filter((p: any) => !p.deleted_at);
+        const clean = filterRealProposals(list);
+        if (clean.length !== list.length) {
+          localStorage.setItem("quark_proposals_cache", JSON.stringify(clean));
+        }
+        return clean;
       }
     } catch (_) {}
     return [];
@@ -59,7 +63,7 @@ function Proposals() {
       const res = await supabase().from("proposals").select("*").order("created_at", { ascending: false }).limit(100);
       if (res.error) throw res.error;
       const rawProposals = res.data || [];
-      const proposals = rawProposals.filter((p: any) => !p.deleted_at);
+      const proposals = filterRealProposals(rawProposals);
       const leadIds = [...new Set(proposals.map((p) => p.lead_id).filter(Boolean))];
       
       const [leadsRes, views] = await Promise.all([
@@ -71,7 +75,7 @@ function Proposals() {
 
       return proposals.map((p: any) => {
         const linkedLead = leadsMap.get(p.lead_id);
-        const name = p.title || linkedLead?.title || p.client_name || p.data?.clientName || 'Sem nome';
+        const name = p.client_name || p.title || linkedLead?.title || p.data?.clientName || 'Sem nome';
         return {
           ...p,
           views: views.filter((v) => v.proposal_id === String(p.id)),

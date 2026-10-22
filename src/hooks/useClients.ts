@@ -354,7 +354,7 @@ export function useCreateClient() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
           }),
-          8000
+          2000
         );
 
         if (apiRes.ok) {
@@ -384,36 +384,42 @@ export function useCreateClient() {
         // Verifica se já existe por CPF ou email antes de inserir
         let existingId: string | null = null;
         if (formattedCpf) {
-          const { data: existing } = await supabase
-            .from('client_portal_users')
-            .select('id')
-            .eq('cpf', formattedCpf)
-            .maybeSingle();
+          const { data: existing } = await withTimeout(
+            Promise.resolve(supabase
+              .from('client_portal_users')
+              .select('id')
+              .eq('cpf', formattedCpf)
+              .maybeSingle()),
+            1500
+          ).catch(() => ({ data: null }));
           if (existing) existingId = existing.id;
         }
 
         if (!existingId && cleanEmail) {
-          const { data: existing } = await supabase
-            .from('client_portal_users')
-            .select('id')
-            .eq('email', cleanEmail)
-            .maybeSingle();
+          const { data: existing } = await withTimeout(
+            Promise.resolve(supabase
+              .from('client_portal_users')
+              .select('id')
+              .eq('email', cleanEmail)
+              .maybeSingle()),
+            1500
+          ).catch(() => ({ data: null }));
           if (existing) existingId = existing.id;
         }
 
         if (existingId) {
           const { data: updated, error: updErr } = await withTimeout(
             Promise.resolve(supabase.from('client_portal_users').update(payload).eq('id', existingId).select().single()),
-            10000
-          );
+            2000
+          ).catch(() => ({ data: null, error: true }));
           if (!updErr && updated) {
             return updated as ClientData;
           }
         } else {
           const { data: inserted, error: insErr } = await withTimeout(
             Promise.resolve(supabase.from('client_portal_users').insert(payload).select().single()),
-            10000
-          );
+            2000
+          ).catch(() => ({ data: null, error: true }));
           if (!insErr && inserted) {
             return inserted as ClientData;
           }
@@ -557,7 +563,7 @@ export function useUpdateClient() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
           }),
-          6000
+          2000
         );
         if (res.ok) {
           const json = await res.json();
@@ -569,8 +575,8 @@ export function useUpdateClient() {
       try {
         const { data, error } = await withTimeout(
           Promise.resolve(supabase.from('client_portal_users').update(payload).eq('id', id).select().single()),
-          8000
-        );
+          2000
+        ).catch(() => ({ data: null, error: true }));
         if (!error && data) return data as ClientData;
       } catch (e) {
         console.warn('[useUpdateClient] Atualizado localmente no cache offline:', e);
