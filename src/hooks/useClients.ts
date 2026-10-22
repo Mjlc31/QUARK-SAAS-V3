@@ -425,42 +425,23 @@ export function useCreateClient() {
       return savedClient;
     },
     onSuccess: (saved) => {
-      // 1. Sincroniza com CRM em localStorage (coluna Ganho)
-      const contractAmount = saved.contract_value || saved.system_cost || (saved.system_size_kw ? Math.round(saved.system_size_kw * 3800) : 25000);
+      // 1. Sincroniza com CRM no Supabase (coluna Ganho)
+      const contractAmount = saved.contract_value || saved.system_cost || (saved.system_size_kw ? Math.round(saved.system_size_kw * 3800) : 0);
       try {
-        const oppsRaw = localStorage.getItem('quark_opportunities');
-        const opps: any[] = oppsRaw ? JSON.parse(oppsRaw) : [];
-        const oppId = `opp_cli_${saved.id}`;
-        const newOpp = {
-          id: oppId,
-          title: saved.name,
-          status: 'Ganho',
-          amount: contractAmount,
-          phone: saved.phone || null,
-          email: saved.email || null,
-          cpf_cnpj: saved.cpf || null,
-          city: saved.city || 'Maceió',
-          services: ['solar'],
-          source: 'Catálogo de Clientes',
-          temperature: 'quente',
-          notes: `Cliente cadastrado no Catálogo (${saved.system_size_kw || 0} kWp). CPF: ${saved.cpf || 'Não informado'}.`,
-          created_at: saved.install_date ? new Date(saved.install_date).toISOString() : new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-        const idx = opps.findIndex(o => o.id === oppId || (o.title && o.title.toLowerCase() === saved.name.toLowerCase()));
-        if (idx !== -1) {
-          opps[idx] = { ...opps[idx], ...newOpp, status: 'Ganho', amount: contractAmount };
-        } else {
-          opps.unshift(newOpp);
-        }
-        localStorage.setItem('quark_opportunities', JSON.stringify(opps));
-
-        // Remove do conjunto de deletados se estivesse
-        const delRaw = localStorage.getItem('quark_deleted_opportunities');
-        if (delRaw) {
-          const delList: string[] = JSON.parse(delRaw);
-          const filtered = delList.filter(d => d !== oppId && d !== saved.id);
-          localStorage.setItem('quark_deleted_opportunities', JSON.stringify(filtered));
+        if (contractAmount > 0 || saved.name) {
+          Promise.resolve(
+            supabase.from('opportunities').upsert({
+              title: saved.name,
+              status: 'Ganho',
+              amount: contractAmount,
+              phone: saved.phone || null,
+              email: saved.email || null,
+              cpf_cnpj: saved.cpf || null,
+              city: saved.city || 'Maceió',
+              notes: `Cliente cadastrado no Catálogo (${saved.system_size_kw || 0} kWp). CPF: ${saved.cpf || 'Não informado'}.`,
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'id' })
+          ).catch(() => {});
         }
       } catch (_) {}
 
@@ -579,20 +560,18 @@ export function useUpdateClient() {
       return { id, ...payload } as ClientData;
     },
     onSuccess: (updated) => {
-      // Atualiza também CRM e Financeiro locais caso valor ou nome tenham mudado
+      // Atualiza também CRM e Financeiro caso valor ou nome tenham mudado
       if (updated.contract_value || updated.system_cost) {
         const contractAmount = updated.contract_value || updated.system_cost || 0;
         try {
-          const oppsRaw = localStorage.getItem('quark_opportunities');
-          if (oppsRaw) {
-            const opps: any[] = JSON.parse(oppsRaw);
-            const oppId = `opp_cli_${updated.id}`;
-            const idx = opps.findIndex(o => o.id === oppId || (o.title && o.title.toLowerCase() === updated.name.toLowerCase()));
-            if (idx !== -1) {
-              opps[idx].amount = contractAmount;
-              if (updated.name) opps[idx].title = updated.name;
-              localStorage.setItem('quark_opportunities', JSON.stringify(opps));
-            }
+          if (updated.opportunity_id) {
+            Promise.resolve(
+              supabase.from('opportunities').update({
+                amount: contractAmount,
+                ...(updated.name ? { title: updated.name } : {}),
+                updated_at: new Date().toISOString()
+              }).eq('id', updated.opportunity_id)
+            ).catch(() => {});
           }
         } catch (_) {}
 

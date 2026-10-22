@@ -17,22 +17,6 @@ import { recordXpEvent } from "../lib/gamification";
 
 const PROPOSAL_LABEL: Record<string, string> = { rascunho: "Rascunho", enviada: "Enviada", visualizada: "Visualizada", aceita: "Aceita", recusada: "Recusada" };
 
-function getDeletedOppIds(): Set<string> {
-  try {
-    const raw = localStorage.getItem("quark_deleted_opportunities");
-    if (raw) return new Set(JSON.parse(raw).map(String));
-  } catch (_) {}
-  return new Set();
-}
-
-function recordDeletedOppIds(ids: string[]) {
-  try {
-    const current = getDeletedOppIds();
-    ids.forEach((id) => current.add(String(id)));
-    localStorage.setItem("quark_deleted_opportunities", JSON.stringify(Array.from(current)));
-  } catch (_) {}
-}
-
 interface CrmData {
   opps: Opportunity[];
   proposals: OppProposal[];
@@ -43,11 +27,10 @@ async function loadCrm(): Promise<CrmData> {
   let opps: Opportunity[] = [];
   let proposals: OppProposal[] = [];
   let views: ProposalView[] = [];
-  const deletedSet = getDeletedOppIds();
 
   try {
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Supabase query timeout")), 3000)
+      setTimeout(() => reject(new Error("Supabase query timeout")), 4000)
     );
 
     const queryPromise = Promise.all([
@@ -58,84 +41,24 @@ async function loadCrm(): Promise<CrmData> {
     const [oppRes, propRes] = await Promise.race([queryPromise, timeoutPromise]);
 
     if (oppRes.data && oppRes.data.length > 0) {
-      opps = (oppRes.data as Opportunity[]).filter(o => !deletedSet.has(String(o.id)) && !o.deleted_at);
+      opps = (oppRes.data as Opportunity[]).filter(o => !o.deleted_at);
     }
     if (propRes.data) {
       proposals = ((propRes.data ?? []) as any[]).map((p) => ({ ...p, inputs: { product: p.product } })) as OppProposal[];
       views = await fetchProposalViews(proposals.filter((p) => p.status !== "rascunho").map((p) => String(p.id)));
     }
   } catch (e) {
-    console.warn("⚠️ CRM: Falha ou timeout na conexão remota, carregando do cache offline:", e);
+    console.warn("⚠️ CRM: Timeout ou erro ao consultar Supabase, consultando backend:", e);
   }
 
-  // Merge com cache local de oportunidades (garante que leads criados localmente nunca sumam)
-  try {
-    const cached = localStorage.getItem("quark_opportunities");
-    if (cached) {
-      const localList: Opportunity[] = JSON.parse(cached);
-      const map = new Map<string, Opportunity>();
-      for (const o of opps) if (!deletedSet.has(String(o.id)) && !o.deleted_at) map.set(o.id, o);
-      for (const o of localList) {
-        if (!deletedSet.has(String(o.id)) && !o.deleted_at && !map.has(o.id)) map.set(o.id, o);
-      }
-      opps = Array.from(map.values());
-    }
-  } catch (_) {}
-
-  // Fallback / Enriquecimento com API de Oportunidades do backend
-  try {
-    const res = await fetch("/api/opportunities");
-    if (res.ok) {
-      const json = await res.json();
-      if (json.success && Array.isArray(json.opportunities) && json.opportunities.length > 0) {
-        const map = new Map<string, Opportunity>();
-        for (const o of json.opportunities) {
-          if (!deletedSet.has(String(o.id)) && !o.deleted_at) map.set(o.id, o);
-        }
-        // Oportunidades locais/remotas têm precedência se foram editadas
-        for (const o of opps) {
-          if (!deletedSet.has(String(o.id)) && !o.deleted_at) map.set(o.id, o);
-        }
-        opps = Array.from(map.values());
-        try {
-          localStorage.setItem("quark_opportunities", JSON.stringify(opps));
-        } catch (_) {}
-      }
-    }
-  } catch (_) {}
-
-  // Fallback 3: mapeamento resiliente a partir de 'quark_leads'
+  // Fallback seguro: se e apenas se a consulta remota direta não retornou oportunidades
   if (opps.length === 0) {
     try {
-      const leadsRaw = localStorage.getItem("quark_leads");
-      if (leadsRaw) {
-        const leads = JSON.parse(leadsRaw);
-        if (Array.isArray(leads) && leads.length > 0) {
-          opps = leads.map((l: any) => ({
-            id: String(l.id),
-            title: l.name || l.title || "Sem título",
-            phone: l.phone || "",
-            email: l.email || "",
-            city: l.city || "Maceió",
-            status:
-              l.status === "novo" || l.status === "Lead" ? "Lead" :
-              l.status === "contato" || l.status === "Qualificacao" || l.status === "visita" ? "Qualificado" :
-              l.status === "proposta" || l.status === "Proposta" ? "Proposta" :
-              l.status === "ganho" || l.status === "Ganho" ? "Ganho" :
-              l.status === "perdido" || l.status === "Perdido" ? "Perdido" : "Lead",
-            amount: Number(l.value || l.amount || l.estimated_value) || 0,
-            services: l.services || ["solar"],
-            source: l.source || "Manual",
-            temperature: l.temperature || "morno",
-            avg_bill: l.avg_bill || (l.monthlyConsumption ? l.monthlyConsumption * 0.95 : 650),
-            consumption_kwh: l.monthlyConsumption || l.consumption_kwh || 650,
-            notes: l.notes || "",
-            created_at: l.createdAt || l.created_at || new Date().toISOString(),
-            updated_at: l.updatedAt || l.updated_at || new Date().toISOString(),
-          }));
-          try {
-            localStorage.setItem("quark_opportunities", JSON.stringify(opps));
-          } catch (_) {}
+      const res = await fetch("/api/opportunities");
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.opportunities)) {
+          opps = (json.opportunities as Opportunity[]).filter(o => !o.deleted_at);
         }
       }
     } catch (_) {}
@@ -159,6 +82,15 @@ const CRM: React.FC = () => {
   const [lossReason, setLossReason] = useState("");
   const [linksOpen, setLinksOpen] = useState(false);
   const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
+
+  // Limpa qualquer cache poluído do localStorage para manter Supabase como fonte única da verdade
+  React.useEffect(() => {
+    try {
+      localStorage.removeItem("quark_opportunities");
+      localStorage.removeItem("quark_deleted_opportunities");
+      localStorage.removeItem("quark_leads");
+    } catch (_) {}
+  }, []);
 
   const handleToggleSelectLead = (id: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -203,10 +135,6 @@ const CRM: React.FC = () => {
       selectedLeadIds.has(o.id) ? { ...o, status: newStage } : o
     );
     setOpps(() => nextOpps);
-    try {
-      localStorage.setItem("quark_opportunities", JSON.stringify(nextOpps));
-    } catch (_) {}
-
     setSelectedLeadIds(new Set());
 
     Promise.allSettled(
@@ -232,12 +160,8 @@ const CRM: React.FC = () => {
     if (!confirm(`Excluir definitivamente os ${count} leads selecionados? Esta ação não pode ser desfeita.`)) return;
 
     const ids = Array.from(selectedLeadIds);
-    recordDeletedOppIds(ids);
     const nextOpps = opportunities.filter((o) => !selectedLeadIds.has(o.id));
     setOpps(() => nextOpps);
-    try {
-      localStorage.setItem("quark_opportunities", JSON.stringify(nextOpps));
-    } catch (_) {}
     setSelectedLeadIds(new Set());
     if (selectedId && ids.includes(selectedId)) setSelectedId(null);
 
@@ -315,9 +239,6 @@ const CRM: React.FC = () => {
     if (opp.status === status) return;
     const nextOpps = opportunities.map((o) => (o.id === opp.id ? { ...o, status, loss_reason: reason || o.loss_reason } : o));
     setOpps(() => nextOpps);
-    try {
-      localStorage.setItem("quark_opportunities", JSON.stringify(nextOpps));
-    } catch (_) {}
 
     if (status === "Ganho") await convertToClient(opp).catch(() => {});
 
@@ -331,10 +252,10 @@ const CRM: React.FC = () => {
     try {
       const { error } = await supabase.from("opportunities").update(updatePayload).eq("id", opp.id);
       if (error) {
-        console.warn("Supabase update error (salvo localmente):", error.message);
+        console.warn("Supabase update error:", error.message);
       }
     } catch (e) {
-      console.warn("Supabase offline, mantido localmente:", e);
+      console.warn("Supabase offline:", e);
     }
 
     try {
@@ -438,9 +359,6 @@ const CRM: React.FC = () => {
     if (updates.status && updates.status !== before.status) return executeStatusChange(before, updates.status);
     const nextOpps = opportunities.map((o) => (o.id === id ? { ...o, ...updates } : o));
     setOpps(() => nextOpps);
-    try {
-      localStorage.setItem("quark_opportunities", JSON.stringify(nextOpps));
-    } catch (_) {}
     fetch(`/api/opportunities/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -448,29 +366,25 @@ const CRM: React.FC = () => {
     }).catch(() => {});
     try {
       const { error } = await supabase.from("opportunities").update(updates).eq("id", id);
-      if (error) console.warn("Supabase update error (salvo localmente):", error.message);
+      if (error) console.warn("Supabase update error:", error.message);
     } catch (e) {
-      console.warn("Supabase offline, mantido localmente:", e);
+      console.warn("Supabase offline:", e);
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Excluir esta oportunidade? Esta ação não pode ser desfeita.")) return;
-    recordDeletedOppIds([id]);
     const nextOpps = opportunities.filter((o) => o.id !== id);
     setOpps(() => nextOpps);
-    try {
-      localStorage.setItem("quark_opportunities", JSON.stringify(nextOpps));
-    } catch (_) {}
     setSelectedId(null);
     fetch(`/api/opportunities/${id}`, {
       method: "DELETE",
     }).catch(() => {});
     try {
       const { error } = await supabase.from("opportunities").update({ deleted_at: new Date().toISOString() }).eq("id", id);
-      if (error) console.warn("Supabase delete error (excluído localmente):", error.message);
+      if (error) console.warn("Supabase delete error:", error.message);
     } catch (e) {
-      console.warn("Supabase offline, excluído localmente:", e);
+      console.warn("Supabase offline:", e);
     }
     toast.success("Oportunidade excluída com sucesso!");
   };
@@ -662,13 +576,7 @@ const CRM: React.FC = () => {
         <NewOpportunityModal
           onClose={() => setIsFormOpen(false)}
           onSaved={(o, merged) => {
-            setOpps((prev) => {
-              const next = merged ? prev.map((x) => (x.id === o.id ? o : x)) : [o, ...prev];
-              try {
-                localStorage.setItem("quark_opportunities", JSON.stringify(next));
-              } catch (_) {}
-              return next;
-            });
+            setOpps((prev) => (merged ? prev.map((x) => (x.id === o.id ? o : x)) : [o, ...prev]));
             setSelectedId(o.id);
           }}
         />

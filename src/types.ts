@@ -231,6 +231,7 @@ export type ProjectPhase = 'venda_confirmada' | 'projeto_elaboracao' | 'compra_k
 export interface ClientPortalUser {
   id: string;
   lead_id?: string;
+  opportunity_id?: string | null;
   name: string;
   email: string;
   phone?: string;

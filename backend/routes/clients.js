@@ -26,7 +26,7 @@ async function syncClientToCrmAndFinancial(client, rawBody = {}) {
     const DELETED_PATH = path.resolve(__dirname, '../data/deleted_opportunities.json');
 
     const contractAmount = sanitizeNumber(rawBody.contract_value ?? rawBody.system_cost ?? rawBody.amount)
-      || (client.system_size_kw ? Math.round(Number(client.system_size_kw) * 3800) : 25000);
+      || (client.system_size_kw ? Math.round(Number(client.system_size_kw) * 3800) : 0);
 
     // 1. Sincronização com CRM (Oportunidade Ganha)
     const oppId = `opp_cli_${client.id}`;

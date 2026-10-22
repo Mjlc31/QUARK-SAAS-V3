@@ -58,25 +58,28 @@ router.get('/', async (req, res) => {
   try {
     const deletedSet = readDeleted();
 
-    // 1. Tenta buscar do Supabase se houver registros
+    // 1. Tenta buscar diretamente do Supabase (fonte única da verdade)
     let dbOpps = [];
     try {
-      const { data } = await supabase.from('opportunities').select('*').order('created_at', { ascending: false });
-      if (data && data.length > 0) {
-        dbOpps = data.filter(d => !d.deleted_at && !deletedSet.has(String(d.id)));
+      const { data, error } = await supabase
+        .from('opportunities')
+        .select('*')
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false });
+
+      if (!error && Array.isArray(data) && data.length > 0) {
+        dbOpps = data.filter(d => !deletedSet.has(String(d.id)) && !d.deleted_at);
+        // Mantém store local espelhado em sincronia com o banco
+        writeStore(dbOpps);
+        return res.json({ success: true, count: dbOpps.length, opportunities: dbOpps });
       }
-    } catch (_) {}
+    } catch (sbErr) {
+      console.warn('[OpportunitiesAPI] Supabase inacessível, recorrendo ao store local:', sbErr.message);
+    }
 
-    const fileOpps = readStore().filter(f => !deletedSet.has(String(f.id)));
-    
-    // Merge: file store + DB opps
-    const map = new Map();
-    for (const fo of fileOpps) map.set(fo.id, fo);
-    for (const dbo of dbOpps) map.set(dbo.id, dbo);
-
-    // Remove qualquer item que esteja marcado como excluído
-    const combined = Array.from(map.values()).filter(o => !deletedSet.has(String(o.id)) && !o.deleted_at);
-    return res.json({ success: true, count: combined.length, opportunities: combined });
+    // 2. Fallback somente se Supabase estiver offline
+    const fileOpps = readStore().filter(f => !deletedSet.has(String(f.id)) && !f.deleted_at);
+    return res.json({ success: true, count: fileOpps.length, opportunities: fileOpps });
   } catch (err) {
     console.error('[OpportunitiesAPI] Erro interno:', err);
     return res.status(500).json({ success: false, error: err.message });
