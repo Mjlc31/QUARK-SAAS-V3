@@ -12,10 +12,12 @@ import {
   Users
 } from 'lucide-react';
 import { useMaintenanceAlerts, useCreateAlert, useUpdateAlertStatus } from '../hooks/useMaintenanceAlerts';
+import { useClients } from '../hooks/useClients';
 import { AlertChannel, AlertType, AlertStatus } from '../types';
 
 const MaintenanceAlerts: React.FC = () => {
   const { data: alerts, isLoading } = useMaintenanceAlerts();
+  const { data: clients = [] } = useClients();
   const createAlerts = useCreateAlert();
   const updateAlert = useUpdateAlertStatus();
 
@@ -73,11 +75,14 @@ const MaintenanceAlerts: React.FC = () => {
     setSuccessMessage('');
 
     try {
+      const realClientIds = clients.length > 0 ? clients.slice(0, 10).map(c => c.id) : ['base-clientes'];
+      const primaryClientName = clients[0]?.name || 'Base de Clientes';
+
       const res = await fetch('/api/maintenance/alert-batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          client_ids: ['intel-1', 'intel-2', 'intel-3'],
+          client_ids: realClientIds,
           alert_type: formData.alert_type,
           message: formData.message,
           channel: formData.channel,
@@ -89,8 +94,8 @@ const MaintenanceAlerts: React.FC = () => {
         const result = await res.json();
         setSuccessMessage(`✅ ${result.alerts_sent || 0} alerta(s) disparado(s) com sucesso via WhatsApp!`);
         await createAlerts.mutateAsync({
-          intelligence_id: 'intel-1',
-          client_name: 'Dra. Luanda Vasconcelos',
+          intelligence_id: realClientIds[0] || 'intel-1',
+          client_name: primaryClientName,
           alert_type: formData.alert_type,
           message: formData.message,
           scheduled_for: formData.scheduled_for || new Date().toISOString(),
@@ -100,8 +105,8 @@ const MaintenanceAlerts: React.FC = () => {
       } else {
         // Fallback local caso backend esteja offline
         await createAlerts.mutateAsync({
-          intelligence_id: 'local-intel',
-          client_name: 'Base de Clientes',
+          intelligence_id: realClientIds[0] || 'local-intel',
+          client_name: primaryClientName,
           alert_type: formData.alert_type,
           message: formData.message,
           scheduled_for: formData.scheduled_for || new Date().toISOString(),

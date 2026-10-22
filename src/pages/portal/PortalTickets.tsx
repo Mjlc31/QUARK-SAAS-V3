@@ -139,18 +139,18 @@ const PortalTickets: React.FC = () => {
     setTickets([optimisticTicket, ...tickets]);
     setIsModalOpen(false);
 
+    const catMap: Record<string, string> = {
+      'Inversor Parou / Falha de Geração': 'manutencao',
+      'Manutenção Preventiva': 'manutencao',
+      'Limpeza de Painéis': 'limpeza',
+      'Dúvida sobre Fatura': 'financeiro',
+      'Vistoria & Homologação': 'homologacao',
+    };
+    const resolvedCategory = catMap[newCategory] || 'outros';
+    const resolvedPriority = newCategory.includes('Inversor') ? 'urgente' : newPriority.toLowerCase();
+
     // Salva no armazenamento compartilhado com o painel interno TicketAdmin.tsx
     try {
-      const catMap: Record<string, string> = {
-        'Inversor Parou / Falha de Geração': 'manutencao',
-        'Manutenção Preventiva': 'manutencao',
-        'Limpeza de Painéis': 'limpeza',
-        'Dúvida sobre Fatura': 'financeiro',
-        'Vistoria & Homologação': 'homologacao',
-      };
-      const resolvedCategory = catMap[newCategory] || 'outros';
-      const resolvedPriority = newCategory.includes('Inversor') ? 'urgente' : newPriority.toLowerCase();
-
       const newTicketRecord = {
         id: shortId,
         client_id: client?.id || 'cli_portal',
@@ -184,18 +184,19 @@ const PortalTickets: React.FC = () => {
     } catch (storageErr) {}
 
     try {
+      const isUuid = (val?: string | null) => typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(val);
       await fetch('/api/tickets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           subject: newSubject,
           description: newDescription,
-          category: newCategory.toLowerCase(),
-          priority: newPriority.toLowerCase(),
-          client_id: client?.id || null,
+          category: resolvedCategory,
+          priority: resolvedPriority,
+          client_id: isUuid(client?.id) ? client?.id : null,
           client_name: client?.name || 'Cliente Portal',
-          client_email: client?.email,
-          client_phone: client?.phone,
+          client_email: client?.email || null,
+          client_phone: client?.phone || null,
         }),
       });
     } catch (err) {

@@ -428,6 +428,26 @@ CREATE POLICY "ticket_messages_insert" ON public.ticket_messages FOR INSERT WITH
     )
 );
 
+-- Permissive policies for internal CRM & operations (offline/dev support)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'maintenance_services' AND policyname = 'maintenance_services_anon_all') THEN
+    CREATE POLICY maintenance_services_anon_all ON public.maintenance_services FOR ALL TO anon USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'leads' AND policyname = 'leads_anon_all') THEN
+    CREATE POLICY leads_anon_all ON public.leads FOR ALL TO anon USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'opportunities' AND policyname = 'opportunities_anon_all') THEN
+    CREATE POLICY opportunities_anon_all ON public.opportunities FOR ALL TO anon USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'tasks' AND policyname = 'tasks_anon_all') THEN
+    CREATE POLICY tasks_anon_all ON public.tasks FOR ALL TO anon USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'financial_transactions' AND policyname = 'financial_anon_all') THEN
+    CREATE POLICY financial_anon_all ON public.financial_transactions FOR ALL TO anon USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
 -- ─────────────────────────────────────────────────────────────
 -- RPC: Auto-link Client Profile via CPF
 -- ─────────────────────────────────────────────────────────────

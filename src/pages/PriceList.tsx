@@ -433,7 +433,7 @@ function KitFormModal({ initialData, onClose }: { initialData?: KitPreset, onClo
       }
 
       toast.success(isEdit ? "Kit atualizado com sucesso!" : "Kit salvo com sucesso!");
-      window.location.reload(); // Quick refresh to update context
+      onClose();
     } catch (err: any) {
       toast.error(err.message || "Erro ao salvar kit");
     } finally {

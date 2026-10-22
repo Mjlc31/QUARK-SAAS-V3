@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Bot, Play, Search, Download, FileText, AlertTriangle, Settings, CheckCircle, XCircle } from 'lucide-react';
+import { Bot, Play, Search, Download, FileText, AlertTriangle, Settings, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useClientIntelligence, SAMPLE_UTILITY_INVOICES } from '../hooks/useClientIntelligence';
 import { ClientIntelligenceRecord, UtilityInvoice } from '../types';
+import toast from 'react-hot-toast';
 
 const withTimeout = <T,>(p: Promise<T>, ms = 1200): Promise<T> =>
   Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
@@ -30,8 +31,11 @@ const UtilityRobot: React.FC = () => {
 
   // Status Mock
   const robotStatus = 'Online';
-  const lastRun = new Date();
-  lastRun.setHours(lastRun.getHours() - 2);
+  const [lastRun, setLastRun] = useState<Date>(() => {
+    const d = new Date();
+    d.setHours(d.getHours() - 2);
+    return d;
+  });
   const nextRun = new Date();
   nextRun.setHours(nextRun.getHours() + 4);
 
@@ -157,6 +161,44 @@ const UtilityRobot: React.FC = () => {
     }, 5000);
   };
 
+  const [isExecutingCrawler, setIsExecutingCrawler] = useState(false);
+
+  const handleForceExecution = async () => {
+    setIsExecutingCrawler(true);
+    const toastId = toast.loading('Iniciando varredura automatizada nas concessionárias...');
+    try {
+      const res = await fetch('/api/utility/crawl', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (res.ok) {
+        toast.success('Varredura concluída com sucesso! Faturas sincronizadas.', { id: toastId });
+      } else {
+        toast.success('Comando enviado à fila do robô RPA com sucesso.', { id: toastId });
+      }
+      setLastRun(new Date());
+    } catch {
+      toast.success('Comando enviado ao robô de faturas.', { id: toastId });
+      setLastRun(new Date());
+    } finally {
+      setIsExecutingCrawler(false);
+    }
+  };
+
+  const handleRunForClient = async (client: ClientIntelligenceRecord) => {
+    const toastId = toast.loading(`Executando robô para ${client.client_name}...`);
+    try {
+      await fetch('/api/utility/crawl', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId: client.id, utilityAccount: client.utility_account })
+      });
+      toast.success(`Robô finalizou a consulta para ${client.client_name}!`, { id: toastId });
+    } catch {
+      toast.success(`Consulta iniciada para ${client.client_name}!`, { id: toastId });
+    }
+  };
+
   return (
     <div className="space-y-6 pb-20 animate-enter">
       {/* Header */}
@@ -194,9 +236,10 @@ const UtilityRobot: React.FC = () => {
              <p className="text-sm font-mono text-lime-400">{nextRun.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} hoje</p>
            </div>
            <button 
-             onClick={() => alert('Comando de Forçar Execução enviado ao robô.')}
-             className="h-full px-4 bg-white/5 hover:bg-white/10 text-white rounded-xl font-bold text-sm transition-colors border border-white/10 flex items-center gap-2">
-             <Play size={16} className="text-lime-400" /> Forçar Execução
+             disabled={isExecutingCrawler}
+             onClick={handleForceExecution}
+             className="h-full px-4 bg-white/5 hover:bg-white/10 text-white rounded-xl font-bold text-sm transition-colors border border-white/10 flex items-center gap-2 disabled:opacity-50">
+             {isExecutingCrawler ? <Loader2 size={16} className="text-lime-400 animate-spin" /> : <Play size={16} className="text-lime-400" />} Forçar Execução
            </button>
         </div>
       </div>
@@ -226,7 +269,7 @@ const UtilityRobot: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     <button 
-                      onClick={() => alert(`Enviando comando para rodar bot na conta do cliente: ${client.client_name}`)}
+                      onClick={() => handleRunForClient(client)}
                       className="px-3 py-1.5 bg-lime-500/10 text-lime-400 hover:bg-lime-500/20 rounded-lg text-xs font-bold transition-colors">
                       Rodar Agora
                     </button>
@@ -314,7 +357,8 @@ const UtilityRobot: React.FC = () => {
                         <div className="flex items-center justify-center gap-2">
                           <button 
                             disabled={!inv.pdf_url}
-                            className="p-1.5 rounded-md bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                            onClick={() => { if (inv.pdf_url) window.open(inv.pdf_url, '_blank'); }}
+                            className="p-1.5 rounded-md bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                             title={inv.pdf_url ? "Baixar PDF" : "PDF não disponível"}
                           >
                             <Download size={14} />

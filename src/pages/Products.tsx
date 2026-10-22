@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Package, Plus, Trash2, Zap, Search, Layers, Box, Cpu, Cable, CircuitBoard, Hammer, X, ChevronDown, Check, DollarSign } from 'lucide-react';
 import { Product, ProductCategory } from '../types';
 import { storageService } from '../services/storageService';
+import toast from 'react-hot-toast';
 
 const CATEGORIES: { id: ProductCategory; label: string; icon: any; color: string }[] = [
   { id: 'Módulo', label: 'Módulos', icon: Zap, color: 'text-yellow-400 bg-yellow-500/10' },
@@ -227,7 +228,10 @@ const Products: React.FC = () => {
                      <p className="text-[10px] text-slate-500 uppercase mb-0.5">Preço Unitário</p>
                      <p className="text-xl font-bold font-display text-white">R$ {product.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                    </div>
-                   <button className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center">
+                   <button 
+                     onClick={() => toast.success(`"${product.name}" pronto para inclusão na proposta!`)}
+                     title="Adicionar à proposta / cotação"
+                     className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer">
                      <Plus size={18} />
                    </button>
                 </div>

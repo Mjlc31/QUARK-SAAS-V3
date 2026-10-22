@@ -13,7 +13,13 @@ const TEAM_MEMBERS = [
 ];
 
 const Tasks: React.FC = () => {
-  const { tasks, toggleTask, addTask, deleteTask, isLoading } = useApp();
+  const { tasks, toggleTask, addTask, deleteTask, isLoading, users = [] } = useApp();
+  const teamMembers = users && users.length > 0 ? users.map(u => ({
+    id: u.id,
+    name: u.name,
+    phone: (u as any).phone || '',
+    email: u.email || '',
+  })) : TEAM_MEMBERS;
   const [filter, setFilter] = useState<'All' | string>('All');
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
 
@@ -24,7 +30,7 @@ const Tasks: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTaskData, setNewTaskData] = useState({
     title: '',
-    assignee: TEAM_MEMBERS[0].name,
+    assignee: teamMembers[0]?.name || 'Equipe',
     priority: 'Medium' as 'High' | 'Medium' | 'Low',
     deadline: new Date().toISOString().split('T')[0],
     notifyWhatsapp: true,
@@ -53,7 +59,7 @@ const Tasks: React.FC = () => {
   };
 
   const handleNotify = async (type: 'whatsapp' | 'email', taskData: { title: string, priority: string, deadline: string, assignee: string }) => {
-    const member = TEAM_MEMBERS.find(m => m.name === taskData.assignee);
+    const member = teamMembers.find(m => m.name === taskData.assignee);
     if (!member) {
       toast("Contato do responsável não encontrado na base de dados.");
       return;
@@ -101,7 +107,7 @@ const Tasks: React.FC = () => {
       priority: newTaskData.priority
     });
 
-    const assigneeMember = TEAM_MEMBERS.find(m => m.name === newTaskData.assignee);
+    const assigneeMember = teamMembers.find(m => m.name === newTaskData.assignee);
 
     try {
       await fetch('/agent/task-notify', {
@@ -287,7 +293,7 @@ const Tasks: React.FC = () => {
             >
               Todos
             </button>
-            {TEAM_MEMBERS.map((user) => (
+            {teamMembers.map((user) => (
               <button
                 key={user.id}
                 onClick={() => setFilter(user.name)}
@@ -464,7 +470,7 @@ const Tasks: React.FC = () => {
                       value={newTaskData.assignee}
                       onChange={e => setNewTaskData({ ...newTaskData, assignee: e.target.value })}
                     >
-                      {TEAM_MEMBERS.map(u => (
+                      {teamMembers.map(u => (
                         <option key={u.id} value={u.name}>{u.name.split(' ')[0]}</option>
                       ))}
                     </select>

@@ -7,7 +7,7 @@ const withTimeout = <T,>(p: Promise<T>, ms = 8000): Promise<T> =>
 
 export const SAMPLE_MAINTENANCE_SERVICES: MaintenanceService[] = [
   {
-    id: 'maint_001',
+    id: 'a0000000-0000-0000-0000-000000000001',
     user_id: 'usr_admin',
     client_id: 'cli_luanda_001',
     client_name: 'Dra. Luanda Vasconcelos',
@@ -24,7 +24,7 @@ export const SAMPLE_MAINTENANCE_SERVICES: MaintenanceService[] = [
     updated_at: '2026-10-18T10:00:00.000Z',
   },
   {
-    id: 'maint_002',
+    id: 'a0000000-0000-0000-0000-000000000002',
     user_id: 'usr_admin',
     client_id: 'cli_clinica_002',
     client_name: 'Clínica Médica Santa Tereza',
@@ -41,7 +41,7 @@ export const SAMPLE_MAINTENANCE_SERVICES: MaintenanceService[] = [
     updated_at: '2026-10-19T14:20:00.000Z',
   },
   {
-    id: 'maint_003',
+    id: 'a0000000-0000-0000-0000-000000000003',
     user_id: 'usr_admin',
     client_id: 'cli_elitech_003',
     client_name: 'Academia Elitech Fit',
@@ -58,7 +58,7 @@ export const SAMPLE_MAINTENANCE_SERVICES: MaintenanceService[] = [
     updated_at: '2026-10-20T08:30:00.000Z',
   },
   {
-    id: 'maint_004',
+    id: 'a0000000-0000-0000-0000-000000000004',
     user_id: 'usr_admin',
     client_id: 'cli_haroldo_004',
     client_name: 'Haroldo Mendonça',
@@ -252,21 +252,24 @@ export function useUpdateMaintenance() {
         localStorage.setItem('quark_maintenance_cache', JSON.stringify(list));
       }
 
-      try {
-        await withTimeout(
-          Promise.resolve(
-            supabase
-              .from('maintenance_services')
-              .update({
-                ...service,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('id', id)
-          ),
-          1200
-        );
-      } catch (e) {
-        console.warn('[useUpdateMaintenance] Atualizado localmente offline:', e);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+      if (isUuid) {
+        try {
+          await withTimeout(
+            Promise.resolve(
+              supabase
+                .from('maintenance_services')
+                .update({
+                  ...service,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', id)
+            ),
+            3000
+          );
+        } catch (e) {
+          console.warn('[useUpdateMaintenance] Atualizado localmente offline:', e);
+        }
       }
 
       return list[idx] || service;
@@ -288,17 +291,22 @@ export function useDeleteMaintenance() {
       const filtered = list.filter((s) => s.id !== id);
       localStorage.setItem('quark_maintenance_cache', JSON.stringify(filtered));
 
-      try {
-        await withTimeout(
-          Promise.resolve(
-            supabase
-              .from('maintenance_services')
-              .update({ deleted_at: new Date().toISOString() })
-              .eq('id', id)
-          ),
-          1200
-        );
-      } catch (e) {}
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+      if (isUuid) {
+        try {
+          await withTimeout(
+            Promise.resolve(
+              supabase
+                .from('maintenance_services')
+                .update({ deleted_at: new Date().toISOString() })
+                .eq('id', id)
+            ),
+            3000
+          );
+        } catch (e) {
+          console.warn('[useDeleteMaintenance] Deletado localmente offline:', e);
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['maintenance_services'] });

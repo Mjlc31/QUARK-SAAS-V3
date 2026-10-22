@@ -103,7 +103,7 @@ const MainLayout: React.FC = () => {
             <Route path="/tasks" element={<PageWrapper><Tasks /></PageWrapper>} />
             <Route path="/products" element={<PageWrapper><Products /></PageWrapper>} />
             <Route path="/ecommerce" element={<PageWrapper><Products /></PageWrapper>} />
-            <Route path="/follow-up" element={<PageWrapper><Engineering /></PageWrapper>} />
+            <Route path="/follow-up" element={<PageWrapper><FollowUp /></PageWrapper>} />
             <Route path="/reports" element={<PageWrapper><Reports /></PageWrapper>} />
             <Route path="/financeiro" element={<PageWrapper><Financial /></PageWrapper>} />
             <Route path="/recibos" element={<PageWrapper><Receipts /></PageWrapper>} />

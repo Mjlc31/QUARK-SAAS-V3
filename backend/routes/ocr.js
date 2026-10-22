@@ -108,15 +108,11 @@ router.post('/audit/equatorial', async (req, res) => {
 });
 
 // POST /api/utility/crawl - Disparo de robô crawler de faturas
-router.post('/utility/crawl', async (req, res) => {
+router.post(['/crawl', '/utility/crawl'], async (req, res) => {
   try {
-    const { intelligence_id, cpf, birth_date, uc } = req.body;
-    if (!intelligence_id && !cpf) {
-      return res.status(400).json({ success: false, error: 'intelligence_id ou cpf é obrigatório' });
-    }
-
+    const { intelligence_id, cpf, birth_date, uc } = req.body || {};
     const jobId = `crawl_${Date.now()}`;
-    console.log(`[UTILITY ROBOT] Crawler iniciado para UC/Cliente: ${uc || cpf || intelligence_id}`);
+    console.log(`[UTILITY ROBOT] Crawler iniciado para UC/Cliente: ${uc || cpf || intelligence_id || 'Varredura Geral'}`);
 
     if (intelligence_id) {
       const currentMonth = new Date().toLocaleDateString('pt-BR', { month: '2-digit', year: 'numeric' });

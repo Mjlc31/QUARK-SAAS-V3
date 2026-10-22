@@ -140,6 +140,43 @@ const Reports: React.FC = () => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(val);
   };
 
+  const handleExportCSV = () => {
+    const lines: string[] = [];
+    lines.push('RELATÓRIO EXECUTIVO - BUSINESS INTELLIGENCE (QUARK ENERGIA)');
+    lines.push(`Gerado em:;${new Date().toLocaleString('pt-BR')}`);
+    lines.push('');
+    lines.push('--- MÉTRICAS GERAIS ---');
+    lines.push(`Total de Oportunidades;${leads.length}`);
+    lines.push(`Vendas Fechadas;${leads.filter(l => l.status === 'Fechado').length}`);
+    lines.push(`Taxa de Conversão;${metrics.conversionRate}%`);
+    lines.push(`Receita Total Realizada;${metrics.totalRevenue.toFixed(2)}`);
+    lines.push(`LTV Médio (R$);${metrics.ltv.toFixed(2)}`);
+    lines.push(`CAC Médio (R$);${metrics.cac.toFixed(2)}`);
+    lines.push('');
+    lines.push('--- PERFORMANCE FINANCEIRA HISTÓRICA ---');
+    lines.push('Mês;Receita (R$);CAC (R$)');
+    financialGrowth.forEach(item => {
+      lines.push(`${item.month};${Number(item.revenue || 0).toFixed(2)};${Number(item.cac || 0).toFixed(2)}`);
+    });
+    lines.push('');
+    lines.push('--- LEADS POR CANAL / TAG ---');
+    lines.push('Origem / Canal;Quantidade');
+    dataSource.forEach(ds => {
+      lines.push(`${ds.name};${ds.value}`);
+    });
+
+    const csvContent = '\uFEFF' + lines.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `relatorio_business_intelligence_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-8 animate-enter pb-20">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
@@ -148,8 +185,8 @@ const Reports: React.FC = () => {
             <p className="text-slate-400">Análise de CAC, LTV e performance operacional.</p>
          </div>
          <button 
-           onClick={() => alert('Arquivo CSV em processamento para download.')}
-           className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-sm text-white border border-white/10 transition-colors flex items-center gap-2 min-w-[44px] min-h-[44px]">
+           onClick={handleExportCSV}
+           className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-sm text-white border border-white/10 transition-colors flex items-center gap-2 min-w-[44px] min-h-[44px] cursor-pointer">
             <Download size={16} /> Exportar CSV
          </button>
       </div>

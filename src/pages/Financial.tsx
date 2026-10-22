@@ -92,138 +92,21 @@ const withTimeout = <T,>(p: Promise<T>, ms = 8000): Promise<T> =>
 
 const STORAGE_KEY = 'quark_financial_transactions';
 
-const DEFAULT_FINANCIAL_TRANSACTIONS: Transaction[] = [
-    {
-        id: 'tx-1',
-        description: 'Instalação Comercial - 14.6 kWp (Clínica Santa Tereza)',
-        type: 'receita',
-        category: 'instalacao_comercial',
-        amount: 42000,
-        date: '2026-10-05',
-        note: 'Pagamento 2ª Parcela 50%'
-    },
-    {
-        id: 'tx-2',
-        description: 'Instalação Residencial - 7.7 kWp (Luanda)',
-        type: 'receita',
-        category: 'instalacao_residencial',
-        amount: 28500,
-        date: '2026-10-12',
-        note: 'Pagamento à vista com desconto'
-    },
-    {
-        id: 'tx-3',
-        description: 'Manutenção Preventiva Semestral - Posto Maceió',
-        type: 'receita',
-        category: 'manutencao',
-        amount: 1800,
-        date: '2026-10-14',
-        note: 'Limpeza de módulos e reaperto'
-    },
-    {
-        id: 'tx-4',
-        description: 'Instalação Residencial - 12.2 kWp (Haroldo Mendonça)',
-        type: 'receita',
-        category: 'instalacao_residencial',
-        amount: 34000,
-        date: '2026-09-20',
-        note: 'Entrada 40%'
-    },
-    {
-        id: 'tx-5',
-        description: 'Módulos JA Solar 550W + Inversor Deye 15kW (Fortlev)',
-        type: 'custo',
-        category: 'equipamentos',
-        amount: 24500,
-        date: '2026-10-06',
-        note: 'Fatura Fornecedor 18920'
-    },
-    {
-        id: 'tx-6',
-        description: 'Equipe de Fixação e Cabeamento CA/CC',
-        type: 'custo',
-        category: 'mao_de_obra',
-        amount: 5800,
-        date: '2026-10-08',
-        note: 'Medição da semana 40'
-    },
-    {
-        id: 'tx-7',
-        description: 'Frete Carreta Distribuidora Solar Maceió',
-        type: 'custo',
-        category: 'frete',
-        amount: 1450,
-        date: '2026-10-07',
-        note: 'Entrega de equipamentos no local'
-    },
-    {
-        id: 'tx-8',
-        description: 'Folha Salarial Equipe Técnica e Engenharia',
-        type: 'despesa',
-        category: 'salarios',
-        amount: 12500,
-        date: '2026-10-05',
-        note: 'Competência Setembro/Outubro'
-    },
-    {
-        id: 'tx-9',
-        description: 'Google Ads & Meta Ads - Geração de Leads Solar',
-        type: 'despesa',
-        category: 'marketing',
-        amount: 2100,
-        date: '2026-10-10',
-        note: 'Campanhas Maceió e Região Metropolitana'
-    },
-    {
-        id: 'tx-10',
-        description: 'Aluguel do Centro de Distribuição / Escritório',
-        type: 'despesa',
-        category: 'aluguel',
-        amount: 2800,
-        date: '2026-10-02',
-        note: 'Imobiliária Maceió'
-    },
-    {
-        id: 'tx-11',
-        description: 'Combustível e Manutenção da Frota de Vistorias',
-        type: 'despesa',
-        category: 'combustivel',
-        amount: 980,
-        date: '2026-10-11',
-        note: 'Ticket Car frota técnica'
-    },
-    {
-        id: 'tx-12',
-        description: 'Software CRM, Cloud Supabase e Gemini AI',
-        type: 'despesa',
-        category: 'software',
-        amount: 420,
-        date: '2026-10-01',
-        note: 'Assinaturas de tecnologia'
-    },
-    {
-        id: 'tx-13',
-        description: 'DAS Simples Nacional',
-        type: 'despesa',
-        category: 'imposto',
-        amount: 3200,
-        date: '2026-10-20',
-        note: 'Guia de recolhimento mensal'
-    }
-];
+const DEFAULT_FINANCIAL_TRANSACTIONS: Transaction[] = [];
 
 const getStoredTransactions = (): Transaction[] => {
     try {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
             const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+            if (Array.isArray(parsed)) {
+                return parsed.filter(t => !t.id?.startsWith('tx-'));
+            }
         }
     } catch {
         // ignore
     }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_FINANCIAL_TRANSACTIONS));
-    return DEFAULT_FINANCIAL_TRANSACTIONS;
+    return [];
 };
 
 // ─── Main Component ────────────────────────────────────────────────────────────

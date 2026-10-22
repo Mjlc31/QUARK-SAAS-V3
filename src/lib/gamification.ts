@@ -157,13 +157,19 @@ export async function recordXpEvent(userId: string, kind: XpKind, metadata: any 
   }
 
   try {
-    const { supabase } = await import("./supabaseClient");
-    await supabase.from("xp_events").insert({
-      user_id: userId,
-      kind,
-      points,
-      metadata,
-    });
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId);
+    if (isUUID) {
+      const { supabase } = await import("./supabaseClient");
+      const insertPayload: any = {
+        user_id: userId,
+        kind,
+        points,
+      };
+      if (metadata?.ref_id) insertPayload.ref_id = String(metadata.ref_id);
+      if (metadata?.lead_id) insertPayload.lead_id = String(metadata.lead_id);
+
+      await supabase.from("xp_events").insert(insertPayload);
+    }
   } catch (err) {
     console.warn("[Gamification] Falha ao registrar evento de XP no Supabase:", err);
   }

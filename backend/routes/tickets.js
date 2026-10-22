@@ -5,16 +5,18 @@ import { sendWhatsAppMessage } from '../services/whatsapp.js';
 
 const router = express.Router();
 
+const isUuid = (val) => typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(val);
+
 const createTicketSchema = z.object({
-  subject: z.string().min(3, 'O assunto deve ter pelo menos 3 caracteres'),
+  subject: z.string().min(2, 'O assunto deve ter pelo menos 2 caracteres'),
   description: z.string().optional().default(''),
-  category: z.enum(['manutencao', 'limpeza', 'projeto', 'homologacao', 'financeiro', 'outros']).default('outros'),
-  priority: z.enum(['baixa', 'normal', 'alta', 'urgente']).default('normal'),
-  client_id: z.string().uuid().optional().nullable(),
-  client_name: z.string().optional(),
-  client_email: z.string().email().optional(),
-  client_phone: z.string().optional(),
-  user_id: z.string().uuid().optional().nullable(),
+  category: z.string().optional().default('outros'),
+  priority: z.string().optional().default('normal'),
+  client_id: z.string().optional().nullable(),
+  client_name: z.string().optional().nullable(),
+  client_email: z.string().optional().nullable(),
+  client_phone: z.string().optional().nullable(),
+  user_id: z.string().optional().nullable(),
 });
 
 // GET /api/tickets - Lista todos os chamados
@@ -161,8 +163,8 @@ router.post('/', async (req, res) => {
         category,
         priority,
         status: 'aberto',
-        client_id: resolvedClientId || null,
-        user_id: user_id || null,
+        client_id: isUuid(resolvedClientId) ? resolvedClientId : null,
+        user_id: isUuid(user_id) ? user_id : null,
         created_at: now,
         updated_at: now,
       })

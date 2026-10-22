@@ -10,8 +10,8 @@ const STORAGE_KEY_MESSAGES = 'quark_ticket_messages';
 
 export const SAMPLE_TICKETS: SupportTicket[] = [
   {
-    id: 'ticket-1',
-    client_id: 'client-1',
+    id: 'b0000000-0000-0000-0000-000000000001',
+    client_id: 'cli_luanda_001',
     client_name: 'Dra. Luanda Vasconcelos',
     subject: 'Agendamento de limpeza semestral',
     description: 'Gostaria de agendar a limpeza técnica com água desmineralizada nos meus 14 painéis fotovoltaicos.',
@@ -22,8 +22,8 @@ export const SAMPLE_TICKETS: SupportTicket[] = [
     updated_at: '2026-10-19T14:20:00Z'
   },
   {
-    id: 'ticket-2',
-    client_id: 'client-2',
+    id: 'b0000000-0000-0000-0000-000000000002',
+    client_id: 'cli_clinica_002',
     client_name: 'Clínica Médica Santa Tereza',
     subject: 'Dúvida sobre compensação de créditos Equatorial',
     description: 'A fatura deste mês veio com taxa mínima mas gostaríamos de conferir o saldo acumulado de créditos.',
@@ -34,8 +34,8 @@ export const SAMPLE_TICKETS: SupportTicket[] = [
     updated_at: '2026-10-20T08:15:00Z'
   },
   {
-    id: 'ticket-3',
-    client_id: 'client-3',
+    id: 'b0000000-0000-0000-0000-000000000003',
+    client_id: 'cli_elitech_003',
     client_name: 'Academia Elitech Fit',
     subject: 'Revisão do inversor Deye 15kW',
     description: 'Aplicativo Solarman apresentou aviso de grid overvoltage no início da tarde.',
@@ -46,8 +46,8 @@ export const SAMPLE_TICKETS: SupportTicket[] = [
     updated_at: '2026-10-20T11:00:00Z'
   },
   {
-    id: 'ticket-4',
-    client_id: 'client-4',
+    id: 'b0000000-0000-0000-0000-000000000004',
+    client_id: 'cli_haroldo_004',
     client_name: 'Haroldo Mendonça',
     subject: 'Status da vistoria técnica da Equatorial',
     description: 'O técnico da Equatorial já veio fazer a troca do medidor bidirecional?',
@@ -61,64 +61,64 @@ export const SAMPLE_TICKETS: SupportTicket[] = [
 ];
 
 export const SAMPLE_TICKET_MESSAGES: Record<string, TicketMessage[]> = {
-  'ticket-1': [
+  'b0000000-0000-0000-0000-000000000001': [
     {
-      id: 'msg-1',
-      ticket_id: 'ticket-1',
+      id: 'c0000000-0000-0000-0000-000000000001',
+      ticket_id: 'b0000000-0000-0000-0000-000000000001',
       sender_type: 'client',
       message: 'Olá equipe Quark, gostaria de solicitar a limpeza técnica dos meus painéis.',
       attachments: [],
       created_at: '2026-10-18T10:30:00Z'
     },
     {
-      id: 'msg-2',
-      ticket_id: 'ticket-1',
+      id: 'c0000000-0000-0000-0000-000000000002',
+      ticket_id: 'b0000000-0000-0000-0000-000000000001',
       sender_type: 'operator',
       message: 'Olá Dra. Luanda! Já localizamos seu cadastro de 7.7 kWp. Podemos agendar para esta sexta-feira às 09:00?',
       attachments: [],
       created_at: '2026-10-18T11:15:00Z'
     },
     {
-      id: 'msg-3',
-      ticket_id: 'ticket-1',
+      id: 'c0000000-0000-0000-0000-000000000003',
+      ticket_id: 'b0000000-0000-0000-0000-000000000001',
       sender_type: 'client',
       message: 'Perfeito! Sexta às 09:00 fica ótimo para mim.',
       attachments: [],
       created_at: '2026-10-18T11:45:00Z'
     }
   ],
-  'ticket-2': [
+  'b0000000-0000-0000-0000-000000000002': [
     {
-      id: 'msg-4',
-      ticket_id: 'ticket-2',
+      id: 'c0000000-0000-0000-0000-000000000004',
+      ticket_id: 'b0000000-0000-0000-0000-000000000002',
       sender_type: 'client',
       message: 'Bom dia, gostaria de verificar o extrato detalhado de compensação de créditos na Equatorial.',
       attachments: [],
       created_at: '2026-10-20T08:15:00Z'
     }
   ],
-  'ticket-3': [
+  'b0000000-0000-0000-0000-000000000003': [
     {
-      id: 'msg-5',
-      ticket_id: 'ticket-3',
+      id: 'c0000000-0000-0000-0000-000000000005',
+      ticket_id: 'b0000000-0000-0000-0000-000000000003',
       sender_type: 'client',
       message: 'Apareceu código de falha W03 (Overvoltage) no inversor.',
       attachments: [],
       created_at: '2026-10-20T11:00:00Z'
     }
   ],
-  'ticket-4': [
+  'b0000000-0000-0000-0000-000000000004': [
     {
-      id: 'msg-6',
-      ticket_id: 'ticket-4',
+      id: 'c0000000-0000-0000-0000-000000000006',
+      ticket_id: 'b0000000-0000-0000-0000-000000000004',
       sender_type: 'client',
       message: 'Vistoria foi finalizada hoje pela concessionária.',
       attachments: [],
       created_at: '2026-10-17T15:30:00Z'
     },
     {
-      id: 'msg-7',
-      ticket_id: 'ticket-4',
+      id: 'c0000000-0000-0000-0000-000000000007',
+      ticket_id: 'b0000000-0000-0000-0000-000000000004',
       sender_type: 'operator',
       message: 'Confirmado! Medidor bidirecional ativado e sistema operando em 100%.',
       attachments: [],
@@ -198,7 +198,12 @@ export function useTicketMessages(ticketId: string) {
     queryKey: ['ticket_messages', ticketId],
     queryFn: async () => {
       if (!ticketId) return [];
-      
+
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(ticketId);
+      if (!isUuid) {
+        return getStoredMessages(ticketId);
+      }
+
       try {
         const { data, error } = await withTimeout(
           Promise.resolve(
@@ -208,7 +213,7 @@ export function useTicketMessages(ticketId: string) {
               .eq('ticket_id', ticketId)
               .order('created_at', { ascending: true })
           ),
-          1200
+          2000
         );
 
         if (error) throw error;
@@ -298,21 +303,24 @@ export function useUpdateTicketStatus() {
       });
       localStorage.setItem(STORAGE_KEY_TICKETS, JSON.stringify(updated));
 
-      try {
-        const payload: Partial<SupportTicket> = {
-          status,
-          updated_at: new Date().toISOString(),
-        };
-        if (status === 'resolvido' || status === 'fechado') {
-          payload.resolved_at = new Date().toISOString();
-        }
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+      if (isUuid) {
+        try {
+          const payload: Partial<SupportTicket> = {
+            status,
+            updated_at: new Date().toISOString(),
+          };
+          if (status === 'resolvido' || status === 'fechado') {
+            payload.resolved_at = new Date().toISOString();
+          }
 
-        await withTimeout(
-          Promise.resolve(supabase.from('support_tickets').update(payload).eq('id', id)),
-          1000
-        );
-      } catch {
-        // offline fallback
+          await withTimeout(
+            Promise.resolve(supabase.from('support_tickets').update(payload).eq('id', id)),
+            3000
+          );
+        } catch {
+          // offline fallback
+        }
       }
       return updated.find(t => t.id === id);
     },
@@ -343,13 +351,16 @@ export function useAddTicketMessage() {
         localStorage.setItem(`${STORAGE_KEY_MESSAGES}_${ticketId}`, JSON.stringify([...msgs, newMsg]));
       }
 
-      try {
-        await withTimeout(
-          Promise.resolve(supabase.from('ticket_messages').insert(newMsg)),
-          8000
-        );
-      } catch (err) {
-        console.warn('[useAddTicketMessage] Fallback offline:', err);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(ticketId);
+      if (isUuid) {
+        try {
+          await withTimeout(
+            Promise.resolve(supabase.from('ticket_messages').insert(newMsg)),
+            4000
+          );
+        } catch (err) {
+          console.warn('[useAddTicketMessage] Fallback offline:', err);
+        }
       }
       return newMsg;
     },

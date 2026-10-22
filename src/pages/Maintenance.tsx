@@ -13,10 +13,12 @@ import {
   X,
   Check,
   Gift,
-  Globe
+  Globe,
+  Trash2
 } from 'lucide-react';
-import { useMaintenance, useMaintenanceStats, useCreateMaintenance, useUpdateMaintenance } from '../hooks/useMaintenance';
+import { useMaintenance, useMaintenanceStats, useCreateMaintenance, useUpdateMaintenance, useDeleteMaintenance } from '../hooks/useMaintenance';
 import { MaintenanceService, MaintenanceServiceStatus, MaintenanceServiceType } from '../types';
+import toast from 'react-hot-toast';
 
 const getServiceOriginBadge = (service: MaintenanceService) => {
   const notesLower = (service.notes || '').toLowerCase();
@@ -47,6 +49,7 @@ const Maintenance: React.FC = () => {
   const { data: stats } = useMaintenanceStats();
   const createService = useCreateMaintenance();
   const updateService = useUpdateMaintenance();
+  const deleteService = useDeleteMaintenance();
 
   const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
   const [searchTerm, setSearchTerm] = useState('');
@@ -270,14 +273,29 @@ const Maintenance: React.FC = () => {
                       <div className="flex justify-between items-center pt-3 border-t border-white/5">
                         <div>
                           <p className="text-xs text-slate-500">{service.technician || 'Não alocado'}</p>
-                          {service.status !== 'concluido' && (
+                          <div className="flex items-center gap-2 mt-1">
+                            {service.status !== 'concluido' && (
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); updateService.mutate({ id: service.id, status: 'concluido' }); toast.success('Ordem de serviço concluída!'); }}
+                                className="text-[10px] text-lime-400 hover:text-lime-300 flex items-center gap-1 font-bold uppercase cursor-pointer"
+                              >
+                                <Check size={10} /> Concluir
+                              </button>
+                            )}
                             <button 
-                              onClick={(e) => { e.stopPropagation(); updateService.mutate({ id: service.id, status: 'concluido' }); }}
-                              className="mt-1 text-[10px] text-lime-400 hover:text-lime-300 flex items-center gap-1 font-bold uppercase"
+                              onClick={(e) => { 
+                                e.stopPropagation(); 
+                                if (confirm(`Deseja realmente excluir a OS de ${service.client_name}?`)) {
+                                  deleteService.mutate(service.id);
+                                  toast.success('Serviço excluído com sucesso.');
+                                }
+                              }}
+                              className="text-[10px] text-red-400 hover:text-red-300 flex items-center gap-1 font-bold uppercase cursor-pointer"
+                              title="Excluir serviço"
                             >
-                              <Check size={10} /> Concluir
+                              <Trash2 size={10} /> Excluir
                             </button>
-                          )}
+                          </div>
                         </div>
                         <p className="text-sm font-bold text-lime-400">{fmt(service.price)}</p>
                       </div>
@@ -333,15 +351,29 @@ const Maintenance: React.FC = () => {
                       <td className="p-4 text-sm font-bold text-blue-400 font-mono">{fmt(service.price - service.cost)}</td>
                       <td className="p-4 text-sm text-slate-400">{service.technician || '-'}</td>
                       <td className="p-4 text-right">
-                        {service.status !== 'concluido' && (
+                        <div className="flex items-center justify-end gap-1.5">
+                          {service.status !== 'concluido' && (
+                            <button 
+                              onClick={() => { updateService.mutate({ id: service.id, status: 'concluido' }); toast.success('Ordem de serviço concluída!'); }}
+                              className="p-1.5 rounded-lg bg-lime-500/10 text-lime-400 hover:bg-lime-500/20 transition-colors inline-flex cursor-pointer"
+                              title="Marcar como Concluído"
+                            >
+                              <Check size={16} />
+                            </button>
+                          )}
                           <button 
-                            onClick={() => updateService.mutate({ id: service.id, status: 'concluido' })}
-                            className="p-1.5 rounded-lg bg-lime-500/10 text-lime-400 hover:bg-lime-500/20 transition-colors inline-flex"
-                            title="Marcar como Concluído"
+                            onClick={() => {
+                              if (confirm(`Deseja realmente excluir o serviço de ${service.client_name}?`)) {
+                                deleteService.mutate(service.id);
+                                toast.success('Serviço excluído.');
+                              }
+                            }}
+                            className="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors inline-flex cursor-pointer"
+                            title="Excluir Serviço"
                           >
-                            <Check size={16} />
+                            <Trash2 size={16} />
                           </button>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   );

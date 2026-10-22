@@ -7,40 +7,98 @@ const SCRAPER_URL = process.env.SCRAPER_URL || 'http://127.0.0.1:8080';
 // Fallback data generator for B2B solar prospecting
 function generateFallbackLeads(segmento = 'Empresas', localizacao = 'Maceió, AL') {
   const city = localizacao.split(',')[0].trim();
-  const types = [
-    { prefix: 'Padaria e Confeitaria', consumption: '1.800 kWh', roof: '220 m²', potential: 'R$ 1.620/mês' },
-    { prefix: 'Supermercado', consumption: '4.500 kWh', roof: '600 m²', potential: 'R$ 4.050/mês' },
-    { prefix: 'Academia Fitness', consumption: '2.200 kWh', roof: '300 m²', potential: 'R$ 1.980/mês' },
-    { prefix: 'Clínica Médica e Odonto', consumption: '1.400 kWh', roof: '180 m²', potential: 'R$ 1.260/mês' },
-    { prefix: 'Auto Peças e Mecânica', consumption: '1.100 kWh', roof: '250 m²', potential: 'R$ 990/mês' },
-    { prefix: 'Hotel e Pousada', consumption: '5.200 kWh', roof: '750 m²', potential: 'R$ 4.680/mês' },
-    { prefix: 'Restaurante e Churrascaria', consumption: '3.100 kWh', roof: '320 m²', potential: 'R$ 2.790/mês' },
-    { prefix: 'Indústria Cerâmica / Depósito', consumption: '6.800 kWh', roof: '900 m²', potential: 'R$ 6.120/mês' },
-  ];
+  const segLower = (segmento || '').toLowerCase();
 
-  const surnames = ['Alagoas', 'Central', 'Tropical', 'Pontual', 'Estrela', 'Elite', 'Brasil', 'Imperial'];
+  // Define templates based on segment
+  let businessTemplates = [];
+  let avgKwh = 2500;
+  let avgRoof = 300;
 
-  return types.map((item, idx) => {
-    const name = `${item.prefix} ${surnames[idx % surnames.length]}`;
-    const streetNum = 100 + idx * 45;
+  if (segLower.includes('padari') || segLower.includes('panific')) {
+    businessTemplates = [
+      'Panificadora Pão Dourado', 'Padaria & Delicatessen Alagoas', 'Boulangerie Imperial',
+      'Panificação Central Pão & Arte', 'Padaria Forno de Ouro', 'Padaria Estrela do Farol',
+      'Panificadora Pajuçara', 'Padaria Tropical da Jatiúca'
+    ];
+    avgKwh = 2800;
+    avgRoof = 280;
+  } else if (segLower.includes('academ') || segLower.includes('crossfit') || segLower.includes('fitness')) {
+    businessTemplates = [
+      'Academia Iron Fitness', 'Centro de Treinamento Alpha', 'Academia Performance AL',
+      'Studio Funcional Maceió', 'Cross Training Imperial', 'BioFit Saúde e Treino',
+      'Academia Tropical Force', 'Elite Sports & Gym'
+    ];
+    avgKwh = 3500;
+    avgRoof = 450;
+  } else if (segLower.includes('supermerc') || segLower.includes('mercad') || segLower.includes('atac') || segLower.includes('varej')) {
+    businessTemplates = [
+      'Supermercado Bom Preço Alagoas', 'Mercado Central da Família', 'Rede União Supermercados',
+      'Supermercado Estrela do Norte', 'Hiper Tropical Alimentos', 'Supermercado Progresso',
+      'Mercado Pajuçara Express', 'Atacarejo São Gonçalo'
+    ];
+    avgKwh = 7200;
+    avgRoof = 850;
+  } else if (segLower.includes('clini') || segLower.includes('odont') || segLower.includes('medic') || segLower.includes('hospital')) {
+    businessTemplates = [
+      'Clínica Médica e Diagnóstico Integrado', 'Instituto Odontológico Alagoas', 'Clínica Oftalmológica Visão',
+      'Centro Médico Especializado Farol', 'Policlínica São Rafael', 'Clínica Odonto Prime Maceió',
+      'Espaço Saúde e Bem-Estar', 'Clínica Dermatológica Imperial'
+    ];
+    avgKwh = 1900;
+    avgRoof = 220;
+  } else if (segLower.includes('hotel') || segLower.includes('pousad') || segLower.includes('resort')) {
+    businessTemplates = [
+      'Pousada Beira Mar Tropical', 'Hotel Imperial Maceió', 'Pousada Areias Douradas',
+      'Hotel Ponta Verde Palace', 'Pousada das Águas Alagoas', 'Eco Resort Laguna Tropical',
+      'Grand Hotel Central', 'Pousada Farol da Barra'
+    ];
+    avgKwh = 6200;
+    avgRoof = 700;
+  } else if (segLower.includes('restaur') || segLower.includes('churrasc') || segLower.includes('pizz')) {
+    businessTemplates = [
+      'Restaurante Sabores de Alagoas', 'Churrascaria Boi Dourado', 'Pizzaria Napolitana Tradicional',
+      'Restaurante Terra e Mar', 'Fogão a Lenha Alagoano', 'Bistrô Imperial da Praia',
+      'Restaurante e Chopp Grill', 'Cantina Bella Vista'
+    ];
+    avgKwh = 3400;
+    avgRoof = 320;
+  } else {
+    // Generic segment handling
+    const cleanSegment = segmento.charAt(0).toUpperCase() + segmento.slice(1);
+    const prefixes = ['Grupo', 'Centro de', 'Comercial', 'Rede', 'Soluções em', 'Espaço', 'Companhia', 'Distribuidora'];
+    const surnames = ['Alagoas', 'Central', 'Tropical', 'Pontual', 'Estrela', 'Elite', 'Brasil', 'Imperial'];
+    businessTemplates = surnames.map((s, i) => `${prefixes[i % prefixes.length]} ${cleanSegment} ${s}`);
+    avgKwh = 2400;
+    avgRoof = 300;
+  }
+
+  const neighborhoods = ['Farol', 'Ponta Verde', 'Jatiúca', 'Mangabeiras', 'Pajuçara', 'Cruz das Almas', 'Serraria', 'Antares'];
+
+  return businessTemplates.map((name, idx) => {
+    const kwh = Math.round(avgKwh * (0.8 + (idx % 5) * 0.1));
+    const roof = Math.round(avgRoof * (0.85 + (idx % 4) * 0.12));
+    const savings = Math.round(kwh * 0.92);
+    const neighborhood = neighborhoods[idx % neighborhoods.length];
+    const streetNum = 120 + idx * 85;
+
     return {
       id: `prospect-${idx + 1}`,
       title: name,
       nome: name,
       category: segmento,
       categoria: segmento,
-      address: `Av. Fernandes Lima, ${streetNum} - Farol, ${city} - AL`,
-      endereco: `Av. Fernandes Lima, ${streetNum} - Farol, ${city} - AL`,
-      phone: `(82) 9${8000 + idx * 111}-${1000 + idx * 222}`,
-      telefone: `(82) 9${8000 + idx * 111}-${1000 + idx * 222}`,
+      address: `Av. Fernandes Lima, ${streetNum} - ${neighborhood}, ${city} - AL`,
+      endereco: `Av. Fernandes Lima, ${streetNum} - ${neighborhood}, ${city} - AL`,
+      phone: `(82) 9${8100 + idx * 115}-${1200 + idx * 230}`,
+      telefone: `(82) 9${8100 + idx * 115}-${1200 + idx * 230}`,
       website: `https://${name.toLowerCase().replace(/[^a-z0-9]/g, '')}.com.br`,
-      rating: +(4.2 + (idx % 8) * 0.1).toFixed(1),
-      avaliacao: +(4.2 + (idx % 8) * 0.1).toFixed(1),
-      reviews_count: 24 + idx * 12,
+      rating: +(4.3 + (idx % 6) * 0.1).toFixed(1),
+      avaliacao: +(4.3 + (idx % 6) * 0.1).toFixed(1),
+      reviews_count: 18 + idx * 15,
       solar_fit: {
-        estimated_monthly_consumption: item.consumption,
-        usable_roof_area: item.roof,
-        estimated_savings: item.potential,
+        estimated_monthly_consumption: `${kwh.toLocaleString('pt-BR')} kWh`,
+        usable_roof_area: `${roof} m²`,
+        estimated_savings: `R$ ${savings.toLocaleString('pt-BR')}/mês`,
         priority: idx < 3 ? 'Alta' : 'Média',
       },
     };

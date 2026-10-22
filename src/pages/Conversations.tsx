@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Smartphone, RefreshCw, MessageSquare, Search, Paperclip, Send, User as UserIcon, Zap, Clock, ShieldCheck, PauseCircle, PlayCircle, PowerOff, Bot, MapPin, TrendingUp, ArrowLeft, X, QrCode } from 'lucide-react';
+import { Smartphone, RefreshCw, MessageSquare, Search, Paperclip, Send, User as UserIcon, Zap, Clock, ShieldCheck, PauseCircle, PlayCircle, PowerOff, Bot, MapPin, TrendingUp, ArrowLeft, X, QrCode, Loader2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { supabase } from '../lib/supabaseClient';
 
 export interface ChatMessage {
@@ -31,6 +32,7 @@ const EVO_API_KEY = import.meta.env.VITE_EVOLUTION_API_KEY || 'quark_senha_secre
 
 const Conversations: React.FC = () => {
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
 
     const [selectedChat, setSelectedChat] = useState<string | null>(null);
     const [chats, setChats] = useState<ChatItem[]>([]);
@@ -38,7 +40,7 @@ const Conversations: React.FC = () => {
     useEffect(() => {
         const fetchChats = async () => {
             try {
-                const timeoutPromise = new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), 2000));
+                const timeoutPromise = new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000));
                 const fetchPromise = supabase
                     .from('whatsapp_messages')
                     .select('*')
@@ -810,22 +812,56 @@ const Conversations: React.FC = () => {
                                     }
                                 }}
                             >
-                                <button type="button" className="p-2.5 md:p-3 text-slate-500 hover:text-slate-300 transition-colors rounded-xl hover:bg-white/5 flex-shrink-0">
+                                <input 
+                                    type="file" 
+                                    ref={fileInputRef} 
+                                    className="hidden" 
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                            toast.success(`Arquivo "${file.name}" anexado!`);
+                                            setMessageText(prev => prev ? `${prev} [Anexo: ${file.name}]` : `[Anexo: ${file.name}]`);
+                                        }
+                                    }}
+                                />
+                                <button 
+                                    type="button" 
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="p-2.5 md:p-3 text-slate-500 hover:text-slate-300 transition-colors rounded-xl hover:bg-white/5 flex-shrink-0 cursor-pointer"
+                                    title="Anexar arquivo / foto"
+                                >
                                     <Paperclip size={18} />
                                 </button>
                                 <button 
                                     type="button" 
-                                    onClick={() => {
+                                    disabled={aiLoading}
+                                    onClick={async () => {
                                         setAiLoading(true);
-                                        setTimeout(() => {
-                                            setMessageText("Olá! Analisei sua solicitação e posso preparar uma simulação personalizada de economia com energia solar para você. Qual é o valor médio da sua conta de luz?");
-                                            setAiLoading(false);
-                                        }, 800);
+                                        try {
+                                            const res = await fetch(`${BACKEND_URL}/agent/suggest/${activeChat.id}`, {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({
+                                                    messages: (activeChat.messages || []).map(m => ({ from_me: m.fromMe, body: m.body })),
+                                                }),
+                                            });
+                                            if (res.ok) {
+                                                const data = await res.json();
+                                                if (data.suggestion) {
+                                                    setMessageText(data.suggestion);
+                                                    setAiLoading(false);
+                                                    return;
+                                                }
+                                            }
+                                        } catch (_) {}
+                                        const clientName = activeChat.name.split(' ')[0] || 'amigo';
+                                        setMessageText(`Olá ${clientName}! Analisei seu histórico e podemos dimensionar um sistema solar sob medida com redução de até 95% na sua fatura. Qual é a média da sua conta de luz hoje?`);
+                                        setAiLoading(false);
                                     }}
-                                    className="p-2.5 md:p-3 text-purple-400 hover:text-purple-300 transition-colors rounded-xl hover:bg-purple-500/10 flex-shrink-0"
-                                    title="Gemini AI Draft Reply"
+                                    className="p-2.5 md:p-3 text-purple-400 hover:text-purple-300 transition-colors rounded-xl hover:bg-purple-500/10 flex-shrink-0 cursor-pointer disabled:opacity-50"
+                                    title="Sugerir resposta com Gemini IA"
                                 >
-                                    <Bot size={18} />
+                                    {aiLoading ? <Loader2 size={18} className="animate-spin text-purple-400" /> : <Bot size={18} />}
                                 </button>
                                 <textarea
                                     rows={1}
