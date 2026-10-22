@@ -14,7 +14,13 @@ export function useApp() {
     } catch {}
     return mergeSettings(null);
   });
-  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [settingsLoaded, setSettingsLoaded] = useState(() => {
+    try {
+      return !!localStorage.getItem("quark_settings_cache");
+    } catch {
+      return false;
+    }
+  });
 
   useEffect(() => {
     let active = true;

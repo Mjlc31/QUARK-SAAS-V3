@@ -86,46 +86,67 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
     setSaving(true);
     // A infraestrutura por metro acompanha sempre a distância informada.
     const synced: SaveInputs = { ...inputs, extraCosts: inputs.extraCosts.map((it) => (it.key === "infra" ? { ...it, qty: inputs.distanceM, value: inputs.distanceM * it.unit } : it)) };
-    const oppId = leadId && leadId.length === 36 ? leadId : null;
-    const row = {
-      lead_id: leadId,
-      opportunity_id: oppId,
-      user_id: user?.id,
-      title: title || null,
-      inputs: synced,
-      power_kwp: inputs.chargerPowerKw,
-      monthly_generation: 0,
-      direct_cost: result.directCost,
-      commission_value: result.commissionValue,
-      tax_value: result.taxValue,
-      profit_value: result.profitValue,
-      final_price: result.finalPrice,
-      valid_until: current.current?.valid_until && current.current.status !== "rascunho" ? current.current.valid_until : addDays(inputs.validityDays),
-      ...opts.extra,
-    };
-    const sb = supabase();
-    const res = current.current
-      ? await sb.from("proposals").update(row).eq("id", current.current.id).select("*").single()
-      : await sb.from("proposals").insert({ ...row, user_id: user!.id, created_by: user!.id }).select("*").single();
-    setSaving(false);
-    if (res.error) {
-      toast.error(res.error.message);
+    setSaving(true);
+    try {
+      const oppId = leadId && leadId.length === 36 ? leadId : null;
+      const userId = user?.id || "usr_admin_arthur";
+      const row = {
+        lead_id: leadId,
+        opportunity_id: oppId,
+        user_id: userId,
+        title: title || (lead?.name ? `Proposta S.A.V.E — ${lead.name}` : null),
+        client_name: lead?.name || "Cliente",
+        city: lead?.city || null,
+        phone: lead?.phone || null,
+        lead: lead ? { id: lead.id, name: lead.name, city: lead.city, phone: lead.phone } : undefined,
+        inputs: synced,
+        power_kwp: inputs.chargerPowerKw,
+        monthly_generation: 0,
+        direct_cost: result.directCost,
+        commission_value: result.commissionValue,
+        tax_value: result.taxValue,
+        profit_value: result.profitValue,
+        final_price: result.finalPrice,
+        valid_until: current.current?.valid_until && current.current.status !== "rascunho" ? current.current.valid_until : addDays(inputs.validityDays),
+        ...opts.extra,
+      };
+      const sb = supabase();
+      const res = current.current
+        ? await sb.from("proposals").update(row).eq("id", current.current.id).select("*").single()
+        : await sb.from("proposals").insert({ ...row, user_id: userId, created_by: userId }).select("*").single();
+
+      if (res.error) {
+        toast.error(res.error.message || "Erro ao salvar orçamento S.A.V.E");
+        return null;
+      }
+      setDirty(false);
+      const saved = res.data as Proposal;
+      const wasNew = !current.current;
+      current.current = saved;
+
+      if (wasNew) {
+        try {
+          await logCrmNote(leadId, `📝 Orçamento S.A.V.E #${saved.number} criado — ${brl(saved.final_price)}`);
+        } catch (_) {}
+        if (lead && !lead.services.includes("save")) {
+          try {
+            await sb.from("opportunities").update({ services: [...new Set([...lead.services, lead.segment || "save", "save"].filter(Boolean))], segment: lead.segment || "save" }).eq("id", lead.id);
+          } catch (_) {}
+        }
+        toast.success(`Orçamento S.A.V.E #${saved.number} salvo com sucesso!`);
+        navigate(`/propostas/${saved.id}`, { replace: true });
+        reward("proposta", saved.id);
+      } else if (!opts.silent) {
+        toast.success("Orçamento salvo com sucesso!");
+      }
+      return saved;
+    } catch (err: any) {
+      console.error("Erro ao salvar proposta S.A.V.E:", err);
+      toast.error(err?.message || "Erro inesperado ao salvar orçamento S.A.V.E");
       return null;
+    } finally {
+      setSaving(false);
     }
-    setDirty(false);
-    const saved = res.data as Proposal;
-    if (!current.current) {
-      await logCrmNote(leadId, `📝 Orçamento S.A.V.E #${saved.number} criado — ${brl(saved.final_price)}`);
-      // Cliente de solar que também quer carregador: marca os dois serviços no CRM.
-      if (lead && !lead.services.includes("save"))
-        await sb.from("opportunities").update({ services: [...new Set([...lead.services, lead.segment || "save", "save"].filter(Boolean))], segment: lead.segment || "save" }).eq("id", lead.id).then(() => {}, () => {});
-      toast.success(`Orçamento S.A.V.E #${saved.number} salvo`);
-      navigate(`/propostas/${saved.id}`, { replace: true });
-      reward("proposta", saved.id);
-    } else if (!opts.silent) {
-      toast.success("Orçamento salvo");
-    }
-    return saved;
   }
 
   async function share(kind: "copy" | "whatsapp" | "open") {
@@ -205,7 +226,7 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
                 onClick={async () => {
                   if (dirty) await save({ silent: true });
                   try {
-                    const copy = await duplicateProposal(proposal.id, user!.id);
+                    const copy = await duplicateProposal(proposal.id, user?.id || "usr_admin_arthur");
                     toast.success(`Cópia criada: #${copy.number}`);
                     navigate(`/propostas/${copy.id}`);
                   } catch (e) {

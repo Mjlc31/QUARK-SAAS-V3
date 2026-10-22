@@ -34,12 +34,25 @@ export interface ContractRow {
 
 const CACHE_KEY = 'quark_contracts_cache';
 
-const withTimeout = <T,>(p: Promise<T>, ms = 1500): Promise<T> =>
+const withTimeout = <T,>(p: Promise<T>, ms = 2000): Promise<T> =>
   Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 
 export function useContracts(filterKind: string = 'contrato') {
   return useQuery({
     queryKey: ['contracts', filterKind],
+    initialData: () => {
+      try {
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (cached) {
+          const list: ContractRow[] = JSON.parse(cached);
+          if (Array.isArray(list) && list.length > 0) {
+            return list.filter((c) => c.kind === filterKind);
+          }
+        }
+      } catch (_) {}
+      return undefined;
+    },
+    staleTime: 30_000,
     queryFn: async () => {
       try {
         const queryPromise = supabase
@@ -48,7 +61,7 @@ export function useContracts(filterKind: string = 'contrato') {
           .eq('kind', filterKind)
           .order('updated_at', { ascending: false });
 
-        const res = await withTimeout(queryPromise as any).catch(() => ({ data: null, error: true }));
+        const res = await withTimeout(queryPromise as any, 2000).catch(() => ({ data: null, error: true }));
         const { data, error } = res as any;
 
         if (error || !data) {

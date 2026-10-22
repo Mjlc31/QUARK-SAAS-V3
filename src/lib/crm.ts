@@ -38,6 +38,7 @@ export interface Opportunity {
   source?: string | null;
   temperature?: "frio" | "morno" | "quente" | null;
   avg_bill?: number | null;
+  deleted_at?: string | null;
   consumption_kwh?: number | null;
   roof_type?: string | null;
   connection_type?: string | null;

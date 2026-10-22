@@ -252,6 +252,8 @@ export interface ClientPortalUser {
   utility_company?: string | null;
   utility_account?: string | null;
   system_size_kw?: number | null;
+  contract_value?: number | null;
+  system_cost?: number | null;
   install_date?: string | null;
   monthly_avg_kwh?: number | null;
   notes?: string | null;

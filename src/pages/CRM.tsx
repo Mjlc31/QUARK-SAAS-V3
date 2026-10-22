@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Copy, Eye, EyeOff, FileText, Flame, LayoutGrid, Link2, List, MapPin, MessageCircle, Plus, Receipt, Search, Snowflake, X, Zap } from "lucide-react";
+import { Check, CheckSquare, Copy, Eye, EyeOff, FileText, Flame, LayoutGrid, Link2, List, MapPin, MessageCircle, Plus, Receipt, Search, Snowflake, Trash2, X, Zap } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { OpportunityDetailsPanel } from "../components/OpportunityDetailsPanel";
 import { NewOpportunityModal, friendly } from "../components/crm/NewOpportunityModal";
@@ -17,6 +17,22 @@ import { recordXpEvent } from "../lib/gamification";
 
 const PROPOSAL_LABEL: Record<string, string> = { rascunho: "Rascunho", enviada: "Enviada", visualizada: "Visualizada", aceita: "Aceita", recusada: "Recusada" };
 
+function getDeletedOppIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem("quark_deleted_opportunities");
+    if (raw) return new Set(JSON.parse(raw).map(String));
+  } catch (_) {}
+  return new Set();
+}
+
+function recordDeletedOppIds(ids: string[]) {
+  try {
+    const current = getDeletedOppIds();
+    ids.forEach((id) => current.add(String(id)));
+    localStorage.setItem("quark_deleted_opportunities", JSON.stringify(Array.from(current)));
+  } catch (_) {}
+}
+
 interface CrmData {
   opps: Opportunity[];
   proposals: OppProposal[];
@@ -27,6 +43,7 @@ async function loadCrm(): Promise<CrmData> {
   let opps: Opportunity[] = [];
   let proposals: OppProposal[] = [];
   let views: ProposalView[] = [];
+  const deletedSet = getDeletedOppIds();
 
   try {
     const timeoutPromise = new Promise<never>((_, reject) =>
@@ -34,17 +51,14 @@ async function loadCrm(): Promise<CrmData> {
     );
 
     const queryPromise = Promise.all([
-      supabase.from("opportunities").select("*").order("created_at", { ascending: false }),
+      supabase.from("opportunities").select("*").is("deleted_at", null).order("created_at", { ascending: false }),
       supabase.from("proposals").select("id, number, lead_id, status, final_price, power_kwp, public_token, created_at, product:inputs->>product").order("created_at", { ascending: false }).limit(400),
     ]);
 
     const [oppRes, propRes] = await Promise.race([queryPromise, timeoutPromise]);
 
     if (oppRes.data && oppRes.data.length > 0) {
-      opps = oppRes.data as Opportunity[];
-      try {
-        localStorage.setItem("quark_opportunities", JSON.stringify(opps));
-      } catch (_) {}
+      opps = (oppRes.data as Opportunity[]).filter(o => !deletedSet.has(String(o.id)) && !o.deleted_at);
     }
     if (propRes.data) {
       proposals = ((propRes.data ?? []) as any[]).map((p) => ({ ...p, inputs: { product: p.product } })) as OppProposal[];
@@ -54,17 +68,43 @@ async function loadCrm(): Promise<CrmData> {
     console.warn("⚠️ CRM: Falha ou timeout na conexão remota, carregando do cache offline:", e);
   }
 
-  // Fallback 1: cache de oportunidades local
-  if (opps.length === 0) {
-    try {
-      const cached = localStorage.getItem("quark_opportunities");
-      if (cached) {
-        opps = JSON.parse(cached);
+  // Merge com cache local de oportunidades (garante que leads criados localmente nunca sumam)
+  try {
+    const cached = localStorage.getItem("quark_opportunities");
+    if (cached) {
+      const localList: Opportunity[] = JSON.parse(cached);
+      const map = new Map<string, Opportunity>();
+      for (const o of opps) if (!deletedSet.has(String(o.id)) && !o.deleted_at) map.set(o.id, o);
+      for (const o of localList) {
+        if (!deletedSet.has(String(o.id)) && !o.deleted_at && !map.has(o.id)) map.set(o.id, o);
       }
-    } catch (_) {}
-  }
+      opps = Array.from(map.values());
+    }
+  } catch (_) {}
 
-  // Fallback 2: mapeamento resiliente a partir de 'quark_leads'
+  // Fallback / Enriquecimento com API de Oportunidades do backend
+  try {
+    const res = await fetch("/api/opportunities");
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && Array.isArray(json.opportunities) && json.opportunities.length > 0) {
+        const map = new Map<string, Opportunity>();
+        for (const o of json.opportunities) {
+          if (!deletedSet.has(String(o.id)) && !o.deleted_at) map.set(o.id, o);
+        }
+        // Oportunidades locais/remotas têm precedência se foram editadas
+        for (const o of opps) {
+          if (!deletedSet.has(String(o.id)) && !o.deleted_at) map.set(o.id, o);
+        }
+        opps = Array.from(map.values());
+        try {
+          localStorage.setItem("quark_opportunities", JSON.stringify(opps));
+        } catch (_) {}
+      }
+    }
+  } catch (_) {}
+
+  // Fallback 3: mapeamento resiliente a partir de 'quark_leads'
   if (opps.length === 0) {
     try {
       const leadsRaw = localStorage.getItem("quark_leads");
@@ -83,7 +123,7 @@ async function loadCrm(): Promise<CrmData> {
               l.status === "proposta" || l.status === "Proposta" ? "Proposta" :
               l.status === "ganho" || l.status === "Ganho" ? "Ganho" :
               l.status === "perdido" || l.status === "Perdido" ? "Perdido" : "Lead",
-            amount: l.value || l.amount || l.estimated_value || 25000,
+            amount: Number(l.value || l.amount || l.estimated_value) || 0,
             services: l.services || ["solar"],
             source: l.source || "Manual",
             temperature: l.temperature || "morno",
@@ -118,6 +158,101 @@ const CRM: React.FC = () => {
   const [lossModal, setLossModal] = useState<string | null>(null);
   const [lossReason, setLossReason] = useState("");
   const [linksOpen, setLinksOpen] = useState(false);
+  const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
+
+  const handleToggleSelectLead = (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setSelectedLeadIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleSelectAllFiltered = () => {
+    setSelectedLeadIds(new Set(filtered.map((o) => o.id)));
+  };
+
+  const handleClearSelection = () => {
+    setSelectedLeadIds(new Set());
+  };
+
+  const handleToggleSelectColumn = (columnOpps: Opportunity[], e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setSelectedLeadIds((prev) => {
+      const next = new Set(prev);
+      const allSelected = columnOpps.length > 0 && columnOpps.every((o) => next.has(o.id));
+      if (allSelected) {
+        columnOpps.forEach((o) => next.delete(o.id));
+      } else {
+        columnOpps.forEach((o) => next.add(o.id));
+      }
+      return next;
+    });
+  };
+
+  const handleBulkMove = async (newStage: string) => {
+    if (selectedLeadIds.size === 0) return;
+    const targetStage = OPPORTUNITY_STAGES.find((s) => s.id === newStage);
+    const stageName = targetStage?.name || newStage;
+    const count = selectedLeadIds.size;
+    const ids = Array.from(selectedLeadIds);
+
+    const nextOpps = opportunities.map((o) =>
+      selectedLeadIds.has(o.id) ? { ...o, status: newStage } : o
+    );
+    setOpps(() => nextOpps);
+    try {
+      localStorage.setItem("quark_opportunities", JSON.stringify(nextOpps));
+    } catch (_) {}
+
+    setSelectedLeadIds(new Set());
+
+    Promise.allSettled(
+      ids.map((id) =>
+        fetch(`/api/opportunities/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: newStage }),
+        })
+      )
+    ).catch(() => {});
+
+    try {
+      await supabase.from("opportunities").update({ status: newStage }).in("id", ids);
+    } catch (_) {}
+
+    toast.success(`✅ ${count} ${count === 1 ? "lead movido" : "leads movidos"} para "${stageName}"!`);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedLeadIds.size === 0) return;
+    const count = selectedLeadIds.size;
+    if (!confirm(`Excluir definitivamente os ${count} leads selecionados? Esta ação não pode ser desfeita.`)) return;
+
+    const ids = Array.from(selectedLeadIds);
+    recordDeletedOppIds(ids);
+    const nextOpps = opportunities.filter((o) => !selectedLeadIds.has(o.id));
+    setOpps(() => nextOpps);
+    try {
+      localStorage.setItem("quark_opportunities", JSON.stringify(nextOpps));
+    } catch (_) {}
+    setSelectedLeadIds(new Set());
+    if (selectedId && ids.includes(selectedId)) setSelectedId(null);
+
+    fetch("/api/opportunities/bulk-delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids }),
+    }).catch(() => {});
+
+    try {
+      await supabase.from("opportunities").update({ deleted_at: new Date().toISOString() }).in("id", ids);
+    } catch (_) {}
+
+    toast.success(`🗑️ ${count} ${count === 1 ? "lead excluído" : "leads excluídos"} com sucesso!`);
+  };
 
   const setOpps = (fn: (o: Opportunity[]) => Opportunity[]) => setData((d) => (d ? { ...d, opps: fn(d.opps) } : d));
 
@@ -188,6 +323,11 @@ const CRM: React.FC = () => {
 
     const updatePayload: Partial<Opportunity> = { status };
     if (reason) updatePayload.loss_reason = reason;
+    fetch(`/api/opportunities/${opp.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updatePayload),
+    }).catch(() => {});
     try {
       const { error } = await supabase.from("opportunities").update(updatePayload).eq("id", opp.id);
       if (error) {
@@ -301,6 +441,11 @@ const CRM: React.FC = () => {
     try {
       localStorage.setItem("quark_opportunities", JSON.stringify(nextOpps));
     } catch (_) {}
+    fetch(`/api/opportunities/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    }).catch(() => {});
     try {
       const { error } = await supabase.from("opportunities").update(updates).eq("id", id);
       if (error) console.warn("Supabase update error (salvo localmente):", error.message);
@@ -311,18 +456,23 @@ const CRM: React.FC = () => {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Excluir esta oportunidade? Esta ação não pode ser desfeita.")) return;
+    recordDeletedOppIds([id]);
     const nextOpps = opportunities.filter((o) => o.id !== id);
     setOpps(() => nextOpps);
     try {
       localStorage.setItem("quark_opportunities", JSON.stringify(nextOpps));
     } catch (_) {}
     setSelectedId(null);
+    fetch(`/api/opportunities/${id}`, {
+      method: "DELETE",
+    }).catch(() => {});
     try {
       const { error } = await supabase.from("opportunities").update({ deleted_at: new Date().toISOString() }).eq("id", id);
       if (error) console.warn("Supabase delete error (excluído localmente):", error.message);
     } catch (e) {
       console.warn("Supabase offline, excluído localmente:", e);
     }
+    toast.success("Oportunidade excluída com sucesso!");
   };
 
   const selected = opportunities.find((o) => o.id === selectedId) ?? null;
@@ -437,7 +587,25 @@ const CRM: React.FC = () => {
                         <h3 className="font-display text-sm font-semibold text-zinc-100">{column.name}</h3>
                         <span className="rounded-full bg-white/5 px-2 py-0.5 text-[11px] font-bold text-zinc-400">{columnOpps.length}</span>
                       </div>
-                      <span className="tnum text-xs font-semibold text-zinc-400">{formatCurrencyShort(total)}</span>
+                      <div className="flex items-center gap-2">
+                        {columnOpps.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={(e) => handleToggleSelectColumn(columnOpps, e)}
+                            className={cx(
+                              "flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold transition cursor-pointer",
+                              columnOpps.every((o) => selectedLeadIds.has(o.id))
+                                ? "bg-lime-500/20 text-lime-300 ring-1 ring-lime-500/40"
+                                : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
+                            )}
+                            title={columnOpps.every((o) => selectedLeadIds.has(o.id)) ? "Desmarcar coluna" : "Selecionar todos da coluna"}
+                          >
+                            <CheckSquare className="h-3 w-3" />
+                            <span>Todos</span>
+                          </button>
+                        )}
+                        <span className="tnum text-xs font-semibold text-zinc-400">{formatCurrencyShort(total)}</span>
+                      </div>
                     </div>
                   </div>
                   <div className="custom-scrollbar flex-1 space-y-2.5 overflow-y-auto p-2.5">
@@ -452,6 +620,8 @@ const CRM: React.FC = () => {
                         opp={opp}
                         info={byLead.get(opp.id)}
                         dragging={draggedOpp === opp.id}
+                        isSelected={selectedLeadIds.has(opp.id)}
+                        onToggleSelect={handleToggleSelectLead}
                         onDragStart={(e) => {
                           setDraggedOpp(opp.id);
                           e.dataTransfer.effectAllowed = "move";
@@ -466,7 +636,14 @@ const CRM: React.FC = () => {
           </div>
         </div>
       ) : (
-        <OppTable opps={filtered} byLead={byLead} onOpen={setSelectedId} />
+        <OppTable 
+          opps={filtered} 
+          byLead={byLead} 
+          selectedLeadIds={selectedLeadIds}
+          onToggleSelect={handleToggleSelectLead}
+          onSelectAllVisible={handleSelectAllFiltered}
+          onOpen={setSelectedId} 
+        />
       )}
 
       {selected && (
@@ -528,6 +705,69 @@ const CRM: React.FC = () => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ─── BARRA FLUTUANTE DE AÇÕES EM LOTE ─── */}
+      {selectedLeadIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex flex-wrap items-center gap-3 rounded-2xl bg-zinc-950/95 px-5 py-3 shadow-2xl shadow-black ring-1 ring-lime-500/40 backdrop-blur-xl animate-fade-up border border-lime-500/20">
+          <div className="flex items-center gap-2 pr-3 border-r border-zinc-800">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-lime-500 text-xs font-bold text-zinc-950">
+              {selectedLeadIds.size}
+            </span>
+            <span className="text-xs font-semibold text-white whitespace-nowrap">
+              {selectedLeadIds.size === 1 ? "1 selecionado" : `${selectedLeadIds.size} selecionados`}
+            </span>
+          </div>
+
+          {selectedLeadIds.size < filtered.length && (
+            <button
+              type="button"
+              onClick={handleSelectAllFiltered}
+              className="text-xs text-lime-400 hover:underline font-medium whitespace-nowrap cursor-pointer"
+            >
+              Selecionar todos ({filtered.length})
+            </button>
+          )}
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-zinc-400 whitespace-nowrap">Mover para:</span>
+            <select
+              onChange={(e) => {
+                if (e.target.value) {
+                  handleBulkMove(e.target.value);
+                  e.target.value = "";
+                }
+              }}
+              defaultValue=""
+              className="rounded-lg bg-zinc-900 border border-zinc-700 px-2.5 py-1.5 text-xs font-medium text-white focus:outline-none focus:ring-1 focus:ring-lime-400 cursor-pointer"
+            >
+              <option value="" disabled>Escolha a etapa...</option>
+              {OPPORTUNITY_STAGES.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleBulkDelete}
+            className="flex items-center gap-1.5 rounded-lg bg-red-500/10 border border-red-500/30 px-3 py-1.5 text-xs font-semibold text-red-400 hover:bg-red-500 hover:text-white transition active:scale-95 whitespace-nowrap cursor-pointer"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Excluir selecionados
+          </button>
+
+          <button
+            type="button"
+            onClick={handleClearSelection}
+            className="p-1 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800 transition cursor-pointer"
+            title="Desmarcar todos"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
     </div>
@@ -599,12 +839,16 @@ function OppCard({
   opp,
   info,
   dragging,
+  isSelected,
+  onToggleSelect,
   onDragStart,
   onClick,
 }: {
   opp: Opportunity;
   info?: { proposal: OppProposal; count: number; views: ProposalView[] };
   dragging: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (id: string, e: React.MouseEvent) => void;
   onDragStart: (e: React.DragEvent) => void;
   onClick: () => void;
 }) {
@@ -621,22 +865,43 @@ function OppCard({
       onDragStart={onDragStart}
       onClick={onClick}
       className={cx(
-        "group relative cursor-pointer touch-manipulation rounded-xl bg-zinc-900/90 p-3.5 ring-1 transition hover:-translate-y-0.5 hover:ring-white/15",
-        lost ? "opacity-55 ring-red-900/40" : "ring-white/5",
+        "group relative cursor-pointer touch-manipulation rounded-xl p-3.5 ring-1 transition hover:-translate-y-0.5",
+        isSelected
+          ? "bg-zinc-900 ring-2 ring-lime-400 shadow-md shadow-lime-500/10"
+          : "bg-zinc-900/90 ring-white/5 hover:ring-white/15",
+        lost && !isSelected && "opacity-55 ring-red-900/40",
         dragging && "opacity-40",
       )}
     >
       <div className="mb-2 flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5">
-            <h4 className="truncate text-sm font-semibold text-zinc-100">{opp.title}</h4>
-            {score >= 75 && <Flame size={13} className="shrink-0 text-orange-400" aria-label="Lead quente" />}
-            {isCold(opp) && <Snowflake size={13} className="shrink-0 text-sky-400" aria-label="Parado há mais de 7 dias" />}
+        <div className="flex items-start gap-2.5 min-w-0">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSelect?.(opp.id, e);
+            }}
+            className={cx(
+              "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all cursor-pointer",
+              isSelected
+                ? "bg-lime-500 border-lime-400 text-zinc-950 shadow-sm shadow-lime-500/50 opacity-100"
+                : "border-zinc-700 bg-zinc-800/80 text-transparent opacity-0 group-hover:opacity-100 hover:border-lime-500"
+            )}
+            title={isSelected ? "Desmarcar lead" : "Selecionar lead"}
+          >
+            <Check className="h-3 w-3 stroke-[3]" />
+          </button>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <h4 className={cx("truncate text-sm font-semibold transition-colors", isSelected ? "text-lime-300" : "text-zinc-100")}>{opp.title}</h4>
+              {score >= 75 && <Flame size={13} className="shrink-0 text-orange-400" aria-label="Lead quente" />}
+              {isCold(opp) && <Snowflake size={13} className="shrink-0 text-sky-400" aria-label="Parado há mais de 7 dias" />}
+            </div>
+            <p className="mt-0.5 flex items-center gap-1 truncate text-[11px] text-zinc-500">
+              <MapPin size={11} /> {opp.city || "Cidade não informada"}
+              {opp.source && <span className="truncate"> · {opp.source}</span>}
+            </p>
           </div>
-          <p className="mt-0.5 flex items-center gap-1 truncate text-[11px] text-zinc-500">
-            <MapPin size={11} /> {opp.city || "Cidade não informada"}
-            {opp.source && <span className="truncate"> · {opp.source}</span>}
-          </p>
         </div>
         <p className={cx("tnum shrink-0 text-sm font-bold", opp.amount ? "text-lime-300" : "text-zinc-600")}>{opp.amount ? formatCurrencyShort(opp.amount) : "sem valor"}</p>
       </div>
@@ -679,13 +944,44 @@ function OppCard({
   );
 }
 
-function OppTable({ opps, byLead, onOpen }: { opps: Opportunity[]; byLead: Map<string, { proposal: OppProposal; count: number; views: ProposalView[] }>; onOpen: (id: string) => void }) {
+function OppTable({
+  opps,
+  byLead,
+  selectedLeadIds,
+  onToggleSelect,
+  onSelectAllVisible,
+  onOpen,
+}: {
+  opps: Opportunity[];
+  byLead: Map<string, { proposal: OppProposal; count: number; views: ProposalView[] }>;
+  selectedLeadIds: Set<string>;
+  onToggleSelect: (id: string, e: React.MouseEvent) => void;
+  onSelectAllVisible: () => void;
+  onOpen: (id: string) => void;
+}) {
   if (!opps.length) return <div className="rounded-2xl py-16 text-center text-sm text-zinc-500 ring-1 ring-white/5">Nenhuma oportunidade encontrada.</div>;
+  const allVisibleSelected = opps.length > 0 && opps.every((o) => selectedLeadIds.has(o.id));
+
   return (
     <div className="custom-scrollbar flex-1 overflow-auto rounded-2xl bg-zinc-900/40 ring-1 ring-white/5">
       <table className="w-full min-w-[860px] text-left text-sm">
         <thead className="sticky top-0 z-10 bg-zinc-950/95 text-[10px] font-bold tracking-wider text-zinc-500 uppercase backdrop-blur">
           <tr>
+            <th className="w-12 px-3 py-3 text-center">
+              <button
+                type="button"
+                onClick={onSelectAllVisible}
+                className={cx(
+                  "flex h-4 w-4 mx-auto items-center justify-center rounded border transition cursor-pointer",
+                  allVisibleSelected
+                    ? "bg-lime-500 border-lime-400 text-zinc-950"
+                    : "border-zinc-700 bg-zinc-800 text-transparent hover:border-zinc-500"
+                )}
+                title={allVisibleSelected ? "Desmarcar todos" : "Selecionar todos"}
+              >
+                <Check className="h-3 w-3 stroke-[3]" />
+              </button>
+            </th>
             <th className="px-4 py-3">Cliente</th>
             <th className="px-3 py-3">Serviços</th>
             <th className="px-3 py-3">Etapa</th>
@@ -698,10 +994,32 @@ function OppTable({ opps, byLead, onOpen }: { opps: Opportunity[]; byLead: Map<s
           {opps.map((o) => {
             const stage = OPPORTUNITY_STAGES.find((s) => s.id === o.status) ?? OPPORTUNITY_STAGES[0];
             const info = byLead.get(o.id);
+            const isSelected = selectedLeadIds.has(o.id);
             return (
-              <tr key={o.id} onClick={() => onOpen(o.id)} className="cursor-pointer transition hover:bg-white/[0.03]">
+              <tr 
+                key={o.id} 
+                onClick={() => onOpen(o.id)} 
+                className={cx(
+                  "cursor-pointer transition",
+                  isSelected ? "bg-lime-500/10 hover:bg-lime-500/15" : "hover:bg-white/[0.03]"
+                )}
+              >
+                <td className="w-12 px-3 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    onClick={(e) => onToggleSelect(o.id, e)}
+                    className={cx(
+                      "flex h-4 w-4 mx-auto items-center justify-center rounded border transition cursor-pointer",
+                      isSelected
+                        ? "bg-lime-500 border-lime-400 text-zinc-950"
+                        : "border-zinc-700 bg-zinc-800 text-transparent hover:border-lime-500"
+                    )}
+                  >
+                    <Check className="h-3 w-3 stroke-[3]" />
+                  </button>
+                </td>
                 <td className="px-4 py-3">
-                  <p className="font-semibold text-white">{o.title}</p>
+                  <p className={cx("font-semibold", isSelected ? "text-lime-300" : "text-white")}>{o.title}</p>
                   <p className="text-xs text-zinc-500">{[o.city, formatPhone(o.phone), o.source].filter(Boolean).join(" · ") || "—"}</p>
                 </td>
                 <td className="px-3 py-3">

@@ -1,0 +1,294 @@
+{
+  "Lead": [
+    {
+      "name": "Indicação",
+      "city": "maceio",
+      "price": "R$ 13000",
+      "phone": ""
+    },
+    {
+      "name": "Thierry",
+      "city": "maceió",
+      "price": "R$ 22000",
+      "phone": "8296428338"
+    },
+    {
+      "name": "Marcos",
+      "city": "Maceió-Serraria",
+      "price": "R$ 11000",
+      "phone": "82991247355"
+    },
+    {
+      "name": "Mercado Super Top",
+      "city": "Maceio - AL",
+      "price": "R$ 37000",
+      "phone": "82988887777"
+    },
+    {
+      "name": "Ricardo",
+      "city": "maceió",
+      "price": "R$ 11000",
+      "phone": ""
+    },
+    {
+      "name": "Bruno",
+      "city": "Maceió",
+      "price": "R$ 17000",
+      "phone": ""
+    },
+    {
+      "name": "Lead google",
+      "city": "maceió",
+      "price": "R$ 14000",
+      "phone": "82996864523"
+    },
+    {
+      "name": "Condomínio de Prédios",
+      "city": "maceió",
+      "price": "R$ 102000",
+      "phone": "829999999999"
+    }
+  ],
+  "Qualificado": [
+    {
+      "name": "Hugo Ferro",
+      "city": "Maceió",
+      "price": "",
+      "phone": ""
+    },
+    {
+      "name": "Indicação César",
+      "city": "Arapiraca",
+      "price": "R$ 32000",
+      "phone": ""
+    },
+    {
+      "name": "Guilhermina",
+      "city": "maceió",
+      "price": "R$ 26000",
+      "phone": "8299720281"
+    },
+    {
+      "name": "Marcos Mendes",
+      "city": "Maceió",
+      "price": "R$ 14000",
+      "phone": ""
+    },
+    {
+      "name": "Mikelly",
+      "city": "Japaratinga",
+      "price": "R$ 27000",
+      "phone": "8199968084"
+    },
+    {
+      "name": "Thyago Oliveira",
+      "city": "Maceió",
+      "price": "R$ 31000",
+      "phone": "8299099852"
+    },
+    {
+      "name": "Rosane",
+      "city": "Maceió",
+      "price": "R$ 18000",
+      "phone": ""
+    },
+    {
+      "name": "Gabriel",
+      "city": "Maceió",
+      "price": "R$ 10000",
+      "phone": "82991392183"
+    },
+    {
+      "name": "Arthur Freitas",
+      "city": "Carro quebrado",
+      "price": "R$ 20000",
+      "phone": "82981880091"
+    },
+    {
+      "name": "Flávio - Google",
+      "city": "maceió",
+      "price": "R$ 35000",
+      "phone": "31992473448"
+    },
+    {
+      "name": "Galdino & Leone",
+      "city": "Limoeiro de Anadia",
+      "price": "R$ 42000",
+      "phone": ""
+    },
+    {
+      "name": "Samuel Vasconcelos",
+      "city": "Maceió",
+      "price": "R$ 18000",
+      "phone": "82991334994"
+    },
+    {
+      "name": "Roseli",
+      "city": "Maceió",
+      "price": "R$ 17000",
+      "phone": "82996103819"
+    },
+    {
+      "name": "Willames Costa",
+      "city": "Cajueiro",
+      "price": "R$ 25000",
+      "phone": "82999782356"
+    },
+    {
+      "name": "Paulo Gabriel",
+      "city": "maceió",
+      "price": "R$ 14000",
+      "phone": "82993286299"
+    },
+    {
+      "name": "Flexeiras",
+      "city": "Flexeiras",
+      "price": "R$ 24000",
+      "phone": "82999999999"
+    },
+    {
+      "name": "Waldir",
+      "city": "maceió",
+      "price": "R$ 15000",
+      "phone": "82996546485"
+    }
+  ],
+  "Proposta": [
+    {
+      "name": "Charles",
+      "city": "Maceió",
+      "price": "R$ 16000",
+      "phone": ""
+    },
+    {
+      "name": "Antonio Nelson",
+      "city": "Igreja Nova",
+      "price": "R$ 156000",
+      "phone": ""
+    },
+    {
+      "name": "Samuel",
+      "city": "Capela",
+      "price": "R$ 17000",
+      "phone": ""
+    },
+    {
+      "name": "André",
+      "city": "Barra de São Miguel",
+      "price": "R$ 30000",
+      "phone": ""
+    },
+    {
+      "name": "José dinario",
+      "city": "barra de são miguel",
+      "price": "R$ 44000",
+      "phone": ""
+    },
+    {
+      "name": "Thiago amorim",
+      "city": "Maceió",
+      "price": "R$ 34000",
+      "phone": ""
+    },
+    {
+      "name": "Tony Finanças",
+      "city": "maceió",
+      "price": "R$ 38000",
+      "phone": ""
+    },
+    {
+      "name": "EngenharQ",
+      "city": "maceió",
+      "price": "R$ 138000",
+      "phone": ""
+    }
+  ],
+  "Ganho": [
+    {
+      "name": "Cesar",
+      "city": "maceio",
+      "price": "R$ 10000",
+      "phone": ""
+    },
+    {
+      "name": "Almir Ilário",
+      "city": "maceió",
+      "price": "R$ 34000",
+      "phone": ""
+    },
+    {
+      "name": "YULIA AMARAL",
+      "city": "Maceió",
+      "price": "R$ 34000",
+      "phone": "27998096149"
+    },
+    {
+      "name": "Everson",
+      "city": "Maceió",
+      "price": "R$ 17000",
+      "phone": "82993344915"
+    },
+    {
+      "name": "Lucas",
+      "city": "Pilar",
+      "price": "R$ 16000",
+      "phone": ""
+    },
+    {
+      "name": "Jhoatan",
+      "city": "Maceió",
+      "price": "R$ 15000",
+      "phone": ""
+    },
+    {
+      "name": "Haroldo",
+      "city": "maceió",
+      "price": "R$ 4000",
+      "phone": ""
+    },
+    {
+      "name": "Jeferson",
+      "city": "Maceió",
+      "price": "R$ 19000",
+      "phone": ""
+    },
+    {
+      "name": "Natanael",
+      "city": "maceió",
+      "price": "R$ 19000",
+      "phone": "45999332462"
+    },
+    {
+      "name": "Coronel Cleydson Villar",
+      "city": "maceió",
+      "price": "R$ 16000",
+      "phone": ""
+    },
+    {
+      "name": "Mesquita Personal",
+      "city": "maceió",
+      "price": "R$ 16000",
+      "phone": "82999999999"
+    },
+    {
+      "name": "Luanda",
+      "city": "maceió",
+      "price": "R$ 11000",
+      "phone": "82988237365"
+    }
+  ],
+  "Perdido": [
+    {
+      "name": "João simonato",
+      "city": "Maceió",
+      "price": "R$ 24000",
+      "phone": ""
+    },
+    {
+      "name": "Tito",
+      "city": "barra de são miguel",
+      "price": "R$ 27000",
+      "phone": ""
+    }
+  ]
+}

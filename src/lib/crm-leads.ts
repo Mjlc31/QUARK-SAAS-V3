@@ -176,10 +176,17 @@ export function getLocalLeadById(id: string | null | undefined): CrmLead | null 
       const found = parsed.find(c => c.id === id);
       if (found) return mapClientUser(found);
     }
-    // 3. Busca em SAMPLE_CLIENTS
+    // 3. Busca em quark_opportunities
+    const rawOpps = localStorage.getItem("quark_opportunities");
+    if (rawOpps) {
+      const parsed: any[] = JSON.parse(rawOpps);
+      const found = parsed.find((o: any) => o.id === id);
+      if (found) return mapOpportunity(found);
+    }
+    // 4. Busca em SAMPLE_CLIENTS
     const foundSample = SAMPLE_CLIENTS.find(s => s.id === id);
     if (foundSample) return mapClientUser(foundSample);
-    // 4. Busca em FALLBACK_LEADS
+    // 5. Busca em FALLBACK_LEADS
     const foundFallback = FALLBACK_LEADS.find(f => f.id === id);
     if (foundFallback) return foundFallback;
   } catch (_) {}
@@ -193,7 +200,7 @@ export function useCrmLeads() {
       let oppsData: any[] = [];
 
       try {
-        const timeoutPromise = new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), 2500));
+        const timeoutPromise = new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), 4000));
         const [clientsRes, oppsRes] = await Promise.race([
           Promise.allSettled([
             supabase.from("client_portal_users").select("*").is("deleted_at", null).order("name", { ascending: true }).limit(1000),
@@ -204,61 +211,94 @@ export function useCrmLeads() {
 
         if (clientsRes.status === "fulfilled" && clientsRes.value.data && clientsRes.value.data.length > 0) {
           clientsData = clientsRes.value.data;
-          try {
-            localStorage.setItem("quark_clients_cache", JSON.stringify(clientsData));
-          } catch (_) {}
         }
 
         if (oppsRes.status === "fulfilled" && oppsRes.value.data && oppsRes.value.data.length > 0) {
           oppsData = oppsRes.value.data;
-          try {
-            localStorage.setItem("quark_opportunities", JSON.stringify(oppsData));
-          } catch (_) {}
         }
       } catch (e) {
-        // Fallback local em caso de erro ou lentidão
+        // Continua com fallbacks locais
       }
 
-      // Fallback 1: cache local de clientes do portal
+      // Se clientes remotos vazios, tenta buscar do backend
       if (clientsData.length === 0) {
         try {
-          const cached = localStorage.getItem("quark_clients_cache");
-          if (cached) clientsData = JSON.parse(cached);
+          const res = await fetch('/api/clients');
+          if (res.ok) {
+            const json = await res.json();
+            if (json.success && Array.isArray(json.clients)) {
+              clientsData = json.clients.filter((c: any) => !c.deleted_at);
+            }
+          }
         } catch (_) {}
       }
 
-      // Se ainda vazio, usa amostras de clientes
-      if (clientsData.length === 0) {
-        clientsData = SAMPLE_CLIENTS;
-      }
+      // Cache local de clientes do portal
+      let localClients: any[] = [];
+      try {
+        const cached = localStorage.getItem("quark_clients_cache");
+        if (cached) localClients = JSON.parse(cached);
+      } catch (_) {}
 
-      // Fallback 2: cache local de oportunidades
-      if (oppsData.length === 0) {
+      // Cache local de oportunidades
+      let localOpps: any[] = [];
+      try {
+        const cached = localStorage.getItem("quark_opportunities");
+        if (cached) localOpps = JSON.parse(cached);
+      } catch (_) {}
+
+      // Fallback para API de oportunidades do backend
+      if (oppsData.length === 0 && localOpps.length === 0) {
         try {
-          const cached = localStorage.getItem("quark_opportunities");
-          if (cached) oppsData = JSON.parse(cached);
+          const res = await fetch('/api/opportunities');
+          if (res.ok) {
+            const json = await res.json();
+            if (json.success && Array.isArray(json.opportunities)) {
+              localOpps = json.opportunities;
+            }
+          }
         } catch (_) {}
       }
 
-      // Montagem do mapa unificado
+      // Montagem do mapa unificado com desduplicação inteligente
       const leadsMap = new Map<string, CrmLead>();
+      const seenKeys = new Set<string>();
 
-      // 1. Prioridade: Clientes reais do portal (client_portal_users)
+      const addUnique = (lead: CrmLead) => {
+        if (!lead || !lead.name) return;
+        const normName = lead.name.toLowerCase().trim().replace(/[^a-z0-9]/g, "");
+        const normDoc = lead.document ? lead.document.replace(/\D/g, "") : "";
+        const key = (normDoc && normDoc.length >= 11) ? normDoc : normName;
+        if (seenKeys.has(key)) return;
+        seenKeys.add(key);
+        leadsMap.set(lead.id, lead);
+      };
+
+      // 1. Clientes reais remotos (client_portal_users)
       for (const c of clientsData) {
-        if (!c.name) continue;
-        const mapped = mapClientUser(c);
-        leadsMap.set(mapped.id, mapped);
+        if (!c.name || c.deleted_at) continue;
+        addUnique(mapClientUser(c));
       }
 
-      // 2. Oportunidades do CRM
+      // 2. Clientes do cache local (SEMPRE preservados)
+      for (const c of localClients) {
+        if (!c.name || c.deleted_at) continue;
+        addUnique(mapClientUser(c));
+      }
+
+      // 3. Oportunidades remotas
       for (const o of oppsData) {
-        const mapped = mapOpportunity(o);
-        if (!leadsMap.has(mapped.id)) {
-          leadsMap.set(mapped.id, mapped);
-        }
+        if (!o.title && !o.name) continue;
+        addUnique(mapOpportunity(o));
       }
 
-      // 3. Leads extras gravados no localStorage
+      // 4. Oportunidades locais
+      for (const o of localOpps) {
+        if (!o.title && !o.name) continue;
+        addUnique(mapOpportunity(o));
+      }
+
+      // 5. Leads extras gravados no localStorage (quark_leads)
       try {
         const leadsRaw = localStorage.getItem("quark_leads");
         if (leadsRaw) {
@@ -277,7 +317,7 @@ export function useCrmLeads() {
                   address: l.address || null,
                   document: l.cpf_cnpj || l.document || null,
                   status: l.status || "Lead",
-                  amount: l.value || l.amount || 25000,
+                  amount: Number(l.value || l.amount) || 0,
                   avg_bill: l.avg_bill || (l.monthlyConsumption ? l.monthlyConsumption * 0.95 : 650),
                   consumption_kwh: l.monthlyConsumption || l.consumption_kwh || 650,
                   tariff: 1.10,
@@ -292,10 +332,14 @@ export function useCrmLeads() {
         }
       } catch (_) {}
 
-      // Fallback final
+      // Fallback final caso tudo esteja completamente vazio
       if (leadsMap.size === 0) {
+        for (const s of SAMPLE_CLIENTS) {
+          const m = mapClientUser(s);
+          leadsMap.set(m.id, m);
+        }
         for (const f of FALLBACK_LEADS) {
-          leadsMap.set(f.id, f);
+          if (!leadsMap.has(f.id)) leadsMap.set(f.id, f);
         }
       }
 

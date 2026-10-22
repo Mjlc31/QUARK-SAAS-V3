@@ -87,7 +87,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     );
 };
 
-const withTimeout = <T,>(p: Promise<T>, ms = 1200): Promise<T> =>
+const withTimeout = <T,>(p: Promise<T>, ms = 8000): Promise<T> =>
     Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 
 const STORAGE_KEY = 'quark_financial_transactions';
@@ -281,11 +281,14 @@ const Financial: React.FC = () => {
                     1200
                 );
                 if (!isMounted) return;
-                if (res.error) throw res.error;
-                if (res.data && res.data.length > 0) {
-                    setTransactions(res.data.map(mapRow));
+                const local = getStoredTransactions().filter(t => t.date >= firstDay && t.date <= lastDay);
+                if (!res.error && res.data && res.data.length > 0) {
+                    const dbTx = res.data.map(mapRow);
+                    const map = new Map<string, Transaction>();
+                    local.forEach(t => map.set(t.id, t));
+                    dbTx.forEach(t => map.set(t.id, t));
+                    setTransactions(Array.from(map.values()).sort((a, b) => b.date.localeCompare(a.date)));
                 } else {
-                    const local = getStoredTransactions().filter(t => t.date >= firstDay && t.date <= lastDay);
                     setTransactions(local);
                 }
             } catch {
@@ -320,17 +323,20 @@ const Financial: React.FC = () => {
                     1200
                 );
                 if (!isMounted) return;
-                if (res.error) throw res.error;
-                if (res.data && res.data.length > 0) {
-                    setAllYearTx(res.data.map(mapRow));
+                const localYear = getStoredTransactions().filter(t => t.date >= firstDay && t.date <= lastDay);
+                if (!res.error && res.data && res.data.length > 0) {
+                    const dbTx = res.data.map(mapRow);
+                    const map = new Map<string, Transaction>();
+                    localYear.forEach(t => map.set(t.id, t));
+                    dbTx.forEach(t => map.set(t.id, t));
+                    setAllYearTx(Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date)));
                 } else {
-                    const local = getStoredTransactions().filter(t => t.date >= firstDay && t.date <= lastDay);
-                    setAllYearTx(local);
+                    setAllYearTx(localYear);
                 }
             } catch {
                 if (!isMounted) return;
-                const local = getStoredTransactions().filter(t => t.date >= firstDay && t.date <= lastDay);
-                setAllYearTx(local);
+                const localYear = getStoredTransactions().filter(t => t.date >= firstDay && t.date <= lastDay);
+                setAllYearTx(localYear);
             }
         };
         fetchYear();
@@ -631,7 +637,7 @@ const Financial: React.FC = () => {
         const finalNote = attachmentUrl ? `${form.note || ''} | Comprovante: ${attachmentUrl}` : (form.note || null);
 
         const newTx: Transaction = {
-            id: `tx-${Date.now()}`,
+            id: crypto.randomUUID(),
             description: form.description,
             type: form.type,
             category: form.category,
@@ -660,10 +666,10 @@ const Financial: React.FC = () => {
             };
             await withTimeout(
                 Promise.resolve(supabase.from('financial_transactions').insert([payload])),
-                1200
+                8000
             );
-        } catch {
-            // offline persistence is already done
+        } catch (err) {
+            console.warn('[Financial] Fallback offline:', err);
         }
 
         const d = new Date(newTx.date + 'T00:00:00');

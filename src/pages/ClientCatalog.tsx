@@ -5,7 +5,7 @@ import {
   Building2, Activity, Check, Copy, Shield, 
   Sparkles, ExternalLink, FileText, ChevronLeft, ChevronRight,
   LayoutGrid, List, ArrowUpDown, Filter, ChevronDown,
-  Clock, ArrowRight, HardHat, CheckCircle2, Key, RefreshCw
+  Clock, ArrowRight, HardHat, CheckCircle2, Key, RefreshCw, DollarSign
 } from 'lucide-react';
 import { 
   useClients, 
@@ -145,6 +145,17 @@ const ClientCard = React.memo(function ClientCard({
                 <span className="font-semibold text-zinc-400">{client.utility_company || 'Concessionária'}:</span>{' '}
                 {client.utility_account ? `UC ${client.utility_account}` : 'Sem conta informada'}
               </p>
+            </div>
+          )}
+
+          {Boolean(client.contract_value || client.system_cost) && (
+            <div className="col-span-2 flex items-center justify-between pt-2 border-t border-white/5 min-w-0">
+              <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold flex items-center gap-1">
+                <DollarSign className="w-3 h-3 text-emerald-400" /> Valor Contrato
+              </span>
+              <span className="text-xs font-bold text-emerald-400 font-mono">
+                R$ {Number(client.contract_value || client.system_cost).toLocaleString('pt-BR')}
+              </span>
             </div>
           )}
         </div>
@@ -539,9 +550,25 @@ export default function ClientCatalog() {
   const { activeClients, trashClients } = useMemo(() => {
     const active: ClientData[] = [];
     const trash: ClientData[] = [];
+    const seenActiveIds = new Set<string>();
+    const seenActiveCpfs = new Set<string>();
+    const seenTrashIds = new Set<string>();
+
     allClients.forEach(c => {
-      if (c.deleted_at == null) active.push(c);
-      else trash.push(c);
+      if (!c || !c.id) return;
+      const cleanCpf = (c.cpf || '').replace(/\D/g, '');
+
+      if (c.deleted_at == null) {
+        if (seenActiveIds.has(c.id)) return;
+        if (cleanCpf && cleanCpf.length >= 11 && seenActiveCpfs.has(cleanCpf)) return;
+        seenActiveIds.add(c.id);
+        if (cleanCpf && cleanCpf.length >= 11) seenActiveCpfs.add(cleanCpf);
+        active.push(c);
+      } else {
+        if (seenTrashIds.has(c.id)) return;
+        seenTrashIds.add(c.id);
+        trash.push(c);
+      }
     });
     return { activeClients: active, trashClients: trash };
   }, [allClients]);
@@ -588,6 +615,8 @@ export default function ClientCatalog() {
     utility_company: 'Equatorial',
     utility_account: '',
     system_size_kw: undefined,
+    contract_value: undefined,
+    system_cost: undefined,
     install_date: '',
     monthly_avg_kwh: undefined,
     notes: '',
@@ -703,6 +732,7 @@ export default function ClientCatalog() {
       utility_company: client.utility_company || 'Equatorial',
       utility_account: client.utility_account || '',
       system_size_kw: client.system_size_kw ?? undefined,
+      contract_value: client.contract_value ?? client.system_cost ?? undefined,
       install_date: client.install_date || '',
       monthly_avg_kwh: client.monthly_avg_kwh ?? undefined,
       notes: client.notes || '',
@@ -735,6 +765,8 @@ export default function ClientCatalog() {
       } else {
         await createClient.mutateAsync(formData);
         toast.success('Cliente cadastrado com sucesso! Ele já pode acessar o Portal.');
+        setSortOrder('recent');
+        setCurrentPage(1);
       }
       setIsModalOpen(false);
       setFormData(initialFormState);
@@ -1065,6 +1097,7 @@ export default function ClientCatalog() {
                     <th className="py-3.5 px-4">Contato</th>
                     <th className="py-3.5 px-4">Localização</th>
                     <th className="py-3.5 px-4">Potência</th>
+                    <th className="py-3.5 px-4">Valor Contrato</th>
                     <th className="py-3.5 px-4">Concessionária</th>
                     <th className="py-3.5 px-4">Portal</th>
                     <th className="py-3.5 px-4 text-right">Ações</th>
@@ -1122,6 +1155,14 @@ export default function ClientCatalog() {
                           <span className="font-semibold text-white">
                             {power ? `${power.toFixed(2)} kWp` : '—'}
                           </span>
+                        </td>
+
+                        <td className="py-3.5 px-4 font-mono font-semibold text-emerald-400">
+                          {client.contract_value || client.system_cost
+                            ? `R$ ${Number(client.contract_value || client.system_cost).toLocaleString('pt-BR')}`
+                            : power
+                            ? `R$ ${(power * 3800).toLocaleString('pt-BR')}`
+                            : '—'}
                         </td>
 
                         <td className="py-3.5 px-4">
@@ -1320,13 +1361,26 @@ export default function ClientCatalog() {
               <div className="p-6 space-y-6 flex-1">
                 
                 {/* Cards de Métricas Principais */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div className="glass-panel p-3.5 rounded-xl border border-white/5 bg-zinc-900/40">
                     <p className="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold flex items-center gap-1 mb-1">
                       <Zap className="w-3 h-3 text-lime-400" /> Potência
                     </p>
                     <p className="text-base font-bold text-white">
                       {selectedClient.system_size_kw ? `${Number(selectedClient.system_size_kw).toFixed(2)} kWp` : '—'}
+                    </p>
+                  </div>
+
+                  <div className="glass-panel p-3.5 rounded-xl border border-white/5 bg-zinc-900/40">
+                    <p className="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold flex items-center gap-1 mb-1">
+                      <DollarSign className="w-3 h-3 text-emerald-400" /> Valor Contrato
+                    </p>
+                    <p className="text-base font-bold text-emerald-400 font-mono">
+                      {selectedClient.contract_value || selectedClient.system_cost
+                        ? `R$ ${Number(selectedClient.contract_value || selectedClient.system_cost).toLocaleString('pt-BR')}`
+                        : selectedClient.system_size_kw
+                        ? `R$ ${(Number(selectedClient.system_size_kw) * 3800).toLocaleString('pt-BR')}`
+                        : '—'}
                     </p>
                   </div>
 
@@ -1714,8 +1768,33 @@ export default function ClientCatalog() {
                         type="number" step="0.01" min="0"
                         placeholder="Ex: 8.5"
                         value={formData.system_size_kw ?? ''} 
-                        onChange={e => setFormData({ ...formData, system_size_kw: e.target.value ? Number(e.target.value) : undefined })}
+                        onChange={e => {
+                          const kw = e.target.value ? Number(e.target.value) : undefined;
+                          setFormData(prev => ({
+                            ...prev,
+                            system_size_kw: kw,
+                            contract_value: prev.contract_value || (kw ? Math.round(kw * 3800) : undefined)
+                          }));
+                        }}
                         className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-white focus:border-lime-500 outline-none transition-colors"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-zinc-300 font-medium flex items-center justify-between">
+                        <span>Valor do Contrato / Pago (R$)</span>
+                        {formData.system_size_kw && (
+                          <span className="text-[10px] text-lime-400 font-normal">
+                            Sugestão: R$ {(Number(formData.system_size_kw) * 3800).toLocaleString('pt-BR')}
+                          </span>
+                        )}
+                      </label>
+                      <input 
+                        type="number" step="100" min="0"
+                        placeholder="Ex: 26000"
+                        value={formData.contract_value ?? ''} 
+                        onChange={e => setFormData({ ...formData, contract_value: e.target.value ? Number(e.target.value) : undefined })}
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-white focus:border-lime-500 outline-none transition-colors font-mono"
                       />
                     </div>
 

@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabaseClient';
 import type { MaintenanceService, MaintenanceStats } from '../types';
 
-const withTimeout = <T,>(p: Promise<T>, ms = 1200): Promise<T> =>
+const withTimeout = <T,>(p: Promise<T>, ms = 8000): Promise<T> =>
   Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 
 export const SAMPLE_MAINTENANCE_SERVICES: MaintenanceService[] = [
@@ -169,16 +169,18 @@ export function useCreateMaintenance() {
 
   return useMutation({
     mutationFn: async (service: Partial<MaintenanceService>) => {
-      let currentUserId = 'usr_offline';
+      let currentUserId: string | null = null;
       try {
-        const { data: userAuth } = await withTimeout(Promise.resolve(supabase.auth.getUser()), 800);
+        const { data: userAuth } = await withTimeout(Promise.resolve(supabase.auth.getUser()), 4000);
         if (userAuth?.user?.id) currentUserId = userAuth.user.id;
       } catch {}
 
+      const validClientId = service.client_id && service.client_id.length === 36 && !service.client_id.includes('offline') ? service.client_id : null;
+
       const newRecord: MaintenanceService = {
-        id: `maint_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-        user_id: currentUserId,
-        client_id: service.client_id,
+        id: crypto.randomUUID(),
+        user_id: currentUserId || 'usr_offline',
+        client_id: validClientId || service.client_id,
         client_name: service.client_name || 'Cliente Avulso',
         service_type: service.service_type || 'manutencao',
         status: service.status || 'pendente',
@@ -204,13 +206,25 @@ export function useCreateMaintenance() {
         await withTimeout(
           Promise.resolve(
             supabase.from('maintenance_services').insert({
-              ...service,
+              id: newRecord.id,
+              client_id: validClientId,
+              client_name: newRecord.client_name,
+              service_type: newRecord.service_type,
+              status: newRecord.status,
+              scheduled_date: newRecord.scheduled_date,
+              completed_date: newRecord.completed_date,
+              price: newRecord.price,
+              cost: newRecord.cost,
+              technician: newRecord.technician,
+              notes: newRecord.notes,
+              before_photos: newRecord.before_photos,
+              after_photos: newRecord.after_photos,
               user_id: currentUserId,
               created_at: newRecord.created_at,
               updated_at: newRecord.updated_at,
             })
           ),
-          1200
+          8000
         );
       } catch (e) {
         console.warn('[useCreateMaintenance] Salvo em cache local offline:', e);

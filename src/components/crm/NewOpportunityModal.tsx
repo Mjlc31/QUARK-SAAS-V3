@@ -129,6 +129,16 @@ export function NewOpportunityModal({ onClose, onSaved }: { onClose: () => void;
       } catch (_) {}
     }
 
+    // Persiste no backend de oportunidades
+    try {
+      fetch("/api/opportunities", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(savedOpp),
+      }).catch(() => {});
+    } catch (_) {}
+
+
     setSaving(false);
     if (isMerged) {
       toast(`Cliente já existia (“${savedOpp.title}”, etapa ${savedOpp.status}) — dados mesclados.`, { icon: "🔗" });

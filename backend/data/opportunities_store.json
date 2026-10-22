@@ -1,0 +1,697 @@
+[
+  {
+    "id": "opp_1792625783875",
+    "title": "Hugo Ferro",
+    "status": "Qualificado",
+    "amount": 0,
+    "phone": null,
+    "email": null,
+    "city": "Maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "Manual",
+    "temperature": "quente",
+    "avg_bill": null,
+    "consumption_kwh": 1000,
+    "notes": null,
+    "created_at": "2026-10-21T23:36:23.875Z",
+    "updated_at": "2026-10-22T00:42:53.544Z"
+  },
+  {
+    "id": "opp_0100",
+    "title": "Indicação",
+    "status": "Lead",
+    "amount": 13000,
+    "phone": null,
+    "city": "maceio",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "morno",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0103",
+    "title": "Thierry",
+    "status": "Lead",
+    "amount": 22000,
+    "phone": "8296428338",
+    "city": "maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "morno",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0105",
+    "title": "Marcos",
+    "status": "Lead",
+    "amount": 11000,
+    "phone": "82991247355",
+    "city": "Maceió-Serraria",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "morno",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0106",
+    "title": "Mercado Super Top",
+    "status": "Lead",
+    "amount": 37000,
+    "phone": "82988887777",
+    "city": "Maceio - AL",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "morno",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0107",
+    "title": "Ricardo",
+    "status": "Lead",
+    "amount": 11000,
+    "phone": null,
+    "city": "maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "morno",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0108",
+    "title": "Bruno",
+    "status": "Lead",
+    "amount": 17000,
+    "phone": null,
+    "city": "Maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "morno",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0110",
+    "title": "Condomínio de Prédios",
+    "status": "Lead",
+    "amount": 102000,
+    "phone": "829999999999",
+    "city": "maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "morno",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0111",
+    "title": "João simonato",
+    "status": "Perdido",
+    "amount": 24000,
+    "phone": null,
+    "city": "Maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "morno",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-22T00:33:46.330Z",
+    "loss_reason": "Apenas curioso"
+  },
+  {
+    "id": "opp_0112",
+    "title": "Indicação César",
+    "status": "Qualificado",
+    "amount": 32000,
+    "phone": null,
+    "city": "Arapiraca",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "morno",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0113",
+    "title": "Guilhermina",
+    "status": "Qualificado",
+    "amount": 26000,
+    "phone": "8299720281",
+    "city": "maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "morno",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0114",
+    "title": "Marcos Mendes",
+    "status": "Qualificado",
+    "amount": 14000,
+    "phone": null,
+    "city": "Maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "morno",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0115",
+    "title": "Mikelly",
+    "status": "Qualificado",
+    "amount": 27000,
+    "phone": "8199968084",
+    "city": "Japaratinga",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "morno",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0116",
+    "title": "Thyago Oliveira",
+    "status": "Qualificado",
+    "amount": 31000,
+    "phone": "8299099852",
+    "city": "Maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "morno",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0117",
+    "title": "Rosane",
+    "status": "Qualificado",
+    "amount": 18000,
+    "phone": null,
+    "city": "Maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "morno",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0118",
+    "title": "Gabriel",
+    "status": "Qualificado",
+    "amount": 10000,
+    "phone": "82991392183",
+    "city": "Maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "morno",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0119",
+    "title": "Arthur Freitas",
+    "status": "Qualificado",
+    "amount": 20000,
+    "phone": "82981880091",
+    "city": "Carro quebrado",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "morno",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0120",
+    "title": "Flávio - Google",
+    "status": "Qualificado",
+    "amount": 35000,
+    "phone": "31992473448",
+    "city": "maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "morno",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0121",
+    "title": "Galdino & Leone",
+    "status": "Qualificado",
+    "amount": 42000,
+    "phone": null,
+    "city": "Limoeiro de Anadia",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "morno",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0122",
+    "title": "Samuel Vasconcelos",
+    "status": "Qualificado",
+    "amount": 18000,
+    "phone": "82991334994",
+    "city": "Maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "morno",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0123",
+    "title": "Roseli",
+    "status": "Qualificado",
+    "amount": 17000,
+    "phone": "82996103819",
+    "city": "Maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "morno",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0124",
+    "title": "Willames Costa",
+    "status": "Qualificado",
+    "amount": 25000,
+    "phone": "82999782356",
+    "city": "Cajueiro",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "morno",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0125",
+    "title": "Paulo Gabriel",
+    "status": "Qualificado",
+    "amount": 14000,
+    "phone": "82993286299",
+    "city": "maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "morno",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0126",
+    "title": "Flexeiras",
+    "status": "Qualificado",
+    "amount": 24000,
+    "phone": "82999999999",
+    "city": "Flexeiras",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "morno",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0127",
+    "title": "Waldir",
+    "status": "Qualificado",
+    "amount": 15000,
+    "phone": "82996546485",
+    "city": "maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "morno",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0128",
+    "title": "Charles",
+    "status": "Proposta",
+    "amount": 16000,
+    "phone": null,
+    "city": "Maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "quente",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0130",
+    "title": "Antonio Nelson",
+    "status": "Proposta",
+    "amount": 156000,
+    "phone": null,
+    "city": "Igreja Nova",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "quente",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0131",
+    "title": "Samuel",
+    "status": "Proposta",
+    "amount": 17000,
+    "phone": null,
+    "city": "Capela",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "quente",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0132",
+    "title": "André",
+    "status": "Proposta",
+    "amount": 30000,
+    "phone": null,
+    "city": "Barra de São Miguel",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "quente",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0133",
+    "title": "José dinario",
+    "status": "Proposta",
+    "amount": 44000,
+    "phone": null,
+    "city": "barra de são miguel",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "quente",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0134",
+    "title": "Thiago amorim",
+    "status": "Proposta",
+    "amount": 34000,
+    "phone": null,
+    "city": "Maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "quente",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0135",
+    "title": "Tony Finanças",
+    "status": "Proposta",
+    "amount": 38000,
+    "phone": null,
+    "city": "maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "quente",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0136",
+    "title": "EngenharQ",
+    "status": "Proposta",
+    "amount": 138000,
+    "phone": null,
+    "city": "maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "quente",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0137",
+    "title": "Cesar",
+    "status": "Ganho",
+    "amount": 10000,
+    "phone": null,
+    "city": "maceio",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "quente",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0138",
+    "title": "Almir Ilário",
+    "status": "Ganho",
+    "amount": 34000,
+    "phone": null,
+    "city": "maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "quente",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0139",
+    "title": "YULIA AMARAL",
+    "status": "Ganho",
+    "amount": 34000,
+    "phone": "27998096149",
+    "city": "Maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "quente",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0140",
+    "title": "Everson",
+    "status": "Ganho",
+    "amount": 17000,
+    "phone": "82993344915",
+    "city": "Maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "quente",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0141",
+    "title": "Lucas",
+    "status": "Ganho",
+    "amount": 16000,
+    "phone": null,
+    "city": "Pilar",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "quente",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0142",
+    "title": "Jhoatan",
+    "status": "Ganho",
+    "amount": 15000,
+    "phone": null,
+    "city": "Maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "quente",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0143",
+    "title": "Haroldo",
+    "status": "Ganho",
+    "amount": 4000,
+    "phone": null,
+    "city": "maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "quente",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0145",
+    "title": "Jeferson",
+    "status": "Ganho",
+    "amount": 19000,
+    "phone": null,
+    "city": "Maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "quente",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0146",
+    "title": "Natanael",
+    "status": "Ganho",
+    "amount": 19000,
+    "phone": "45999332462",
+    "city": "maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "quente",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0147",
+    "title": "Coronel Cleydson Villar",
+    "status": "Ganho",
+    "amount": 16000,
+    "phone": null,
+    "city": "maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "quente",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0148",
+    "title": "Mesquita Personal",
+    "status": "Ganho",
+    "amount": 16000,
+    "phone": "82999999999",
+    "city": "maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "quente",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0149",
+    "title": "Luanda",
+    "status": "Ganho",
+    "amount": 11000,
+    "phone": "82988237365",
+    "city": "maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "quente",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  },
+  {
+    "id": "opp_0150",
+    "title": "Tito",
+    "status": "Perdido",
+    "amount": 27000,
+    "phone": null,
+    "city": "barra de são miguel",
+    "services": [
+      "solar"
+    ],
+    "source": "CRM",
+    "temperature": "morno",
+    "created_at": "2026-10-15T10:00:00.000Z",
+    "updated_at": "2026-10-21T23:24:42.212Z"
+  }
+]

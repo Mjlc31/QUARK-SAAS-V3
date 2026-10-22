@@ -5,218 +5,19 @@ export interface StoredProposal extends Proposal {
   deleted_at?: string | null;
 }
 
-export const INITIAL_PROPOSALS: StoredProposal[] = [
-  {
-    id: "prop_luanda_001",
-    number: 4210,
-    public_token: "tok_luanda_77kwp",
-    lead_id: "lead_luanda_001",
-    opportunity_id: null,
-    title: "Clínica Vasconcelos — Sistema 7.70 kWp",
-    status: "aceita",
-    inputs: {
-      product: "solar",
-      validityDays: 10,
-      kitPrice: 13500,
-      moduleQty: 14,
-      modulePowerW: 550,
-      moduleBrand: "Canadian Solar",
-      inverterBrand: "Deye",
-      inverterPowerKw: 8,
-      consumptionKwh: 890,
-      tariff: 1.10,
-      connectionType: "bi",
-      structureType: "Telhado cerâmico",
-      laborPerModule: 110,
-      electricalPerKwp: 120,
-      commission: { mode: "percent", value: 5 },
-      tax: { mode: "percent", value: 6 },
-      profit: { mode: "percent", value: 20 },
-      extraCosts: [],
-      financingRate: 1.49,
-      financingTerms: [12, 24, 36, 48, 60],
-      cardRate: 1.99,
-      cardTerms: 12,
-      discount: 0,
-      publicLighting: 25,
-      fioBTariff: 0.28,
-      selfConsumption: 30,
-      generationFactor: 125,
-    },
-    power_kwp: 7.7,
-    monthly_generation: 962,
-    direct_cost: 15964,
-    commission_value: 1026.12,
-    tax_value: 339.41,
-    profit_value: 3192.8,
-    final_price: 20522.32,
-    valid_until: "2026-11-01T00:00:00.000Z",
-    sent_at: "2026-10-15T14:30:00.000Z",
-    viewed_at: "2026-10-15T16:45:00.000Z",
-    view_count: 5,
-    accepted_at: "2026-10-20T10:00:00.000Z",
-    accepted_by: "Dra. Luanda Vasconcelos",
-    created_by: "usr_admin",
-    created_at: "2026-10-15T14:00:00.000Z",
-    updated_at: "2026-10-20T10:00:00.000Z",
-    lead: { id: "lead_luanda_001", name: "Dra. Luanda Vasconcelos", city: "Maceió - AL", phone: "(82) 98888-1122" },
-  },
-  {
-    id: "prop_silva_002",
-    number: 4195,
-    public_token: "tok_silva_121kwp",
-    lead_id: "lead_silva_001",
-    opportunity_id: null,
-    title: "Supermercado Silva — Cobertura Comercial",
-    status: "enviada",
-    inputs: {
-      product: "solar",
-      validityDays: 10,
-      kitPrice: 21900,
-      moduleQty: 22,
-      modulePowerW: 550,
-      moduleBrand: "Canadian Solar",
-      inverterBrand: "Sungrow",
-      inverterPowerKw: 12,
-      consumptionKwh: 1200,
-      tariff: 1.10,
-      connectionType: "tri",
-      structureType: "Telhado metálico",
-      laborPerModule: 110,
-      electricalPerKwp: 120,
-      commission: { mode: "percent", value: 5 },
-      tax: { mode: "percent", value: 6 },
-      profit: { mode: "percent", value: 20 },
-      extraCosts: [],
-      financingRate: 1.49,
-      financingTerms: [24, 36, 48, 60],
-      cardRate: 1.99,
-      cardTerms: 12,
-      discount: 0,
-      publicLighting: 50,
-      fioBTariff: 0.28,
-      selfConsumption: 60,
-      generationFactor: 125,
-    },
-    power_kwp: 12.1,
-    monthly_generation: 1512,
-    direct_cost: 25772,
-    commission_value: 1945,
-    tax_value: 650,
-    profit_value: 6200,
-    final_price: 38900.0,
-    valid_until: "2026-10-30T00:00:00.000Z",
-    sent_at: "2026-10-18T10:15:00.000Z",
-    viewed_at: "2026-10-18T11:00:00.000Z",
-    view_count: 3,
-    accepted_at: null,
-    accepted_by: null,
-    created_by: "usr_admin",
-    created_at: "2026-10-18T09:30:00.000Z",
-    updated_at: "2026-10-18T10:15:00.000Z",
-    lead: { id: "lead_silva_001", name: "Supermercado Silva", city: "Maceió - AL", phone: "(11) 99999-9999" },
-  },
-  {
-    id: "prop_haroldo_003",
-    number: 4180,
-    public_token: "tok_haroldo_55kwp",
-    lead_id: "lead_haroldo_001",
-    opportunity_id: null,
-    title: "Residência Haroldo Mendonça — Telhado Principal",
-    status: "visualizada",
-    inputs: {
-      product: "solar",
-      validityDays: 10,
-      kitPrice: 9800,
-      moduleQty: 10,
-      modulePowerW: 550,
-      moduleBrand: "Jinko Solar",
-      inverterBrand: "Growatt",
-      inverterPowerKw: 5,
-      consumptionKwh: 650,
-      tariff: 1.10,
-      connectionType: "bi",
-      structureType: "Telhado cerâmico",
-      laborPerModule: 110,
-      electricalPerKwp: 120,
-      commission: { mode: "percent", value: 5 },
-      tax: { mode: "percent", value: 6 },
-      profit: { mode: "percent", value: 20 },
-      extraCosts: [],
-      financingRate: 1.49,
-      financingTerms: [12, 24, 36],
-      cardRate: 1.99,
-      cardTerms: 12,
-      discount: 0,
-      publicLighting: 25,
-      fioBTariff: 0.28,
-      selfConsumption: 30,
-      generationFactor: 125,
-    },
-    power_kwp: 5.5,
-    monthly_generation: 687,
-    direct_cost: 11560,
-    commission_value: 822.5,
-    tax_value: 280,
-    profit_value: 2450,
-    final_price: 16450.0,
-    valid_until: "2026-10-28T00:00:00.000Z",
-    sent_at: "2026-10-17T15:00:00.000Z",
-    viewed_at: "2026-10-17T16:20:00.000Z",
-    view_count: 2,
-    accepted_at: null,
-    accepted_by: null,
-    created_by: "usr_admin",
-    created_at: "2026-10-17T14:00:00.000Z",
-    updated_at: "2026-10-17T15:00:00.000Z",
-    lead: { id: "lead_haroldo_001", name: "Haroldo Mendonça", city: "Arapiraca - AL", phone: "(82) 99123-4567" },
-  },
-  {
-    id: "prop_save_004",
-    number: 4165,
-    public_token: "tok_save_7kw",
-    lead_id: "lead_luanda_001",
-    opportunity_id: null,
-    title: "Carregador Veicular Wallbox 7.4 kW",
-    status: "rascunho",
-    inputs: {
-      product: "save",
-      validityDays: 10,
-      chargerPowerKw: 7.4,
-      distanceM: 15,
-      cableGaugeMm: 6,
-      wallboxPrice: 4200,
-      laborPrice: 1200,
-      materialsPrice: 450,
-      commission: { mode: "percent", value: 5 },
-      tax: { mode: "percent", value: 6 },
-      profit: { mode: "percent", value: 20 },
-      extraCosts: [],
-      financingRate: 1.49,
-      financingTerms: [12, 18],
-      cardRate: 1.99,
-      cardTerms: 12,
-      discount: 0,
-    },
-    power_kwp: 7.4,
-    monthly_generation: 0,
-    direct_cost: 5850,
-    commission_value: 410,
-    tax_value: 150,
-    profit_value: 1200,
-    final_price: 8200.0,
-    valid_until: "2026-10-29T00:00:00.000Z",
-    sent_at: null,
-    viewed_at: null,
-    view_count: 0,
-    accepted_at: null,
-    accepted_by: null,
-    created_by: "usr_admin",
-    created_at: "2026-10-19T11:00:00.000Z",
-    updated_at: "2026-10-19T11:00:00.000Z",
-    lead: { id: "lead_luanda_001", name: "Dra. Luanda Vasconcelos", city: "Maceió - AL", phone: "(82) 98888-1122" },
-  }
-];
+export const INITIAL_PROPOSALS: StoredProposal[] = [];
+
+const MOCK_PROPOSAL_IDS = new Set([
+  'prop_luanda_001',
+  'prop_silva_002',
+  'prop_haroldo_003',
+  'prop_save_004'
+]);
+
+function filterRealProposals(list: any[]): StoredProposal[] {
+  if (!Array.isArray(list)) return [];
+  return list.filter(p => p && p.id && !MOCK_PROPOSAL_IDS.has(p.id) && !p.id.startsWith('prop_mock_'));
+}
 
 function resolveLeadForProposal(leadId?: string | null): any {
   if (!leadId) return null;
@@ -248,19 +49,21 @@ function getStoredProposals(): StoredProposal[] {
     const raw = localStorage.getItem("quark_proposals_cache");
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      const real = filterRealProposals(parsed);
+      // Atualiza o cache local expurgando dados fictícios legados
+      if (real.length !== parsed.length) {
+        localStorage.setItem("quark_proposals_cache", JSON.stringify(real));
+      }
+      return real;
     }
   } catch (_) {}
-  // Salva os iniciais se o cache estiver vazio
-  try {
-    localStorage.setItem("quark_proposals_cache", JSON.stringify(INITIAL_PROPOSALS));
-  } catch (_) {}
-  return INITIAL_PROPOSALS;
+  return [];
 }
 
 function saveStoredProposals(list: StoredProposal[]) {
   try {
-    localStorage.setItem("quark_proposals_cache", JSON.stringify(list));
+    const clean = filterRealProposals(list);
+    localStorage.setItem("quark_proposals_cache", JSON.stringify(clean));
   } catch (_) {}
 }
 
@@ -421,10 +224,37 @@ class ProposalMutationBuilder {
         lead: this.payload.lead || resolveLeadForProposal(this.payload.lead_id) || { id: this.payload.lead_id, name: "Cliente Quark", city: "Maceió - AL" },
       };
 
-      // Tenta persistir no Supabase
+      // Tenta persistir no Supabase com payload sanitizado compatível com o schema
       try {
+        const isUuid = (val?: string | null) => typeof val === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+        const dbRow: Record<string, any> = {
+          client_name: this.payload.client_name || this.payload.lead?.name || "Cliente",
+          city: this.payload.city || this.payload.lead?.city || null,
+          phone: this.payload.phone || this.payload.lead?.phone || null,
+          system_size_kw: Number(this.payload.power_kwp) || 0,
+          final_price: Number(this.payload.final_price) || 0,
+          status: this.payload.status === "enviada" ? "sent" : this.payload.status === "ganho" ? "approved" : "draft",
+          data: {
+            inputs: this.payload.inputs,
+            power_kwp: this.payload.power_kwp,
+            monthly_generation: this.payload.monthly_generation,
+            direct_cost: this.payload.direct_cost,
+            commission_value: this.payload.commission_value,
+            tax_value: this.payload.tax_value,
+            profit_value: this.payload.profit_value,
+            valid_until: this.payload.valid_until,
+            title: this.payload.title,
+            number: newProp.number,
+            public_token: newProp.public_token,
+            lead: newProp.lead,
+          }
+        };
+        if (isUuid(this.payload.id)) dbRow.id = this.payload.id;
+        if (isUuid(this.payload.user_id)) dbRow.user_id = this.payload.user_id;
+        if (this.payload.lead_id) dbRow.lead_id = this.payload.lead_id;
+
         const timeoutPromise = new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 1500));
-        await Promise.race([_supabase.from("proposals").insert(this.payload), timeoutPromise]);
+        await Promise.race([_supabase.from("proposals").insert(dbRow), timeoutPromise]);
       } catch (_) {}
 
       const updated = [newProp, ...list];
@@ -444,12 +274,34 @@ class ProposalMutationBuilder {
         return item;
       });
 
-      // Tenta persistir no Supabase
+      // Tenta persistir no Supabase com payload sanitizado
       try {
-        let q = _supabase.from("proposals").update(this.payload);
-        for (const f of this.filters) q = q.eq(f.field, f.value);
-        const timeoutPromise = new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 1500));
-        await Promise.race([q, timeoutPromise]);
+        const isUuid = (val?: string | null) => typeof val === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+        const idFilter = this.filters.find(f => f.field === "id")?.value;
+        if (isUuid(idFilter)) {
+          const dbUpdate: Record<string, any> = {};
+          if (this.payload.client_name || this.payload.lead?.name) dbUpdate.client_name = this.payload.client_name || this.payload.lead?.name;
+          if (this.payload.city !== undefined) dbUpdate.city = this.payload.city;
+          if (this.payload.phone !== undefined) dbUpdate.phone = this.payload.phone;
+          if (this.payload.power_kwp !== undefined) dbUpdate.system_size_kw = Number(this.payload.power_kwp) || 0;
+          if (this.payload.final_price !== undefined) dbUpdate.final_price = Number(this.payload.final_price) || 0;
+          if (this.payload.status !== undefined) dbUpdate.status = this.payload.status === "enviada" ? "sent" : this.payload.status === "ganho" ? "approved" : "draft";
+          dbUpdate.data = {
+            inputs: this.payload.inputs,
+            power_kwp: this.payload.power_kwp,
+            monthly_generation: this.payload.monthly_generation,
+            direct_cost: this.payload.direct_cost,
+            commission_value: this.payload.commission_value,
+            tax_value: this.payload.tax_value,
+            profit_value: this.payload.profit_value,
+            valid_until: this.payload.valid_until,
+            title: this.payload.title,
+            lead: this.payload.lead,
+          };
+          let q = _supabase.from("proposals").update(dbUpdate).eq("id", idFilter);
+          const timeoutPromise = new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 1500));
+          await Promise.race([q, timeoutPromise]);
+        }
       } catch (_) {}
 
       saveStoredProposals(updated);

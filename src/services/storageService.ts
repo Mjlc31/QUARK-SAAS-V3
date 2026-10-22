@@ -214,7 +214,7 @@ const INITIAL_USERS: User[] = [
   { id: '1', name: 'Admin User', email: 'admin@quark.com', role: 'Admin', avatarInitials: 'AD' },
 ];
 
-const withTimeout = <T,>(p: Promise<T>, ms = 1500): Promise<T> =>
+const withTimeout = <T,>(p: Promise<T>, ms = 8000): Promise<T> =>
   Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 
 export const storageService = {

@@ -43,18 +43,44 @@ function Proposals() {
     const t = params.get("tipo");
     setProduct(t === "save" ? "save" : t === "solar" ? "solar" : "todos");
   }, [params]);
-  const { data: rawData, loading } = useLive(
+  const [cachedProposals] = useState<Proposal[]>(() => {
+    try {
+      const raw = localStorage.getItem("quark_proposals_cache");
+      if (raw) {
+        const list = JSON.parse(raw);
+        return list.filter((p: any) =>
+          !p.deleted_at &&
+          p.id !== 'prop_luanda_001' &&
+          p.id !== 'prop_silva_002' &&
+          p.id !== 'prop_haroldo_003' &&
+          p.id !== 'prop_save_004'
+        );
+      }
+    } catch (_) {}
+    return [];
+  });
+
+  const { data: rawData, loading: liveLoading } = useLive(
     async () => {
       const res = await supabase().from("proposals").select("*").order("created_at", { ascending: false }).limit(100);
       if (res.error) throw res.error;
-      const proposals = res.data || [];
+      const rawProposals = res.data || [];
+      const proposals = rawProposals.filter((p: any) => 
+        !p.deleted_at && 
+        p.id !== 'prop_luanda_001' && 
+        p.id !== 'prop_silva_002' && 
+        p.id !== 'prop_haroldo_003' && 
+        p.id !== 'prop_save_004'
+      );
       const leadIds = [...new Set(proposals.map((p) => p.lead_id).filter(Boolean))];
-      let leadsMap = new Map();
-      if (leadIds.length > 0) {
-        const { data: leads } = await supabase().from("opportunities").select("id, title, city, phone").in("id", leadIds);
-        leadsMap = new Map(leads?.map((l) => [l.id, l]) || []);
-      }
-      const views = await fetchProposalViews(proposals.map((p) => String(p.id)));
+      
+      const [leadsRes, views] = await Promise.all([
+        leadIds.length > 0 ? supabase().from("opportunities").select("id, title, city, phone").in("id", leadIds) : Promise.resolve({ data: [] }),
+        fetchProposalViews(proposals.map((p) => String(p.id)))
+      ]);
+
+      const leadsMap = new Map((leadsRes.data || []).map((l: any) => [l.id, l]));
+
       return proposals.map((p: any) => {
         const linkedLead = leadsMap.get(p.lead_id);
         const name = p.title || linkedLead?.title || p.client_name || p.data?.clientName || 'Sem nome';
@@ -68,7 +94,8 @@ function Proposals() {
     [],
     ["proposals", "proposal_views"],
   );
-  const data = rawData;
+  const data = rawData || (cachedProposals.length > 0 ? cachedProposals : null);
+  const loading = liveLoading && (!data || data.length === 0);
   const scoped = useMemo(() => (data ?? []).filter((p) => product === "todos" || productOf(p.inputs) === product), [data, product]);
 
   const rows = useMemo(

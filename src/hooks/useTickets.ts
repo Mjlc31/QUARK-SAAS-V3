@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabaseClient';
 import type { SupportTicket, TicketMessage, TicketStatus } from '../types';
 
-const withTimeout = <T,>(p: Promise<T>, ms = 1200): Promise<T> =>
+const withTimeout = <T,>(p: Promise<T>, ms = 8000): Promise<T> =>
   Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 
 const STORAGE_KEY_TICKETS = 'quark_support_tickets';
@@ -231,9 +231,12 @@ export function useCreateTicket() {
 
   return useMutation({
     mutationFn: async (ticket: Partial<SupportTicket>) => {
+      const ticketId = (ticket.id && ticket.id.length === 36) ? ticket.id : crypto.randomUUID();
+      const validClientId = (ticket.client_id && ticket.client_id.length === 36 && !ticket.client_id.includes('offline')) ? ticket.client_id : null;
+
       const newTicket: SupportTicket = {
-        id: `ticket-${Date.now()}`,
-        client_id: ticket.client_id || 'client-offline',
+        id: ticketId,
+        client_id: validClientId || (ticket.client_id || 'client-offline'),
         client_name: ticket.client_name || 'Cliente Quark',
         subject: ticket.subject || 'Novo Chamado',
         description: ticket.description || '',
@@ -249,12 +252,24 @@ export function useCreateTicket() {
       localStorage.setItem(STORAGE_KEY_TICKETS, JSON.stringify([newTicket, ...stored]));
 
       try {
+        const dbPayload = {
+          id: ticketId,
+          client_id: validClientId,
+          client_name: newTicket.client_name,
+          subject: newTicket.subject,
+          description: newTicket.description,
+          category: newTicket.category,
+          priority: newTicket.priority,
+          status: newTicket.status,
+          created_at: newTicket.created_at,
+          updated_at: newTicket.updated_at,
+        };
         await withTimeout(
-          Promise.resolve(supabase.from('support_tickets').insert(newTicket)),
-          1200
+          Promise.resolve(supabase.from('support_tickets').insert(dbPayload)),
+          8000
         );
-      } catch {
-        // offline fallback
+      } catch (err) {
+        console.warn('[useCreateTicket] Fallback offline:', err);
       }
       return newTicket;
     },
@@ -313,8 +328,9 @@ export function useAddTicketMessage() {
   return useMutation({
     mutationFn: async (message: Partial<TicketMessage>) => {
       const ticketId = message.ticket_id || '';
+      const msgId = (message.id && message.id.length === 36) ? message.id : crypto.randomUUID();
       const newMsg: TicketMessage = {
-        id: `msg-${Date.now()}`,
+        id: msgId,
         ticket_id: ticketId,
         sender_type: message.sender_type || 'operator',
         message: message.message || '',
@@ -330,10 +346,10 @@ export function useAddTicketMessage() {
       try {
         await withTimeout(
           Promise.resolve(supabase.from('ticket_messages').insert(newMsg)),
-          1200
+          8000
         );
-      } catch {
-        // offline fallback
+      } catch (err) {
+        console.warn('[useAddTicketMessage] Fallback offline:', err);
       }
       return newMsg;
     },

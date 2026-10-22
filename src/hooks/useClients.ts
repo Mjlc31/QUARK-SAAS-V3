@@ -11,7 +11,7 @@ const sanitizeNumber = (v: unknown): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
-const withTimeout = <T,>(p: Promise<T>, ms = 1500): Promise<T> =>
+const withTimeout = <T,>(p: Promise<T>, ms = 8000): Promise<T> =>
   Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 
 export const SAMPLE_CLIENTS: ClientData[] = [
@@ -29,6 +29,8 @@ export const SAMPLE_CLIENTS: ClientData[] = [
     utility_company: "Equatorial",
     utility_account: "010928374",
     system_size_kw: 7.7,
+    contract_value: 28500,
+    system_cost: 28500,
     install_date: "2026-03-15",
     monthly_avg_kwh: 1050,
     notes: "Sistema homologado com 14 módulos Canadian Solar e Inversor Deye 8kW.",
@@ -52,6 +54,8 @@ export const SAMPLE_CLIENTS: ClientData[] = [
     utility_company: "Equatorial",
     utility_account: "029837461",
     system_size_kw: 14.63,
+    contract_value: 42000,
+    system_cost: 42000,
     install_date: "2025-11-20",
     monthly_avg_kwh: 2200,
     notes: "Usinas com bifaciais e monitoramento contínuo.",
@@ -75,6 +79,8 @@ export const SAMPLE_CLIENTS: ClientData[] = [
     utility_company: "Equatorial",
     utility_account: "038475920",
     system_size_kw: 18.2,
+    contract_value: 58000,
+    system_cost: 58000,
     install_date: "2026-02-18",
     monthly_avg_kwh: 2900,
     notes: "Contrato firmado com economia estimada de 88% na conta de energia.",
@@ -99,6 +105,8 @@ export const SAMPLE_CLIENTS: ClientData[] = [
     utility_company: "Equatorial",
     utility_account: "049382710",
     system_size_kw: 5.5,
+    contract_value: 21000,
+    system_cost: 21000,
     install_date: "2025-08-05",
     monthly_avg_kwh: 750,
     notes: "Sistema solo para irrigação sustentável.",
@@ -121,6 +129,8 @@ export const SAMPLE_CLIENTS: ClientData[] = [
     utility_company: "Equatorial",
     utility_account: "058392019",
     system_size_kw: 22.5,
+    contract_value: 75000,
+    system_cost: 75000,
     install_date: "2026-01-10",
     monthly_avg_kwh: 3800,
     notes: "Subestação própria com inversores trifásicos 380V.",
@@ -132,12 +142,81 @@ export const SAMPLE_CLIENTS: ClientData[] = [
   }
 ];
 
+/** Helper para extrair apenas dígitos */
+const onlyDigits = (str?: string | null): string => (typeof str === 'string' ? str.replace(/\D/g, '') : '');
+
+/** Mescla clientes remotos e em cache local sem jamais perder cadastros recentes */
+function mergeClientsList(remote: ClientData[], cached: ClientData[], includeDeleted: boolean): ClientData[] {
+  const map = new Map<string, ClientData>();
+
+  // 1. Prioridade absoluta para dados remotos oficiais do banco
+  for (const c of remote) {
+    if (c && c.id) {
+      map.set(c.id, c);
+    }
+  }
+
+  // 2. Preserva apenas clientes criados explicitamente de forma local (offline / pendente de sincronização)
+  for (const c of cached) {
+    if (!c || !c.id) continue;
+    // Ignora oportunidades do CRM que porventura estiverem no cache
+    if (c.id.startsWith('cli_opp_') || c.id.startsWith('opp_')) continue;
+
+    // Ignora registros de mock ou amostras antigas
+    if (c.id.startsWith('cli_') || c.id.startsWith('sample_')) continue;
+
+    // Registros que eram do banco (UUID) mas não constam mais em remote foram excluídos/mesclados no banco.
+    // Apenas mantemos itens temporários locais não sincronizados (temp_ ou local_)
+    const isLocalPending = c.id.startsWith('temp_') || c.id.startsWith('local_');
+    if (!isLocalPending) continue;
+
+    if (!map.has(c.id)) {
+      // Verifica se há correspondência por CPF limpo, email ou nome idêntico para não duplicar
+      const cCpfDigits = onlyDigits(c.cpf);
+      const cEmail = c.email?.trim().toLowerCase();
+      const existingMatch = Array.from(map.values()).find(r => {
+        if (cCpfDigits && cCpfDigits.length >= 11 && onlyDigits(r.cpf) === cCpfDigits) return true;
+        if (cEmail && r.email?.trim().toLowerCase() === cEmail) return true;
+        if (c.name && r.name && c.name.trim().toLowerCase() === r.name.trim().toLowerCase()) return true;
+        return false;
+      });
+
+      // Só insere se não houver correspondência com cliente já existente
+      if (!existingMatch) {
+        map.set(c.id, c);
+      }
+    }
+  }
+
+  let list = Array.from(map.values());
+  if (!includeDeleted) {
+    list = list.filter(c => !c.deleted_at);
+  }
+  return list;
+}
+
 export function useClients(options?: { includeDeleted?: boolean }) {
   const includeDeleted = options?.includeDeleted ?? false;
 
   return useQuery({
     queryKey: ['clients', { includeDeleted }],
+    initialData: () => {
+      try {
+        const cachedRaw = localStorage.getItem('quark_clients_cache');
+        if (cachedRaw) {
+          const parsed: ClientData[] = JSON.parse(cachedRaw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed.filter((c) => includeDeleted || !c.deleted_at);
+          }
+        }
+      } catch (_) {}
+      return undefined;
+    },
+    staleTime: 30_000,
     queryFn: async () => {
+      let remoteClients: ClientData[] | null = null;
+
+      // 1. Tenta buscar direto no Supabase
       try {
         let query = supabase
           .from('client_portal_users')
@@ -148,26 +227,52 @@ export function useClients(options?: { includeDeleted?: boolean }) {
           query = query.is('deleted_at', null);
         }
 
-        const { data, error } = await withTimeout(Promise.resolve(query), 1500);
-        if (!error && data && data.length > 0) {
-          localStorage.setItem('quark_clients_cache', JSON.stringify(data));
-          return data as ClientData[];
+        const { data, error } = await withTimeout(Promise.resolve(query), 2000);
+        if (!error && Array.isArray(data) && data.length > 0) {
+          remoteClients = data as ClientData[];
         }
       } catch (err) {
-        console.warn('[useClients] Fallback para cache local offline:', err);
+        console.warn('[useClients] Supabase query falhou ou demorou:', err);
       }
 
-      // Fallback para cache local / amostras
-      const cached = localStorage.getItem('quark_clients_cache');
-      let clients: ClientData[] = cached ? JSON.parse(cached) : SAMPLE_CLIENTS;
-      if (!cached) {
-        localStorage.setItem('quark_clients_cache', JSON.stringify(SAMPLE_CLIENTS));
+      // 2. Se o Supabase falhou, tenta a rota de backend proxy /api/clients
+      if (!remoteClients) {
+        try {
+          const res = await withTimeout(
+            fetch(`/api/clients${includeDeleted ? '?includeDeleted=true' : ''}`),
+            2000
+          );
+          if (res.ok) {
+            const json = await res.json();
+            if (json.success && Array.isArray(json.clients) && json.clients.length > 0) {
+              remoteClients = json.clients as ClientData[];
+            }
+          }
+        } catch (_) {}
       }
 
-      if (!includeDeleted) {
-        clients = clients.filter(c => !c.deleted_at);
+      // 3. Lê o cache local
+      const cachedRaw = localStorage.getItem('quark_clients_cache');
+      let cachedClients: ClientData[] = [];
+      try {
+        if (cachedRaw) cachedClients = JSON.parse(cachedRaw);
+      } catch (_) {}
+
+      if (remoteClients) {
+        // MESCLA sem destruir clientes locais recém-criados
+        const merged = mergeClientsList(remoteClients, cachedClients, includeDeleted);
+        try {
+          localStorage.setItem('quark_clients_cache', JSON.stringify(merged));
+        } catch (_) {}
+        return merged;
       }
-      return clients;
+
+      // Se ambos falharam (offline) e cache está vazio, usa amostras apenas como fallback de emergência
+      if (!cachedRaw || cachedClients.length === 0) {
+        return SAMPLE_CLIENTS.filter(c => includeDeleted || !c.deleted_at);
+      }
+
+      return cachedClients.filter(c => includeDeleted || !c.deleted_at);
     },
   });
 }
@@ -179,17 +284,21 @@ export function useCreateClient() {
     mutationFn: async (client: Partial<ClientData>) => {
       let currentUserId: string | null = null;
       try {
-        const { data: userAuth } = await withTimeout(Promise.resolve(supabase.auth.getUser()), 1000);
+        const { data: userAuth } = await withTimeout(Promise.resolve(supabase.auth.getUser()), 1500);
         currentUserId = userAuth?.user?.id || null;
       } catch {}
 
-      const payload = {
-        user_id: currentUserId,
+      const cleanCpf = client.cpf?.trim() || null;
+      const cpfDigits = cleanCpf ? onlyDigits(cleanCpf) : null;
+      const formattedCpf = cpfDigits && cpfDigits.length >= 11 ? cpfDigits : cleanCpf;
+      const cleanEmail = client.email?.trim() ? client.email.trim().toLowerCase() : null;
+
+      const payload: Record<string, any> = {
         name: client.name?.trim() || 'Cliente sem nome',
-        email: client.email?.trim() || '',
+        email: cleanEmail,
         phone: client.phone?.trim() || null,
-        cpf: client.cpf?.trim() || null,
-        birth_date: client.birth_date ? client.birth_date : null,
+        cpf: formattedCpf,
+        birth_date: client.birth_date && client.birth_date.trim() ? client.birth_date.trim() : null,
         city: client.city?.trim() || 'Maceió',
         state: client.state?.trim() || 'AL',
         address: client.address?.trim() || null,
@@ -197,43 +306,202 @@ export function useCreateClient() {
         utility_company: client.utility_company?.trim() || 'Equatorial',
         utility_account: client.utility_account?.trim() || null,
         system_size_kw: sanitizeNumber(client.system_size_kw),
-        install_date: client.install_date ? client.install_date : null,
+        contract_value: sanitizeNumber(client.contract_value ?? client.system_cost),
+        system_cost: sanitizeNumber(client.contract_value ?? client.system_cost),
+        install_date: client.install_date && client.install_date.trim() ? client.install_date.trim() : null,
         monthly_avg_kwh: sanitizeNumber(client.monthly_avg_kwh),
         notes: client.notes?.trim() || null,
         is_active: true,
       };
 
-      const newClient: ClientData = {
-        id: `cli_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+      // Apenas adiciona user_id se autenticado, caso contrário deixa o default do PostgreSQL agir
+      if (currentUserId) {
+        payload.user_id = currentUserId;
+      }
+
+      const tempId = `cli_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      let savedClient: ClientData = {
+        id: tempId,
         ...payload,
         created_at: new Date().toISOString(),
         deleted_at: null,
       } as ClientData;
 
-      // Persist in local storage immediately
-      const cached = localStorage.getItem('quark_clients_cache');
-      const list: ClientData[] = cached ? JSON.parse(cached) : [...SAMPLE_CLIENTS];
-      list.unshift(newClient);
-      localStorage.setItem('quark_clients_cache', JSON.stringify(list));
-
-      // Attempt remote Supabase insert with timeout
+      // 1. Grava no cache local imediatamente para feedback instantâneo na UI
       try {
-        const { data, error } = await withTimeout(
-          Promise.resolve(supabase.from('client_portal_users').insert(payload).select().single()),
-          1500
+        const cached = localStorage.getItem('quark_clients_cache');
+        const list: ClientData[] = cached ? JSON.parse(cached) : [];
+        const existingIdx = list.findIndex(c => 
+          (formattedCpf && onlyDigits(c.cpf) === cpfDigits) ||
+          (cleanEmail && c.email?.toLowerCase() === cleanEmail)
         );
-        if (!error && data) {
-          return data as ClientData;
+        if (existingIdx !== -1) {
+          list[existingIdx] = { ...list[existingIdx], ...payload, deleted_at: null, is_active: true };
+          savedClient = list[existingIdx];
+        } else {
+          list.unshift(savedClient);
         }
-      } catch (e) {
-        console.warn('[useCreateClient] Salvo localmente em cache offline:', e);
+        localStorage.setItem('quark_clients_cache', JSON.stringify(list));
+      } catch (err) {
+        console.warn('[useCreateClient] Erro ao gravar cache local:', err);
       }
 
-      return newClient;
+      // 2. Persistência de alta disponibilidade via Backend API
+      try {
+        const apiRes = await withTimeout(
+          fetch('/api/clients', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          }),
+          8000
+        );
+
+        if (apiRes.ok) {
+          const apiJson = await apiRes.json();
+          if (apiJson.success && apiJson.client) {
+            const realClient = apiJson.client as ClientData;
+            // Atualiza cache local substituindo o ID temporário pelo ID real do banco
+            try {
+              const cached = localStorage.getItem('quark_clients_cache');
+              if (cached) {
+                const list: ClientData[] = JSON.parse(cached);
+                const idx = list.findIndex(c => c.id === tempId || c.id === realClient.id);
+                if (idx !== -1) list[idx] = realClient;
+                else list.unshift(realClient);
+                localStorage.setItem('quark_clients_cache', JSON.stringify(list));
+              }
+            } catch (_) {}
+            return realClient;
+          }
+        }
+      } catch (apiErr) {
+        console.warn('[useCreateClient] Backend API indisponível, tentando Supabase direto:', apiErr);
+      }
+
+      // 3. Fallback: Persistência direta no Supabase
+      try {
+        // Verifica se já existe por CPF ou email antes de inserir
+        let existingId: string | null = null;
+        if (formattedCpf) {
+          const { data: existing } = await supabase
+            .from('client_portal_users')
+            .select('id')
+            .eq('cpf', formattedCpf)
+            .maybeSingle();
+          if (existing) existingId = existing.id;
+        }
+
+        if (!existingId && cleanEmail) {
+          const { data: existing } = await supabase
+            .from('client_portal_users')
+            .select('id')
+            .eq('email', cleanEmail)
+            .maybeSingle();
+          if (existing) existingId = existing.id;
+        }
+
+        if (existingId) {
+          const { data: updated, error: updErr } = await withTimeout(
+            Promise.resolve(supabase.from('client_portal_users').update(payload).eq('id', existingId).select().single()),
+            10000
+          );
+          if (!updErr && updated) {
+            return updated as ClientData;
+          }
+        } else {
+          const { data: inserted, error: insErr } = await withTimeout(
+            Promise.resolve(supabase.from('client_portal_users').insert(payload).select().single()),
+            10000
+          );
+          if (!insErr && inserted) {
+            return inserted as ClientData;
+          }
+        }
+      } catch (sbErr) {
+        console.warn('[useCreateClient] Salvo localmente em cache offline resiliente:', sbErr);
+      }
+
+      return savedClient;
     },
-    onSuccess: () => {
+    onSuccess: (saved) => {
+      // 1. Sincroniza com CRM em localStorage (coluna Ganho)
+      const contractAmount = saved.contract_value || saved.system_cost || (saved.system_size_kw ? Math.round(saved.system_size_kw * 3800) : 25000);
+      try {
+        const oppsRaw = localStorage.getItem('quark_opportunities');
+        const opps: any[] = oppsRaw ? JSON.parse(oppsRaw) : [];
+        const oppId = `opp_cli_${saved.id}`;
+        const newOpp = {
+          id: oppId,
+          title: saved.name,
+          status: 'Ganho',
+          amount: contractAmount,
+          phone: saved.phone || null,
+          email: saved.email || null,
+          cpf_cnpj: saved.cpf || null,
+          city: saved.city || 'Maceió',
+          services: ['solar'],
+          source: 'Catálogo de Clientes',
+          temperature: 'quente',
+          notes: `Cliente cadastrado no Catálogo (${saved.system_size_kw || 0} kWp). CPF: ${saved.cpf || 'Não informado'}.`,
+          created_at: saved.install_date ? new Date(saved.install_date).toISOString() : new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        const idx = opps.findIndex(o => o.id === oppId || (o.title && o.title.toLowerCase() === saved.name.toLowerCase()));
+        if (idx !== -1) {
+          opps[idx] = { ...opps[idx], ...newOpp, status: 'Ganho', amount: contractAmount };
+        } else {
+          opps.unshift(newOpp);
+        }
+        localStorage.setItem('quark_opportunities', JSON.stringify(opps));
+
+        // Remove do conjunto de deletados se estivesse
+        const delRaw = localStorage.getItem('quark_deleted_opportunities');
+        if (delRaw) {
+          const delList: string[] = JSON.parse(delRaw);
+          const filtered = delList.filter(d => d !== oppId && d !== saved.id);
+          localStorage.setItem('quark_deleted_opportunities', JSON.stringify(filtered));
+        }
+      } catch (_) {}
+
+      // 2. Sincroniza com o Financeiro no localStorage
+      try {
+        const txDate = saved.install_date || new Date().toISOString().split('T')[0];
+        const txId = `tx_cli_${saved.id}`;
+        const txPayload = {
+          id: txId,
+          description: `Contrato Solar — ${saved.name}`,
+          type: 'receita',
+          category: saved.system_size_kw && saved.system_size_kw > 10 ? 'instalacao_comercial' : 'instalacao_residencial',
+          amount: contractAmount,
+          date: txDate,
+          note: `Contrato originado do Catálogo de Clientes (CPF: ${saved.cpf || 'N/A'}, Potência: ${saved.system_size_kw || 0} kWp)`
+        };
+        const finRaw = localStorage.getItem('quark_financial_transactions');
+        const finList: any[] = finRaw ? JSON.parse(finRaw) : [];
+        const fIdx = finList.findIndex(t => t.id === txId || (t.description === txPayload.description && t.date === txDate));
+        if (fIdx !== -1) {
+          finList[fIdx] = { ...finList[fIdx], ...txPayload };
+        } else {
+          finList.unshift(txPayload);
+        }
+        localStorage.setItem('quark_financial_transactions', JSON.stringify(finList));
+      } catch (_) {}
+
+      // Atualiza o estado em memória imediatamente
+      queryClient.setQueryData(['clients', { includeDeleted: false }], (old: ClientData[] | undefined) => {
+        if (!old) return [saved];
+        const exists = old.some(c => c.id === saved.id || (saved.cpf && onlyDigits(c.cpf) === onlyDigits(saved.cpf)));
+        if (exists) {
+          return old.map(c => (c.id === saved.id || (saved.cpf && onlyDigits(c.cpf) === onlyDigits(saved.cpf)) ? saved : c));
+        }
+        return [saved, ...old];
+      });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       queryClient.invalidateQueries({ queryKey: ['client_intelligence'] });
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      queryClient.invalidateQueries({ queryKey: ['financial_transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['financial_dre_summary'] });
     },
   });
 }
@@ -246,46 +514,112 @@ export function useUpdateClient() {
       const payload: Record<string, any> = {};
 
       if (updates.name !== undefined) payload.name = updates.name.trim();
-      if (updates.email !== undefined) payload.email = updates.email.trim();
-      if (updates.phone !== undefined) payload.phone = updates.phone ? updates.phone.trim() : null;
-      if (updates.cpf !== undefined) payload.cpf = updates.cpf ? updates.cpf.trim() : null;
-      if (updates.birth_date !== undefined) payload.birth_date = updates.birth_date ? updates.birth_date : null;
-      if (updates.city !== undefined) payload.city = updates.city ? updates.city.trim() : null;
-      if (updates.state !== undefined) payload.state = updates.state ? updates.state.trim() : null;
-      if (updates.address !== undefined) payload.address = updates.address ? updates.address.trim() : null;
-      if (updates.cep !== undefined) payload.cep = updates.cep ? updates.cep.trim() : null;
-      if (updates.utility_company !== undefined) payload.utility_company = updates.utility_company ? updates.utility_company.trim() : null;
-      if (updates.utility_account !== undefined) payload.utility_account = updates.utility_account ? updates.utility_account.trim() : null;
+      if (updates.email !== undefined) payload.email = updates.email?.trim() ? updates.email.trim().toLowerCase() : null;
+      if (updates.phone !== undefined) payload.phone = updates.phone?.trim() ? updates.phone.trim() : null;
+      if (updates.cpf !== undefined) {
+        const digits = onlyDigits(updates.cpf);
+        payload.cpf = digits && digits.length >= 11 ? digits : (updates.cpf?.trim() || null);
+      }
+      if (updates.birth_date !== undefined) payload.birth_date = updates.birth_date?.trim() ? updates.birth_date.trim() : null;
+      if (updates.city !== undefined) payload.city = updates.city?.trim() ? updates.city.trim() : null;
+      if (updates.state !== undefined) payload.state = updates.state?.trim() ? updates.state.trim() : null;
+      if (updates.address !== undefined) payload.address = updates.address?.trim() ? updates.address.trim() : null;
+      if (updates.cep !== undefined) payload.cep = updates.cep?.trim() ? updates.cep.trim() : null;
+      if (updates.utility_company !== undefined) payload.utility_company = updates.utility_company?.trim() ? updates.utility_company.trim() : null;
+      if (updates.utility_account !== undefined) payload.utility_account = updates.utility_account?.trim() ? updates.utility_account.trim() : null;
       if (updates.system_size_kw !== undefined) payload.system_size_kw = sanitizeNumber(updates.system_size_kw);
-      if (updates.install_date !== undefined) payload.install_date = updates.install_date ? updates.install_date : null;
+      if (updates.contract_value !== undefined || updates.system_cost !== undefined) {
+        const cVal = sanitizeNumber(updates.contract_value ?? updates.system_cost);
+        payload.contract_value = cVal;
+        payload.system_cost = cVal;
+      }
+      if (updates.install_date !== undefined) payload.install_date = updates.install_date?.trim() ? updates.install_date.trim() : null;
       if (updates.monthly_avg_kwh !== undefined) payload.monthly_avg_kwh = sanitizeNumber(updates.monthly_avg_kwh);
-      if (updates.notes !== undefined) payload.notes = updates.notes ? updates.notes.trim() : null;
+      if (updates.notes !== undefined) payload.notes = updates.notes?.trim() ? updates.notes.trim() : null;
       if (updates.is_active !== undefined) payload.is_active = updates.is_active;
 
-      // Update local storage cache immediately
-      const cached = localStorage.getItem('quark_clients_cache');
-      const list: ClientData[] = cached ? JSON.parse(cached) : [...SAMPLE_CLIENTS];
-      const idx = list.findIndex(c => c.id === id);
-      if (idx !== -1) {
-        list[idx] = { ...list[idx], ...payload };
-        localStorage.setItem('quark_clients_cache', JSON.stringify(list));
-      }
+      // Atualiza no cache local imediatamente
+      try {
+        const cached = localStorage.getItem('quark_clients_cache');
+        const list: ClientData[] = cached ? JSON.parse(cached) : [];
+        const idx = list.findIndex(c => c.id === id);
+        if (idx !== -1) {
+          list[idx] = { ...list[idx], ...payload };
+          localStorage.setItem('quark_clients_cache', JSON.stringify(list));
+        }
+      } catch (_) {}
 
+      // Tenta via backend API
+      try {
+        const res = await withTimeout(
+          fetch(`/api/clients/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          }),
+          6000
+        );
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.client) return json.client as ClientData;
+        }
+      } catch (_) {}
+
+      // Fallback direto Supabase
       try {
         const { data, error } = await withTimeout(
           Promise.resolve(supabase.from('client_portal_users').update(payload).eq('id', id).select().single()),
-          1500
+          8000
         );
         if (!error && data) return data as ClientData;
       } catch (e) {
         console.warn('[useUpdateClient] Atualizado localmente no cache offline:', e);
       }
 
-      return (list[idx] || { id, ...payload }) as ClientData;
+      return { id, ...payload } as ClientData;
     },
-    onSuccess: () => {
+    onSuccess: (updated) => {
+      // Atualiza também CRM e Financeiro locais caso valor ou nome tenham mudado
+      if (updated.contract_value || updated.system_cost) {
+        const contractAmount = updated.contract_value || updated.system_cost || 0;
+        try {
+          const oppsRaw = localStorage.getItem('quark_opportunities');
+          if (oppsRaw) {
+            const opps: any[] = JSON.parse(oppsRaw);
+            const oppId = `opp_cli_${updated.id}`;
+            const idx = opps.findIndex(o => o.id === oppId || (o.title && o.title.toLowerCase() === updated.name.toLowerCase()));
+            if (idx !== -1) {
+              opps[idx].amount = contractAmount;
+              if (updated.name) opps[idx].title = updated.name;
+              localStorage.setItem('quark_opportunities', JSON.stringify(opps));
+            }
+          }
+        } catch (_) {}
+
+        try {
+          const finRaw = localStorage.getItem('quark_financial_transactions');
+          if (finRaw) {
+            const finList: any[] = JSON.parse(finRaw);
+            const txId = `tx_cli_${updated.id}`;
+            const fIdx = finList.findIndex(t => t.id === txId);
+            if (fIdx !== -1) {
+              finList[fIdx].amount = contractAmount;
+              if (updated.name) finList[fIdx].description = `Contrato Solar — ${updated.name}`;
+              localStorage.setItem('quark_financial_transactions', JSON.stringify(finList));
+            }
+          }
+        } catch (_) {}
+      }
+
+      queryClient.setQueryData(['clients', { includeDeleted: false }], (old: ClientData[] | undefined) => {
+        if (!old) return [updated];
+        return old.map(c => (c.id === updated.id ? { ...c, ...updated } : c));
+      });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       queryClient.invalidateQueries({ queryKey: ['client_intelligence'] });
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      queryClient.invalidateQueries({ queryKey: ['financial_transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['financial_dre_summary'] });
     },
   });
 }
@@ -294,25 +628,37 @@ export function useDeleteClient() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const cached = localStorage.getItem('quark_clients_cache');
-      const list: ClientData[] = cached ? JSON.parse(cached) : [...SAMPLE_CLIENTS];
-      const idx = list.findIndex(c => c.id === id);
-      if (idx !== -1) {
-        list[idx].deleted_at = new Date().toISOString();
-        list[idx].is_active = false;
-        localStorage.setItem('quark_clients_cache', JSON.stringify(list));
-      }
-
       try {
-        await withTimeout(
-          Promise.resolve(supabase.from('client_portal_users').update({ deleted_at: new Date().toISOString(), is_active: false }).eq('id', id)),
-          1500
-        );
-      } catch (e) {}
+        const cached = localStorage.getItem('quark_clients_cache');
+        const list: ClientData[] = cached ? JSON.parse(cached) : [];
+        const idx = list.findIndex(c => c.id === id);
+        if (idx !== -1) {
+          list[idx].deleted_at = new Date().toISOString();
+          list[idx].is_active = false;
+          localStorage.setItem('quark_clients_cache', JSON.stringify(list));
+        }
+      } catch (_) {}
+
+      // Tenta via backend API
+      try {
+        await withTimeout(fetch(`/api/clients/${id}`, { method: 'DELETE' }), 5000);
+      } catch (_) {
+        // Fallback Supabase
+        try {
+          await withTimeout(
+            Promise.resolve(supabase.from('client_portal_users').update({ deleted_at: new Date().toISOString(), is_active: false }).eq('id', id)),
+            5000
+          );
+        } catch (_) {}
+      }
 
       return id;
     },
-    onSuccess: () => {
+    onSuccess: (id) => {
+      queryClient.setQueryData(['clients', { includeDeleted: false }], (old: ClientData[] | undefined) => {
+        if (!old) return [];
+        return old.filter(c => c.id !== id);
+      });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
     },
   });
@@ -322,21 +668,34 @@ export function useRestoreClient() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const cached = localStorage.getItem('quark_clients_cache');
-      const list: ClientData[] = cached ? JSON.parse(cached) : [...SAMPLE_CLIENTS];
-      const idx = list.findIndex(c => c.id === id);
-      if (idx !== -1) {
-        list[idx].deleted_at = null;
-        list[idx].is_active = true;
-        localStorage.setItem('quark_clients_cache', JSON.stringify(list));
-      }
+      try {
+        const cached = localStorage.getItem('quark_clients_cache');
+        const list: ClientData[] = cached ? JSON.parse(cached) : [];
+        const idx = list.findIndex(c => c.id === id);
+        if (idx !== -1) {
+          list[idx].deleted_at = null;
+          list[idx].is_active = true;
+          localStorage.setItem('quark_clients_cache', JSON.stringify(list));
+        }
+      } catch (_) {}
 
       try {
         await withTimeout(
-          Promise.resolve(supabase.from('client_portal_users').update({ deleted_at: null, is_active: true }).eq('id', id)),
-          1500
+          fetch(`/api/clients/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ deleted_at: null, is_active: true }),
+          }),
+          5000
         );
-      } catch (e) {}
+      } catch (_) {
+        try {
+          await withTimeout(
+            Promise.resolve(supabase.from('client_portal_users').update({ deleted_at: null, is_active: true }).eq('id', id)),
+            5000
+          );
+        } catch (_) {}
+      }
 
       return id;
     },
@@ -350,17 +709,23 @@ export function useHardDeleteClient() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const cached = localStorage.getItem('quark_clients_cache');
-      const list: ClientData[] = cached ? JSON.parse(cached) : [...SAMPLE_CLIENTS];
-      const filtered = list.filter(c => c.id !== id);
-      localStorage.setItem('quark_clients_cache', JSON.stringify(filtered));
+      try {
+        const cached = localStorage.getItem('quark_clients_cache');
+        const list: ClientData[] = cached ? JSON.parse(cached) : [];
+        const filtered = list.filter(c => c.id !== id);
+        localStorage.setItem('quark_clients_cache', JSON.stringify(filtered));
+      } catch (_) {}
 
       try {
-        await withTimeout(
-          Promise.resolve(supabase.from('client_portal_users').delete().eq('id', id)),
-          1500
-        );
-      } catch (e) {}
+        await withTimeout(fetch(`/api/clients/${id}?hard=true`, { method: 'DELETE' }), 5000);
+      } catch (_) {
+        try {
+          await withTimeout(
+            Promise.resolve(supabase.from('client_portal_users').delete().eq('id', id)),
+            5000
+          );
+        } catch (_) {}
+      }
 
       return id;
     },

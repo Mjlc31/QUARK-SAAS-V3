@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabaseClient';
 import type { MaintenanceAlert, AlertStatus } from '../types';
 
-const withTimeout = <T,>(p: Promise<T>, ms = 1200): Promise<T> =>
+const withTimeout = <T,>(p: Promise<T>, ms = 8000): Promise<T> =>
   Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 
 const STORAGE_KEY_ALERTS = 'quark_maintenance_alerts';
@@ -183,8 +183,8 @@ export function useBatchCreateAlerts() {
   return useMutation({
     mutationFn: async (alerts: Omit<MaintenanceAlert, 'id' | 'user_id' | 'created_at'>[]) => {
       const now = new Date().toISOString();
-      const newAlerts: MaintenanceAlert[] = alerts.map((a, i) => ({
-        id: `alert-${Date.now()}-${i}`,
+      const newAlerts: MaintenanceAlert[] = alerts.map((a) => ({
+        id: crypto.randomUUID(),
         created_at: now,
         ...a,
       }));
@@ -193,14 +193,21 @@ export function useBatchCreateAlerts() {
       localStorage.setItem(STORAGE_KEY_ALERTS, JSON.stringify([...newAlerts, ...stored]));
 
       try {
-        const { data: userAuth } = await withTimeout(supabase.auth.getUser(), 600);
+        const { data: userAuth } = await withTimeout(supabase.auth.getUser(), 4000);
         const payload = newAlerts.map(alert => ({
-          ...alert,
-          user_id: userAuth?.user?.id || 'default-user',
+          id: alert.id,
+          intelligence_id: alert.intelligence_id,
+          alert_type: alert.alert_type,
+          message: alert.message,
+          scheduled_for: alert.scheduled_for,
+          channel: alert.channel,
+          status: alert.status,
+          created_at: alert.created_at,
+          user_id: userAuth?.user?.id || null,
         }));
-        await withTimeout(Promise.resolve(supabase.from('maintenance_alerts').insert(payload)), 1200);
-      } catch {
-        // offline fallback
+        await withTimeout(Promise.resolve(supabase.from('maintenance_alerts').insert(payload)), 8000);
+      } catch (err) {
+        console.warn('[useBatchCreateAlerts] Fallback offline:', err);
       }
       return newAlerts;
     },
