@@ -199,7 +199,7 @@ export function useTicketMessages(ticketId: string) {
     queryFn: async () => {
       if (!ticketId) return [];
 
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(ticketId);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ticketId);
       if (!isUuid) {
         return getStoredMessages(ticketId);
       }
@@ -303,7 +303,7 @@ export function useUpdateTicketStatus() {
       });
       localStorage.setItem(STORAGE_KEY_TICKETS, JSON.stringify(updated));
 
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
       if (isUuid) {
         try {
           const payload: Partial<SupportTicket> = {
@@ -351,7 +351,7 @@ export function useAddTicketMessage() {
         localStorage.setItem(`${STORAGE_KEY_MESSAGES}_${ticketId}`, JSON.stringify([...msgs, newMsg]));
       }
 
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(ticketId);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ticketId);
       if (isUuid) {
         try {
           await withTimeout(

@@ -207,41 +207,55 @@ export function useClientProjectTracking(clientId?: string) {
     queryKey: ['client_project_tracking', clientId],
     queryFn: async () => {
       if (!clientId) return [];
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientId);
 
-      // 1. Consulta prioritária no Supabase (SELECT direto das fases do cliente)
+      // 1. Tenta API do backend (que resolve com segurança UUID, CPF ou Email)
       try {
-        const { data, error } = await withTimeout(
-          supabase
-            .from('project_tracking')
-            .select('*')
-            .eq('client_id', clientId)
-            .order('started_at', { ascending: true }),
-          1500
-        );
-
-        if (!error && data && data.length > 0) {
-          localStorage.setItem(`quark_client_tracking_${clientId}`, JSON.stringify(data));
-          return data as ProjectTrackingPhase[];
+        const res = await withTimeout(fetch(`/api/portal/project/${encodeURIComponent(clientId)}`), 2500);
+        if (res.ok) {
+          const json = await res.json();
+          if (json && json.success && Array.isArray(json.phases) && json.phases.length > 0) {
+            localStorage.setItem(`quark_client_tracking_${clientId}`, JSON.stringify(json.phases));
+            return json.phases as ProjectTrackingPhase[];
+          }
         }
-      } catch (e) {
-        console.warn('[useClientProjectTracking] Supabase select falhou:', e);
-      }
+      } catch (_) {}
 
-      // 2. Tenta RPC get_or_create_client_tracking do Supabase
-      try {
-        const { data, error } = await withTimeout(
-          supabase.rpc('get_or_create_client_tracking', {
-            p_client_id: clientId,
-          }),
-          1500
-        );
+      // 2. Se for UUID, consulta prioritária no Supabase
+      if (isUuid) {
+        try {
+          const { data, error } = await withTimeout(
+            supabase
+              .from('project_tracking')
+              .select('*')
+              .eq('client_id', clientId)
+              .order('started_at', { ascending: true }),
+            1500
+          );
 
-        if (!error && data && Array.isArray(data) && data.length > 0) {
-          localStorage.setItem(`quark_client_tracking_${clientId}`, JSON.stringify(data));
-          return data as ProjectTrackingPhase[];
+          if (!error && data && data.length > 0) {
+            localStorage.setItem(`quark_client_tracking_${clientId}`, JSON.stringify(data));
+            return data as ProjectTrackingPhase[];
+          }
+        } catch (e) {
+          console.warn('[useClientProjectTracking] Supabase select falhou:', e);
         }
-      } catch (e) {
-        console.warn('[useClientProjectTracking] RPC error:', e);
+
+        try {
+          const { data, error } = await withTimeout(
+            supabase.rpc('get_or_create_client_tracking', {
+              p_client_id: clientId,
+            }),
+            1500
+          );
+
+          if (!error && data && Array.isArray(data) && data.length > 0) {
+            localStorage.setItem(`quark_client_tracking_${clientId}`, JSON.stringify(data));
+            return data as ProjectTrackingPhase[];
+          }
+        } catch (e) {
+          console.warn('[useClientProjectTracking] RPC error:', e);
+        }
       }
 
       // 3. Fallback cache local se Supabase estiver offline
@@ -272,12 +286,16 @@ export function useSetClientPhase() {
       phase,
       phaseLabel,
       notes,
+      cpf,
     }: {
       clientId: string;
       phase: ProjectPhase;
       phaseLabel: string;
       notes?: string;
+      cpf?: string;
     }) => {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientId);
+
       // 1. Atualiza cache local instantaneamente para resposta imediata
       const updatedPhases = buildClientTrackingPhases(clientId, phase, notes);
       try {
@@ -287,7 +305,8 @@ export function useSetClientPhase() {
         const cachedClientsRaw = localStorage.getItem('quark_clients_cache');
         if (cachedClientsRaw) {
           const list = JSON.parse(cachedClientsRaw);
-          const idx = list.findIndex((c: any) => c.id === clientId);
+          const cleanCpfDigits = cpf ? cpf.replace(/\D/g, '') : '';
+          const idx = list.findIndex((c: any) => c.id === clientId || (cleanCpfDigits && c.cpf && c.cpf.replace(/\D/g, '') === cleanCpfDigits));
           if (idx >= 0) {
             list[idx].project_phase = phase;
             list[idx].project_phase_label = phaseLabel;
@@ -296,34 +315,44 @@ export function useSetClientPhase() {
         }
       } catch {}
 
-      // 2. Executa a RPC remota no Supabase (atualiza todas as 9 fases e o client_portal_users)
+      // 2. Persiste via Backend HTTP com timeout protegido (atualiza project_tracking e client_portal_users)
       try {
-        const { data, error } = await supabase.rpc('set_client_tracking_phase', {
-          p_client_id: clientId,
-          p_phase: phase,
-          p_phase_label: phaseLabel,
-          p_notes: notes || null,
-        });
-
-        // Atualiza diretamente client_portal_users
-        await supabase
-          .from('client_portal_users')
-          .update({ project_phase: phase, project_phase_label: phaseLabel })
-          .eq('id', clientId);
-
-        if (!error && data) return data as ProjectTrackingPhase;
-      } catch (err) {
-        console.warn('[useSetClientPhase] Supabase erro:', err);
+        await withTimeout(
+          fetch(`/api/portal/project/${encodeURIComponent(clientId)}/set-phase`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phase, phaseLabel, notes, cpf }),
+          }),
+          3000
+        );
+      } catch (httpErr) {
+        console.warn('[useSetClientPhase] Backend HTTP set-phase falhou ou demorou:', httpErr);
       }
 
-      // 3. Notifica backend via HTTP se disponível
-      try {
-        await fetch(`/api/portal/project/${clientId}/set-phase`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phase, phaseLabel, notes })
-        });
-      } catch (_) {}
+      // 3. Se for UUID, sincroniza direto no Supabase também
+      if (isUuid) {
+        try {
+          await withTimeout(
+            supabase.rpc('set_client_tracking_phase', {
+              p_client_id: clientId,
+              p_phase: phase,
+              p_phase_label: phaseLabel,
+              p_notes: notes || null,
+            }),
+            2000
+          );
+
+          await withTimeout(
+            supabase
+              .from('client_portal_users')
+              .update({ project_phase: phase, project_phase_label: phaseLabel })
+              .eq('id', clientId),
+            2000
+          );
+        } catch (err) {
+          console.warn('[useSetClientPhase] Supabase erro:', err);
+        }
+      }
 
       return updatedPhases.find((p) => p.is_current) as ProjectTrackingPhase;
     },

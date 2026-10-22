@@ -4,6 +4,64 @@ import { sendWhatsAppMessage, cleanPhoneNumber } from '../services/whatsapp.js';
 
 const router = express.Router();
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isUuid = (val) => typeof val === 'string' && UUID_REGEX.test(val.trim());
+
+async function resolveClientUser(clientId, extraFields = '') {
+  if (!clientId) return null;
+  const selectQuery = `id, name, phone, cpf, email, system_size_kw, project_phase, project_phase_label${extraFields ? `, ${extraFields}` : ''}`;
+
+  // 1. Se for UUID válido, busca por id ou auth_user_id
+  if (isUuid(clientId)) {
+    const { data } = await supabase
+      .from('client_portal_users')
+      .select(selectQuery)
+      .or(`id.eq.${clientId},auth_user_id.eq.${clientId}`)
+      .maybeSingle();
+    if (data) return data;
+  }
+
+  // 2. Busca por dígitos limpos do CPF
+  const cleanDigits = String(clientId).replace(/\D/g, '');
+  if (cleanDigits.length >= 11) {
+    const { data } = await supabase
+      .from('client_portal_users')
+      .select(selectQuery)
+      .or(`cpf.eq.${cleanDigits},cpf.ilike.%${cleanDigits}%`)
+      .limit(1)
+      .maybeSingle();
+    if (data) return data;
+  }
+
+  // 3. Busca por email
+  if (typeof clientId === 'string' && clientId.includes('@')) {
+    const { data } = await supabase
+      .from('client_portal_users')
+      .select(selectQuery)
+      .eq('email', clientId.trim().toLowerCase())
+      .limit(1)
+      .maybeSingle();
+    if (data) return data;
+  }
+
+  // 4. Se começar com cli_ ou similar
+  if (typeof clientId === 'string' && clientId.startsWith('cli_')) {
+    const stripped = clientId.replace('cli_', '');
+    const cleanSub = stripped.replace(/\D/g, '');
+    if (cleanSub.length >= 11) {
+      const { data } = await supabase
+        .from('client_portal_users')
+        .select(selectQuery)
+        .or(`cpf.eq.${cleanSub},cpf.ilike.%${cleanSub}%`)
+        .limit(1)
+        .maybeSingle();
+      if (data) return data;
+    }
+  }
+
+  return null;
+}
+
 const SOLAR_PHASES = [
   { phase: 'venda_confirmada', label: 'Venda Confirmada & Contrato', desc: 'Contrato assinado e documentação validada para início da engenharia.' },
   { phase: 'projeto_elaboracao', label: 'Elaboração do Projeto Técnico', desc: 'Engenharia realizou o dimensionamento e desenhou os diagramas elétricos.' },
@@ -24,34 +82,36 @@ router.get('/project/:clientId', async (req, res) => {
       return res.status(400).json({ success: false, error: 'clientId é obrigatório' });
     }
 
-    // 1. Busca dados do cliente e inteligência
-    const { data: clientUser } = await supabase
-      .from('client_portal_users')
-      .select('id, name, phone, email, system_size_kw')
-      .or(`id.eq.${clientId},auth_user_id.eq.${clientId}`)
-      .maybeSingle();
+    // 1. Busca dados do cliente e inteligência de forma segura (UUID, CPF, Email)
+    const clientUser = await resolveClientUser(clientId);
+    const actualClientId = clientUser?.id || (isUuid(clientId) ? clientId : null);
 
-    const actualClientId = clientUser?.id || clientId;
-
-    const { data: intelligence } = await supabase
-      .from('client_intelligence')
-      .select('system_size_kw, client_name')
-      .eq('client_id', actualClientId)
-      .maybeSingle();
+    const { data: intelligence } = actualClientId
+      ? await supabase
+          .from('client_intelligence')
+          .select('system_size_kw, client_name')
+          .eq('client_id', actualClientId)
+          .maybeSingle()
+      : { data: null };
 
     // 2. Busca fases gravadas
-    let { data: recordedPhases, error: trackingErr } = await supabase
-      .from('project_tracking')
-      .select('*')
-      .eq('client_id', actualClientId)
-      .order('started_at', { ascending: true });
+    let recordedPhases = null;
+    if (actualClientId) {
+      const { data: phasesData, error: trackingErr } = await supabase
+        .from('project_tracking')
+        .select('*')
+        .eq('client_id', actualClientId)
+        .order('started_at', { ascending: true });
 
-    if (trackingErr) {
-      console.warn('[TRACKING] Erro ao buscar fases:', trackingErr.message);
+      if (trackingErr) {
+        console.warn('[TRACKING] Erro ao buscar fases:', trackingErr.message);
+      } else if (phasesData) {
+        recordedPhases = phasesData;
+      }
     }
 
-    // 3. Se não houver fases cadastradas para este cliente, inicializa o ciclo padrão
-    if (!recordedPhases || recordedPhases.length === 0) {
+    // 3. Se não houver fases cadastradas para este cliente e temos UUID válido, inicializa o ciclo padrão
+    if (actualClientId && (!recordedPhases || recordedPhases.length === 0)) {
       const now = new Date();
       const initialPhaseRecords = SOLAR_PHASES.map((p, idx) => {
         const isDone = idx < 2; // primeiras 2 concluídas por padrão
@@ -191,13 +251,11 @@ router.post('/project/:clientId/advance', async (req, res) => {
       return res.status(401).json({ success: false, error: 'Unauthorized: Operação restrita a operadores autenticados' });
     }
 
-    const { data: clientUser } = await supabase
-      .from('client_portal_users')
-      .select('id, name, phone, lead_id')
-      .or(`id.eq.${clientId},auth_user_id.eq.${clientId}`)
-      .maybeSingle();
-
-    const actualClientId = clientUser?.id || clientId;
+    const clientUser = await resolveClientUser(clientId, 'lead_id');
+    const actualClientId = clientUser?.id || (isUuid(clientId) ? clientId : null);
+    if (!actualClientId) {
+      return res.status(404).json({ success: false, error: 'Cliente não localizado no banco de dados' });
+    }
 
     // Busca todas as fases do cliente
     const { data: phases, error: fetchErr } = await supabase
@@ -241,6 +299,26 @@ router.post('/project/:clientId/advance', async (req, res) => {
         is_current: true,
       })
       .eq('id', nextPhase.id);
+
+    // 2.1 Sincroniza client_portal_users diretamente para o Portal e Catálogo refletirem na hora
+    if (actualClientId) {
+      await supabase
+        .from('client_portal_users')
+        .update({
+          project_phase: nextPhase.phase,
+          project_phase_label: nextPhase.phase_label,
+        })
+        .eq('id', actualClientId);
+    }
+    if (clientUser?.cpf) {
+      await supabase
+        .from('client_portal_users')
+        .update({
+          project_phase: nextPhase.phase,
+          project_phase_label: nextPhase.phase_label,
+        })
+        .eq('cpf', clientUser.cpf);
+    }
 
     // 3. Notificação automática ao cliente via WhatsApp
     const clientPhone = clientUser?.phone;
@@ -354,22 +432,21 @@ router.post('/project/:clientId/advance', async (req, res) => {
 // POST /api/portal/provision-access - Gera/redefine acesso do cliente por CPF e senha
 router.post('/provision-access', async (req, res) => {
   try {
-    const { clientId, customPassword } = req.body;
-    if (!clientId) {
-      return res.status(400).json({ success: false, error: 'clientId é obrigatório' });
+    const { clientId, customPassword, cpf } = req.body;
+    if (!clientId && !cpf) {
+      return res.status(400).json({ success: false, error: 'clientId ou cpf é obrigatório' });
     }
 
-    const { data: client, error: clientErr } = await supabase
-      .from('client_portal_users')
-      .select('*')
-      .eq('id', clientId)
-      .single();
+    let client = await resolveClientUser(clientId);
+    if (!client && cpf) {
+      client = await resolveClientUser(cpf);
+    }
 
-    if (clientErr || !client) {
+    if (!client) {
       return res.status(404).json({ success: false, error: 'Cliente não encontrado' });
     }
 
-    const cleanCpf = (client.cpf || '').replace(/\D/g, '');
+    const cleanCpf = (client.cpf || cpf || '').replace(/\D/g, '');
     const clientEmail = (client.email && client.email.includes('@')) 
       ? client.email.trim().toLowerCase() 
       : `${cleanCpf || client.id.slice(0, 8)}@cliente.quarkenergia.com.br`;
@@ -435,32 +512,76 @@ router.post('/provision-access', async (req, res) => {
 router.post('/project/:clientId/set-phase', async (req, res) => {
   try {
     const { clientId } = req.params;
-    const { phase, phaseLabel, notes } = req.body;
+    const { phase, phaseLabel, notes, cpf } = req.body;
     if (!clientId || !phase) {
       return res.status(400).json({ success: false, error: 'clientId e phase são obrigatórios' });
     }
 
-    const { data: clientUser } = await supabase
-      .from('client_portal_users')
-      .select('id, name, phone')
-      .or(`id.eq.${clientId},auth_user_id.eq.${clientId}`)
-      .maybeSingle();
-
-    const actualClientId = clientUser?.id || clientId;
-
-    const { data, error } = await supabase.rpc('set_client_tracking_phase', {
-      p_client_id: actualClientId,
-      p_phase: phase,
-      p_phase_label: phaseLabel || phase,
-      p_notes: notes || null,
-    });
-
-    if (error) {
-      console.error('[TRACKING] Erro ao definir fase via RPC:', error.message);
-      return res.status(500).json({ success: false, error: error.message });
+    let clientUser = await resolveClientUser(clientId);
+    if (!clientUser && cpf) {
+      clientUser = await resolveClientUser(cpf);
     }
 
-    return res.json({ success: true, tracking: data });
+    const actualClientId = clientUser?.id || (isUuid(clientId) ? clientId : null);
+
+    let data = null;
+    let rpcError = null;
+
+    if (actualClientId && isUuid(actualClientId)) {
+      const result = await supabase.rpc('set_client_tracking_phase', {
+        p_client_id: actualClientId,
+        p_phase: phase,
+        p_phase_label: phaseLabel || phase,
+        p_notes: notes || null,
+      });
+      data = result.data;
+      rpcError = result.error;
+
+      // Sincroniza diretamente client_portal_users para leitura imediata
+      await supabase
+        .from('client_portal_users')
+        .update({
+          project_phase: phase,
+          project_phase_label: phaseLabel || phase,
+        })
+        .eq('id', actualClientId);
+    }
+
+    if (clientUser?.cpf) {
+      await supabase
+        .from('client_portal_users')
+        .update({
+          project_phase: phase,
+          project_phase_label: phaseLabel || phase,
+        })
+        .eq('cpf', clientUser.cpf);
+    }
+
+    if (rpcError) {
+      console.warn('[TRACKING] RPC set_client_tracking_phase avisou:', rpcError.message);
+    }
+
+    // Emite evento Socket.IO
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('tracking:updated', {
+        clientId: actualClientId || clientId,
+        phase,
+        phaseLabel: phaseLabel || phase,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Etapa atualizada com sucesso',
+      tracking: data || {
+        client_id: actualClientId || clientId,
+        phase,
+        phase_label: phaseLabel || phase,
+        is_current: true,
+        notes: notes || null,
+      },
+    });
   } catch (err) {
     console.error('[TRACKING] Erro inesperado em set-phase:', err);
     return res.status(500).json({ success: false, error: err.message });

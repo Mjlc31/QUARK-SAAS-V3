@@ -5,7 +5,7 @@ import { sendWhatsAppMessage } from '../services/whatsapp.js';
 
 const router = express.Router();
 
-const isUuid = (val) => typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(val);
+const isUuid = (val) => typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
 
 const createTicketSchema = z.object({
   subject: z.string().min(2, 'O assunto deve ter pelo menos 2 caracteres'),

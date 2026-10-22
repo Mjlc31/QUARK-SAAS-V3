@@ -240,7 +240,8 @@ const ClientTrackingSection: React.FC<{
   client: ClientData; 
   onCopy: (text: string, label: string) => void;
   copiedField: string | null;
-}> = ({ client, onCopy, copiedField }) => {
+  onClientUpdate?: (updated: ClientData) => void;
+}> = ({ client, onCopy, copiedField, onClientUpdate }) => {
   const { data: trackingRecords, isLoading } = useClientProjectTracking(client.id);
   const setPhaseMutation = useSetClientPhase();
 
@@ -277,9 +278,17 @@ const ClientTrackingSection: React.FC<{
         phase: selectedPhase,
         phaseLabel: config.label,
         notes: phaseNotes || config.description,
+        cpf: client.cpf || undefined,
       });
       client.project_phase = selectedPhase;
       client.project_phase_label = config.label;
+      if (onClientUpdate) {
+        onClientUpdate({
+          ...client,
+          project_phase: selectedPhase,
+          project_phase_label: config.label,
+        });
+      }
       toast.success(`Etapa atualizada para: ${config.shortLabel}! Sincronizado com o portal.`);
     } catch (err: any) {
       toast.error('Erro ao atualizar etapa: ' + (err.message || err));
@@ -300,11 +309,19 @@ const ClientTrackingSection: React.FC<{
         phase: currentConfig.next,
         phaseLabel: nextConfig.label,
         notes: nextConfig.description,
+        cpf: client.cpf || undefined,
       });
       client.project_phase = currentConfig.next;
       client.project_phase_label = nextConfig.label;
       setSelectedPhase(currentConfig.next);
       setPhaseNotes(nextConfig.description);
+      if (onClientUpdate) {
+        onClientUpdate({
+          ...client,
+          project_phase: currentConfig.next,
+          project_phase_label: nextConfig.label,
+        });
+      }
       toast.success(`Obra avançada para: ${nextConfig.shortLabel}!`);
     } catch (err: any) {
       toast.error('Erro ao avançar etapa: ' + (err.message || err));
@@ -1515,6 +1532,7 @@ export default function ClientCatalog() {
                   client={selectedClient} 
                   onCopy={handleCopy} 
                   copiedField={copiedField} 
+                  onClientUpdate={(updated) => setSelectedClient(updated)}
                 />
 
                 {/* Seção 4: Portal do Cliente & Indicação */}

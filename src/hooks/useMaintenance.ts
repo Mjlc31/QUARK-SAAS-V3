@@ -252,7 +252,7 @@ export function useUpdateMaintenance() {
         localStorage.setItem('quark_maintenance_cache', JSON.stringify(list));
       }
 
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
       if (isUuid) {
         try {
           await withTimeout(
@@ -291,7 +291,7 @@ export function useDeleteMaintenance() {
       const filtered = list.filter((s) => s.id !== id);
       localStorage.setItem('quark_maintenance_cache', JSON.stringify(filtered));
 
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
       if (isUuid) {
         try {
           await withTimeout(
