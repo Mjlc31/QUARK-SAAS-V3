@@ -71,7 +71,7 @@ export function useClientTelemetry(clientId?: string | null) {
         if (response.ok) {
           const data = await response.json();
           if (data && data.success) {
-            const sysKw = Number(data.system_size_kw) || 6.6;
+            const sysKw = Number(data.system_size_kw || client?.system_size_kw) || 3.72;
             return {
               system_size_kw: sysKw,
               monthly_generation_kwh: Number(data.monthly_generation_kwh) || 0,
@@ -134,7 +134,7 @@ export function useClientTelemetry(clientId?: string | null) {
         isInstalled = currentPhase?.phase === 'finalizado';
       } catch (e) {}
 
-      const systemSizeKw = Number(intelligence?.system_size_kw || client?.system_size_kw || 6.6);
+      const systemSizeKw = Number(intelligence?.system_size_kw || client?.system_size_kw || 3.72);
       const expectedMonthlyGen = Math.round(systemSizeKw * 5.4 * 30 * 0.78);
 
       // REGRA CRÍTICA DE PRODUTO: Se o sistema NÃO está instalado, NÃO deve haver geração nem economia acumulada

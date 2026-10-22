@@ -26,19 +26,23 @@ const formatCpfCnpj = (value: string) => {
 
 const ClientLoginScreen = () => {
   const navigate = useNavigate();
-  const { login, isAuthenticated, isLoading: portalLoading } = usePortal();
+  const { login, logout, client, isAuthenticated, isLoading: portalLoading } = usePortal();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Se já estiver logado, redireciona diretamente ao portal
+  // Se já estiver logado, redireciona ao portal somente se for um cliente válido (não-teste)
   React.useEffect(() => {
-    if (!portalLoading && isAuthenticated) {
+    if (!portalLoading && isAuthenticated && client) {
+      if (/teste/i.test(client.name || '')) {
+        logout();
+        return;
+      }
       navigate('/portal', { replace: true });
     }
-  }, [isAuthenticated, portalLoading, navigate]);
+  }, [isAuthenticated, portalLoading, client, navigate, logout]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

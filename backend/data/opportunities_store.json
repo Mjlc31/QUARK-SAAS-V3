@@ -1,16 +1,16 @@
 [
   {
-    "id": "c0126000-0000-0000-0000-000000000126",
+    "id": "opp_cli_c0126000-0000-0000-0000-000000000126",
     "title": "Luiz Flexeiras",
     "phone": "(82) 99999-9999",
     "city": "Flexeiras",
-    "amount": 10540,
-    "status": "Lead",
+    "amount": 10500,
+    "status": "Ganho",
     "user_id": null,
-    "created_at": "2026-10-22T03:17:43.704268+00:00",
-    "updated_at": "2026-10-22T03:32:46.069223+00:00",
-    "email": null,
-    "cpf_cnpj": null,
+    "created_at": "2026-10-22T03:14:20.191252+00:00",
+    "updated_at": "2026-10-22T03:51:56.024Z",
+    "email": "luiz.flexeiras@email.com",
+    "cpf_cnpj": "14445859400",
     "birth_date": null,
     "system_power": null,
     "installation_date": null,
@@ -27,10 +27,12 @@
     "avg_bill": null,
     "deleted_at": null,
     "segment": null,
-    "services": null,
-    "source": null,
-    "temperature": null,
-    "notes": null
+    "services": [
+      "solar"
+    ],
+    "source": "Catálogo de Clientes",
+    "temperature": "quente",
+    "notes": "Cliente cadastrado no Catálogo (3.72 kWp). CPF: 14445859400."
   },
   {
     "id": "15a4fb41-9475-4b1c-a4cb-3c5d8dc25765",

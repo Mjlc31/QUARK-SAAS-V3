@@ -79,10 +79,16 @@ const PortalTracking: React.FC = () => {
   );
 
   const clientName = client?.name || 'Cliente';
-  const systemSize = client?.system_size_kw ? `${client.system_size_kw} kWp` : '6.60 kWp';
+  const systemSize = client?.system_size_kw ? `${client.system_size_kw} kWp` : '3.72 kWp';
   const location = client?.city 
     ? `${client.city}, ${client.state || 'AL'}` 
-    : 'Maceió, AL';
+    : 'Flexeiras, AL';
+
+  React.useEffect(() => {
+    if (client && /teste/i.test(client.name || '')) {
+      logout().then(() => navigate('/portal/login', { replace: true }));
+    }
+  }, [client, logout, navigate]);
 
   const handleLogout = async () => {
     await logout();

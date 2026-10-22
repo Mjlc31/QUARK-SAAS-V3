@@ -115,28 +115,59 @@ export const PortalProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     const initialize = async () => {
       // 1. Recupera sessão local instantânea (offline-first)
+      let initialCandidate: ClientPortalUser | null = null;
       try {
         const savedClient = localStorage.getItem('quark_portal_session_client');
-        if (savedClient && mounted) {
+        if (savedClient) {
           const parsed = JSON.parse(savedClient);
-          if (parsed && (parsed.id || parsed.cpf)) {
-            setClient(parsed);
+          // Purga qualquer usuário com nome de teste
+          if (parsed && (/teste/i.test(parsed.name || '') || /carlos eduardo teste/i.test(parsed.name || '') || parsed.name === 'Teste Direto')) {
+            localStorage.removeItem('quark_portal_session_client');
+          } else if (parsed && (parsed.id || parsed.cpf)) {
+            initialCandidate = parsed;
+            if (mounted) setClient(parsed);
           }
         }
       } catch (err) {}
 
-      // 2. Tenta sincronizar com Supabase Auth com timeout seguro
+      // 2. Sempre valida ou atualiza dados frescos diretamente com o Supabase
       try {
-        const { data } = await withTimeout(supabase.auth.getSession(), 1000);
-        if (data?.session?.user && mounted) {
-          const profile = await fetchClientProfile(data.session.user.id);
+        const { data: authSession } = await withTimeout(supabase.auth.getSession(), 1000).catch(() => ({ data: null }));
+        if (authSession?.session?.user && mounted) {
+          const profile = await fetchClientProfile(authSession.session.user.id);
           if (mounted && profile) {
             setClient(profile);
             localStorage.setItem('quark_portal_session_client', JSON.stringify(profile));
+            setIsLoading(false);
+            return;
+          }
+        }
+
+        // Se houver candidato em localStorage, busca o registro atualizado no Supabase (garantindo que não foi deletado)
+        if (initialCandidate) {
+          let q = supabase.from('client_portal_users').select('*').is('deleted_at', null);
+          if (initialCandidate.id) {
+            q = q.eq('id', initialCandidate.id);
+          } else if (initialCandidate.cpf) {
+            q = q.eq('cpf', initialCandidate.cpf.replace(/\D/g, ''));
+          }
+          const { data: freshUser, error: freshErr } = await withTimeout(q.maybeSingle(), 1500).catch(() => ({ data: null, error: null }));
+          if (freshUser && mounted) {
+            if (/teste/i.test(freshUser.name || '')) {
+              localStorage.removeItem('quark_portal_session_client');
+              setClient(null);
+            } else {
+              setClient(freshUser as ClientPortalUser);
+              localStorage.setItem('quark_portal_session_client', JSON.stringify(freshUser));
+            }
+          } else if (!freshUser && !freshErr && mounted) {
+            // Registro não existe mais no banco de dados (ex: usuário de teste deletado)
+            localStorage.removeItem('quark_portal_session_client');
+            setClient(null);
           }
         }
       } catch (err) {
-        // Se offline ou sem conexão, mantém a sessão do localStorage
+        // Fallback mantém candidato offline se não for teste
       } finally {
         if (mounted) {
           setIsLoading(false);
@@ -181,13 +212,11 @@ export const PortalProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           const { data: resolvedEmail } = await withTimeout(
             supabase.rpc('get_client_auth_email', { p_identifier: emailToUse }),
             1000
-          );
+          ).catch(() => ({ data: null }));
           if (resolvedEmail) {
             emailToUse = resolvedEmail;
           }
-        } catch (rpcErr) {
-          // Fallback silencioso para busca local
-        }
+        } catch (rpcErr) {}
       }
 
       // Se temos um e-mail válido, tenta login no Supabase Auth
@@ -198,7 +227,7 @@ export const PortalProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             password 
           }),
           1500
-        );
+        ).catch(() => ({ data: null, error: new Error('Auth timeout') }));
 
         if (!error && data?.session?.user) {
           const profile = await fetchClientProfile(data.session.user.id);
@@ -220,45 +249,45 @@ export const PortalProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         setIsLoading(false);
         throw err;
       }
-      console.warn('[PortalContext] Autenticação remota falhou, tentando validação local/offline:', err?.message || err);
+      console.warn('[PortalContext] Autenticação remota falhou, tentando validação no Supabase:', err?.message || err);
     }
 
-    // Fallback Offline / Local: Busca em cache do catálogo ou nos clientes padrão
+    // 2. BUSCA DIRETA E PRIORITÁRIA NO BANCO DE DADOS SUPABASE (client_portal_users)
     let matchedClient: ClientPortalUser | null = null;
 
-    // A. Verifica cache do catálogo de clientes (salvo pelo admin do Quark OS)
     try {
-      const cachedClientsRaw = localStorage.getItem('quark_clients_cache');
-      if (cachedClientsRaw) {
-        const cachedList: ClientPortalUser[] = JSON.parse(cachedClientsRaw);
-        const found = cachedList.find((c) => {
-          const cDigits = (c.cpf || '').replace(/\D/g, '');
-          const cEmail = (c.email || '').toLowerCase().trim();
-          return (cleanDigits && cDigits === cleanDigits) || (cleanLower && cEmail === cleanLower);
-        });
-        if (found) matchedClient = found;
+      let dbQuery = supabase.from('client_portal_users').select('*').is('deleted_at', null);
+      if (cleanDigits && cleanDigits.length >= 11) {
+        dbQuery = dbQuery.or(`cpf.eq.${cleanDigits},cpf.eq.${identifier.trim()}`);
+      } else if (cleanLower) {
+        dbQuery = dbQuery.or(`email.ilike.${cleanLower},name.ilike.%${cleanLower}%`);
       }
-    } catch {}
-
-    // A.2. Busca diretamente na tabela client_portal_users do Supabase
-    if (!matchedClient) {
-      try {
-        let dbQuery = supabase.from('client_portal_users').select('*');
-        if (cleanDigits && cleanDigits.length >= 11) {
-          dbQuery = dbQuery.or(`cpf.eq.${cleanDigits},cpf.eq.${identifier.trim()}`);
-        } else if (cleanLower) {
-          dbQuery = dbQuery.or(`email.ilike.${cleanLower},name.ilike.%${cleanLower}%`);
-        }
-        const { data: dbUser } = await withTimeout(dbQuery.maybeSingle(), 1500);
-        if (dbUser) {
-          matchedClient = dbUser as ClientPortalUser;
-        }
-      } catch (dbErr) {
-        console.warn('[PortalContext] Busca em client_portal_users falhou:', dbErr);
+      const { data: dbUser } = await withTimeout(dbQuery.maybeSingle(), 2000).catch(() => ({ data: null }));
+      if (dbUser && !/teste/i.test(dbUser.name || '')) {
+        matchedClient = dbUser as ClientPortalUser;
       }
+    } catch (dbErr) {
+      console.warn('[PortalContext] Busca em client_portal_users falhou:', dbErr);
     }
 
-    // B. Verifica lista de clientes padrão de demonstração e produção
+    // 3. Fallback Offline APENAS se o Supabase não respondeu
+    if (!matchedClient) {
+      try {
+        const cachedClientsRaw = localStorage.getItem('quark_clients_cache');
+        if (cachedClientsRaw) {
+          const cachedList: ClientPortalUser[] = JSON.parse(cachedClientsRaw);
+          const found = cachedList.find((c) => {
+            if (/teste/i.test(c.name || '')) return false;
+            const cDigits = (c.cpf || '').replace(/\D/g, '');
+            const cEmail = (c.email || '').toLowerCase().trim();
+            return (cleanDigits && cDigits === cleanDigits) || (cleanLower && cEmail === cleanLower);
+          });
+          if (found) matchedClient = found;
+        }
+      } catch {}
+    }
+
+    // 4. Fallback padrão apenas para clientes de demonstração oficiais (Arthur Duda, Luanda, Natanael)
     if (!matchedClient) {
       matchedClient = PORTAL_FALLBACK_CLIENTS.find((c) => {
         const cDigits = (c.cpf || '').replace(/\D/g, '');
@@ -267,12 +296,12 @@ export const PortalProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       }) || null;
     }
 
-    // Se encontramos o cliente localmente, valida a senha (primeiros 6 dígitos do CPF ou senha padrão)
+    // 5. Validação de senha e persistência da sessão
     if (matchedClient) {
       const expectedPrefix = (matchedClient.cpf || '').replace(/\D/g, '').slice(0, 6);
       const trimmedPass = password.trim();
       const isPasswordValid = 
-        trimmedPass === expectedPrefix || 
+        (expectedPrefix && trimmedPass === expectedPrefix) || 
         trimmedPass === '123456' || 
         trimmedPass.length >= 6;
 
@@ -285,6 +314,20 @@ export const PortalProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
       setClient(matchedClient);
       localStorage.setItem('quark_portal_session_client', JSON.stringify(matchedClient));
+
+      // Limpa dados de teste que possam ter ficado em quark_clients_cache
+      try {
+        const cachedClientsRaw = localStorage.getItem('quark_clients_cache');
+        if (cachedClientsRaw) {
+          const list: ClientPortalUser[] = JSON.parse(cachedClientsRaw);
+          const sanitized = list.filter(c => !/teste/i.test(c.name || ''));
+          const idx = sanitized.findIndex(c => c.id === matchedClient!.id || (matchedClient!.cpf && c.cpf === matchedClient!.cpf));
+          if (idx >= 0) sanitized[idx] = matchedClient;
+          else sanitized.unshift(matchedClient);
+          localStorage.setItem('quark_clients_cache', JSON.stringify(sanitized));
+        }
+      } catch (_) {}
+
       setIsLoading(false);
       return;
     }

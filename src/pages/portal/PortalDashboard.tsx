@@ -31,6 +31,13 @@ const PortalDashboard: React.FC = () => {
   const clientId = client?.id;
   const [chartMetric, setChartMetric] = useState<'kwh' | 'brl'>('kwh');
 
+  // Purga defensiva: se a sessão for de teste residual, desloga automaticamente
+  React.useEffect(() => {
+    if (client && /teste/i.test(client.name || '')) {
+      logout().then(() => navigate('/portal/login', { replace: true }));
+    }
+  }, [client, logout, navigate]);
+
   // Telemetria Solar
   const { data: telemetry, isLoading: loadingTelemetry } = useClientTelemetry(clientId);
 
@@ -108,7 +115,7 @@ const PortalDashboard: React.FC = () => {
         ? Math.min(100, Math.round((completedTrackingCount / (clientTracking.length - 1 || 1)) * 100))
         : (projectData?.completion_percent ?? 25));
 
-  const systemSizeKw = Number(telemetry?.system_size_kw || client?.system_size_kw || 6.6);
+  const systemSizeKw = Number(telemetry?.system_size_kw || client?.system_size_kw || 3.72);
   const expectedMonthlyGen = Math.round(systemSizeKw * 5.4 * 30 * 0.78);
 
   return (

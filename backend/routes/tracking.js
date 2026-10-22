@@ -27,7 +27,7 @@ router.get('/project/:clientId', async (req, res) => {
     // 1. Busca dados do cliente e inteligência
     const { data: clientUser } = await supabase
       .from('client_portal_users')
-      .select('id, name, phone, email')
+      .select('id, name, phone, email, system_size_kw')
       .or(`id.eq.${clientId},auth_user_id.eq.${clientId}`)
       .maybeSingle();
 
@@ -124,7 +124,7 @@ router.get('/project/:clientId', async (req, res) => {
         id: actualClientId,
         name: clientUser?.name || intelligence?.client_name || 'Cliente Quark',
         phone: clientUser?.phone,
-        system_size_kw: intelligence?.system_size_kw || 6.6,
+        system_size_kw: clientUser?.system_size_kw || intelligence?.system_size_kw || 3.72,
       },
       completion_percent: completionPercent,
       current_phase: currentPhase,
