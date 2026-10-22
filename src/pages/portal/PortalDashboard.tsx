@@ -69,9 +69,24 @@ const PortalDashboard: React.FC = () => {
     return new Date(dateStr).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
   };
 
-  const chartData = (telemetry?.chart_data && telemetry.chart_data.length > 0) 
+  const MONTH_MAP: Record<string, number> = {
+    'jan': 1, 'fev': 2, 'mar': 3, 'abr': 4, 'mai': 5, 'jun': 6,
+    'jul': 7, 'ago': 8, 'set': 9, 'out': 10, 'nov': 11, 'dez': 12
+  };
+
+  const rawChartData = (telemetry?.chart_data && telemetry.chart_data.length > 0) 
     ? telemetry.chart_data 
     : fallbackChartData;
+
+  const chartData = [...rawChartData].sort((a, b) => {
+    const parseMonthRef = (str: string) => {
+      const parts = (str || '').toLowerCase().split('/');
+      const m = MONTH_MAP[parts[0]] || 1;
+      const y = parseInt(parts[1] || '26', 10);
+      return y * 100 + m;
+    };
+    return parseMonthRef(a.month) - parseMonthRef(b.month);
+  });
 
   const systemHealth = telemetry?.system_health || 'Operação Normal - Eficiência 98%';
   const isHealthWarning = systemHealth.toLowerCase().includes('limpeza') || systemHealth.toLowerCase().includes('atenção');
@@ -735,7 +750,7 @@ const PortalDashboard: React.FC = () => {
               </span>
               <p className="text-base font-bold text-emerald-400 font-mono">
                 {isSystemInstalled 
-                  ? formatCurrency(telemetry?.total_savings_brl || 0)
+                  ? formatCurrency(Math.round((telemetry?.monthly_generation_kwh || expectedMonthlyGen) * 0.92))
                   : `~${formatCurrency(expectedMonthlyGen * 0.92)}/mês`}
               </p>
               <p className="text-[11px] text-zinc-400">

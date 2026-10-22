@@ -167,7 +167,7 @@ router.get(['/:clientId', '/api/portal/telemetry/:clientId'], async (req, res) =
         .from('utility_invoices')
         .select('*')
         .eq('intelligence_id', intelligence.id)
-        .order('month_ref', { ascending: true });
+        .order('captured_at', { ascending: true });
 
       if (invErr) {
         console.warn('[TELEMETRY] Erro ao buscar utility_invoices:', invErr.message);
