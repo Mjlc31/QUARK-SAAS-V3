@@ -11,6 +11,7 @@ export interface PhaseInfo {
   shortLabel: string;
   description: string;
   color: string;
+  percent: number;
   next?: ProjectPhase;
 }
 
@@ -21,6 +22,7 @@ export const SOLAR_PROJECT_PHASES: PhaseInfo[] = [
     shortLabel: 'Venda Confirmada',
     description: 'Contrato assinado e documentação validada para início da engenharia.',
     color: 'border-blue-500',
+    percent: 12,
     next: 'projeto_elaboracao',
   },
   {
@@ -29,6 +31,7 @@ export const SOLAR_PROJECT_PHASES: PhaseInfo[] = [
     shortLabel: 'Projeto Técnico',
     description: 'Engenharia realizou o dimensionamento e desenhou os diagramas elétricos.',
     color: 'border-amber-500',
+    percent: 25,
     next: 'compra_kit',
   },
   {
@@ -37,6 +40,7 @@ export const SOLAR_PROJECT_PHASES: PhaseInfo[] = [
     shortLabel: 'Compra do Kit & NF',
     description: 'Módulos solares, inversor e estrutura faturados com Nota Fiscal emitida.',
     color: 'border-indigo-500',
+    percent: 38,
     next: 'projeto_enviado',
   },
   {
@@ -45,6 +49,7 @@ export const SOLAR_PROJECT_PHASES: PhaseInfo[] = [
     shortLabel: 'Protocolo Concessionária',
     description: 'Projeto e solicitação de acesso formalmente protocolados na Equatorial Energia.',
     color: 'border-orange-500',
+    percent: 50,
     next: 'aprovacao_concessionaria',
   },
   {
@@ -53,6 +58,7 @@ export const SOLAR_PROJECT_PHASES: PhaseInfo[] = [
     shortLabel: 'Parecer Aprovado',
     description: 'Parecer de acesso deferido e aprovado pela concessionária sem pendências.',
     color: 'border-purple-500',
+    percent: 63,
     next: 'logistica_entrega',
   },
   {
@@ -61,6 +67,7 @@ export const SOLAR_PROJECT_PHASES: PhaseInfo[] = [
     shortLabel: 'Logística & Entrega',
     description: 'Módulos, inversor e estruturas em rota de entrega no endereço da obra.',
     color: 'border-cyan-500',
+    percent: 75,
     next: 'instalacao',
   },
   {
@@ -69,6 +76,7 @@ export const SOLAR_PROJECT_PHASES: PhaseInfo[] = [
     shortLabel: 'Instalação Física',
     description: 'Equipe técnica executando fixação mecânica no telhado e conexões elétricas.',
     color: 'border-emerald-500',
+    percent: 85,
     next: 'homologacao',
   },
   {
@@ -77,6 +85,7 @@ export const SOLAR_PROJECT_PHASES: PhaseInfo[] = [
     shortLabel: 'Vistoria e Medidor',
     description: 'Concessionária realiza a vistoria final e substitui o medidor pelo bidirecional.',
     color: 'border-pink-500',
+    percent: 95,
     next: 'finalizado',
   },
   {
@@ -85,8 +94,16 @@ export const SOLAR_PROJECT_PHASES: PhaseInfo[] = [
     shortLabel: 'Usina Ativa & Gerando',
     description: 'Sistema 100% energizado, homologado e gerando economia real!',
     color: 'border-lime-500',
+    percent: 100,
   },
 ];
+
+export function getPhasePercentage(phaseId?: ProjectPhase | string | null): number {
+  if (!phaseId) return 12;
+  if (phaseId === 'finalizado') return 100;
+  const found = SOLAR_PROJECT_PHASES.find(p => p.id === phaseId);
+  return found?.percent ?? 38;
+}
 
 export function buildClientTrackingPhases(
   clientId: string,
@@ -191,7 +208,43 @@ export function useClientProjectTracking(clientId?: string) {
     queryFn: async () => {
       if (!clientId) return [];
 
-      // 1. Tenta cache local primeiro (instantâneo e resiliente)
+      // 1. Consulta prioritária no Supabase (SELECT direto das fases do cliente)
+      try {
+        const { data, error } = await withTimeout(
+          supabase
+            .from('project_tracking')
+            .select('*')
+            .eq('client_id', clientId)
+            .order('started_at', { ascending: true }),
+          1500
+        );
+
+        if (!error && data && data.length > 0) {
+          localStorage.setItem(`quark_client_tracking_${clientId}`, JSON.stringify(data));
+          return data as ProjectTrackingPhase[];
+        }
+      } catch (e) {
+        console.warn('[useClientProjectTracking] Supabase select falhou:', e);
+      }
+
+      // 2. Tenta RPC get_or_create_client_tracking do Supabase
+      try {
+        const { data, error } = await withTimeout(
+          supabase.rpc('get_or_create_client_tracking', {
+            p_client_id: clientId,
+          }),
+          1500
+        );
+
+        if (!error && data && Array.isArray(data) && data.length > 0) {
+          localStorage.setItem(`quark_client_tracking_${clientId}`, JSON.stringify(data));
+          return data as ProjectTrackingPhase[];
+        }
+      } catch (e) {
+        console.warn('[useClientProjectTracking] RPC error:', e);
+      }
+
+      // 3. Fallback cache local se Supabase estiver offline
       try {
         const cached = localStorage.getItem(`quark_client_tracking_${clientId}`);
         if (cached) {
@@ -202,46 +255,12 @@ export function useClientProjectTracking(clientId?: string) {
         }
       } catch {}
 
-      // 2. Tenta RPC do Supabase com timeout seguro
-      try {
-        const { data, error } = await withTimeout(
-          supabase.rpc('get_or_create_client_tracking', {
-            p_client_id: clientId,
-          }),
-          1000
-        );
-
-        if (!error && data && Array.isArray(data) && data.length > 0) {
-          localStorage.setItem(`quark_client_tracking_${clientId}`, JSON.stringify(data));
-          return data as ProjectTrackingPhase[];
-        }
-      } catch (e) {
-        console.warn('[useClientProjectTracking] RPC error, using select fallback', e);
-      }
-
-      // 3. Tenta Select simples no Supabase
-      try {
-        const { data, error } = await withTimeout(
-          supabase
-            .from('project_tracking')
-            .select('*')
-            .eq('client_id', clientId)
-            .order('started_at', { ascending: true }),
-          1000
-        );
-
-        if (!error && data && data.length > 0) {
-          localStorage.setItem(`quark_client_tracking_${clientId}`, JSON.stringify(data));
-          return data as ProjectTrackingPhase[];
-        }
-      } catch {}
-
-      // 4. Constrói fases padrão com 'instalacao' como fase atual
-      const defaultPhases = buildClientTrackingPhases(clientId, 'instalacao', 'Equipe técnica executando montagem dos painéis.');
-      localStorage.setItem(`quark_client_tracking_${clientId}`, JSON.stringify(defaultPhases));
+      // 4. Constrói fases padrão com 'compra_kit' como fase atual inicial
+      const defaultPhases = buildClientTrackingPhases(clientId, 'compra_kit', 'Equipamentos faturados e nota fiscal emitida.');
       return defaultPhases;
     },
     enabled: !!clientId,
+    staleTime: 1000 * 30, // 30s
   });
 }
 
@@ -259,7 +278,7 @@ export function useSetClientPhase() {
       phaseLabel: string;
       notes?: string;
     }) => {
-      // 1. Atualiza cache local instantaneamente
+      // 1. Atualiza cache local instantaneamente para resposta imediata
       const updatedPhases = buildClientTrackingPhases(clientId, phase, notes);
       try {
         localStorage.setItem(`quark_client_tracking_${clientId}`, JSON.stringify(updatedPhases));
@@ -277,27 +296,41 @@ export function useSetClientPhase() {
         }
       } catch {}
 
-      // 2. Tenta RPC remota no Supabase com timeout
+      // 2. Executa a RPC remota no Supabase (atualiza todas as 9 fases e o client_portal_users)
       try {
-        const { data, error } = await withTimeout(
-          supabase.rpc('set_client_tracking_phase', {
-            p_client_id: clientId,
-            p_phase: phase,
-            p_phase_label: phaseLabel,
-            p_notes: notes || null,
-          }),
-          1200
-        );
+        const { data, error } = await supabase.rpc('set_client_tracking_phase', {
+          p_client_id: clientId,
+          p_phase: phase,
+          p_phase_label: phaseLabel,
+          p_notes: notes || null,
+        });
+
+        // Atualiza diretamente client_portal_users
+        await supabase
+          .from('client_portal_users')
+          .update({ project_phase: phase, project_phase_label: phaseLabel })
+          .eq('id', clientId);
 
         if (!error && data) return data as ProjectTrackingPhase;
       } catch (err) {
-        console.warn('[useSetClientPhase] Supabase offline, atualização local realizada:', err);
+        console.warn('[useSetClientPhase] Supabase erro:', err);
       }
+
+      // 3. Notifica backend via HTTP se disponível
+      try {
+        await fetch(`/api/portal/project/${clientId}/set-phase`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phase, phaseLabel, notes })
+        });
+      } catch (_) {}
 
       return updatedPhases.find((p) => p.is_current) as ProjectTrackingPhase;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['client_project_tracking', variables.clientId] });
+      queryClient.invalidateQueries({ queryKey: ['portal-project-status', variables.clientId] });
+      queryClient.invalidateQueries({ queryKey: ['telemetry', variables.clientId] });
       queryClient.invalidateQueries({ queryKey: ['project_tracking'] });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
     },

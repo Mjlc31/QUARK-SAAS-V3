@@ -1278,3 +1278,114 @@ CREATE POLICY "signers_access" ON public.document_signers FOR ALL TO authenticat
 DROP POLICY IF EXISTS "signers_anon_token_read" ON public.document_signers;
 CREATE POLICY "signers_anon_token_read" ON public.document_signers FOR SELECT TO anon, authenticated USING (token IS NOT NULL);
 
+-- ─────────────────────────────────────────────────────────────
+-- 14. SINCRONIZAÇÃO DE FASE DO PROJETO COM O PORTAL DO CLIENTE
+-- ─────────────────────────────────────────────────────────────
+ALTER TABLE public.client_portal_users 
+ADD COLUMN IF NOT EXISTS project_phase text DEFAULT 'venda_confirmada',
+ADD COLUMN IF NOT EXISTS project_phase_label text DEFAULT 'Venda Confirmada & Contrato';
+
+CREATE OR REPLACE FUNCTION public.set_client_tracking_phase(
+    p_client_id uuid,
+    p_phase text,
+    p_phase_label text,
+    p_notes text DEFAULT NULL::text
+)
+RETURNS project_tracking
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $function$
+DECLARE
+    v_user_id uuid;
+    v_phases text[] := ARRAY[
+        'venda_confirmada',
+        'projeto_elaboracao',
+        'compra_kit',
+        'projeto_enviado',
+        'aprovacao_concessionaria',
+        'logistica_entrega',
+        'instalacao',
+        'homologacao',
+        'finalizado'
+    ];
+    v_labels text[] := ARRAY[
+        'Venda Confirmada & Contrato',
+        'Elaboração do Projeto Técnico',
+        'Compra do Kit & Emissão de NF',
+        'Protocolo na Concessionária',
+        'Parecer de Acesso Aprovado',
+        'Logística & Entrega dos Equipamentos',
+        'Instalação & Montagem dos Painéis',
+        'Vistoria & Troca do Medidor',
+        'Usina Ativa & Gerando Economia!'
+    ];
+    v_target_idx integer := 0;
+    v_cur_phase text;
+    v_cur_label text;
+    v_new_tracking public.project_tracking;
+BEGIN
+    SELECT user_id INTO v_user_id FROM public.client_portal_users WHERE id = p_client_id;
+    IF v_user_id IS NULL THEN
+        SELECT id INTO v_user_id FROM auth.users ORDER BY created_at ASC LIMIT 1;
+    END IF;
+
+    FOR i IN 1..array_length(v_phases, 1) LOOP
+        IF v_phases[i] = p_phase THEN
+            v_target_idx := i;
+            EXIT;
+        END IF;
+    END LOOP;
+
+    IF v_target_idx = 0 THEN
+        v_target_idx := 1;
+    END IF;
+
+    FOR i IN 1..array_length(v_phases, 1) LOOP
+        v_cur_phase := v_phases[i];
+        v_cur_label := v_labels[i];
+
+        IF i < v_target_idx THEN
+            IF EXISTS (SELECT 1 FROM public.project_tracking WHERE client_id = p_client_id AND phase = v_cur_phase) THEN
+                UPDATE public.project_tracking
+                SET is_current = false,
+                    completed_at = COALESCE(completed_at, now())
+                WHERE client_id = p_client_id AND phase = v_cur_phase;
+            ELSE
+                INSERT INTO public.project_tracking (client_id, user_id, phase, phase_label, started_at, completed_at, is_current, notes)
+                VALUES (p_client_id, v_user_id, v_cur_phase, v_cur_label, now() - interval '3 days', now() - interval '1 day', false, 'Fase concluída.');
+            END IF;
+
+        ELSIF i = v_target_idx THEN
+            IF EXISTS (SELECT 1 FROM public.project_tracking WHERE client_id = p_client_id AND phase = v_cur_phase) THEN
+                UPDATE public.project_tracking
+                SET is_current = true,
+                    phase_label = p_phase_label,
+                    notes = COALESCE(p_notes, notes),
+                    completed_at = NULL
+                WHERE client_id = p_client_id AND phase = v_cur_phase
+                RETURNING * INTO v_new_tracking;
+            ELSE
+                INSERT INTO public.project_tracking (client_id, user_id, phase, phase_label, started_at, completed_at, is_current, notes)
+                VALUES (p_client_id, v_user_id, v_cur_phase, p_phase_label, now(), NULL, true, p_notes)
+                RETURNING * INTO v_new_tracking;
+            END IF;
+
+        ELSE
+            IF EXISTS (SELECT 1 FROM public.project_tracking WHERE client_id = p_client_id AND phase = v_cur_phase) THEN
+                UPDATE public.project_tracking
+                SET is_current = false,
+                    completed_at = NULL
+                WHERE client_id = p_client_id AND phase = v_cur_phase;
+            END IF;
+        END IF;
+    END LOOP;
+
+    UPDATE public.client_portal_users
+    SET project_phase = p_phase,
+        project_phase_label = p_phase_label
+    WHERE id = p_client_id;
+
+    RETURN v_new_tracking;
+END;
+$function$;
+

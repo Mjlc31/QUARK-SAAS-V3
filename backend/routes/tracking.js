@@ -90,7 +90,14 @@ router.get('/project/:clientId', async (req, res) => {
     let finalPhasesList = sortedPhases;
     let completionPercent = 0;
 
-    if (isFinalizado) {
+    const currentPhaseRecord = sortedPhases.find((p) => p.is_current);
+    const activePhase = (currentPhaseRecord?.phase || clientUser?.project_phase || 'compra_kit');
+    const curIdx = SOLAR_PHASES.findIndex((p) => p.phase === activePhase);
+    const targetIdx = curIdx >= 0 ? curIdx : 2;
+
+    const PHASE_PERCENTS = [12, 25, 38, 50, 63, 75, 85, 95, 100];
+
+    if (isFinalizado || activePhase === 'finalizado') {
       completionPercent = 100;
       // Garante que todas as fases anteriores apareçam como concluídas
       const finalizadoRecord = sortedPhases.find((p) => p.phase === 'finalizado');
@@ -112,11 +119,28 @@ router.get('/project/:clientId', async (req, res) => {
         };
       });
     } else {
-      const completedCount = sortedPhases.filter((p) => !!p.completed_at).length;
-      completionPercent = Math.round((completedCount / SOLAR_PHASES.length) * 100);
+      completionPercent = PHASE_PERCENTS[targetIdx] ?? 38;
+
+      // Garante que todas as 9 fases sejam retornadas com estado consistente
+      const now = new Date();
+      finalPhasesList = SOLAR_PHASES.map((sp, idx) => {
+        const existing = sortedPhases.find((p) => p.phase === sp.phase);
+        const isDone = idx < targetIdx;
+        const isCur = idx === targetIdx;
+
+        return {
+          id: existing?.id || `auto-${sp.phase}`,
+          phase: sp.phase,
+          phase_label: sp.label,
+          notes: existing?.notes || sp.desc,
+          is_current: isCur,
+          started_at: existing?.started_at || (isDone || isCur ? new Date(now.getTime() - (targetIdx - idx) * 86400000 * 2).toISOString() : null),
+          completed_at: isDone ? (existing?.completed_at || new Date(now.getTime() - (targetIdx - idx) * 86400000 * 2).toISOString()) : null,
+        };
+      });
     }
 
-    const currentPhase = finalPhasesList.find((p) => p.is_current) || finalPhasesList[finalPhasesList.length - 1];
+    const currentPhase = finalPhasesList.find((p) => p.is_current) || finalPhasesList[targetIdx] || finalPhasesList[0];
 
     res.json({
       success: true,
@@ -404,6 +428,42 @@ router.post('/provision-access', async (req, res) => {
   } catch (error) {
     console.error('[TRACKING] Erro ao provisionar acesso:', error);
     res.status(500).json({ success: false, error: 'Erro ao provisionar acesso', details: error.message });
+  }
+});
+
+// POST /api/portal/project/:clientId/set-phase - Define diretamente a fase do projeto do cliente
+router.post('/project/:clientId/set-phase', async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const { phase, phaseLabel, notes } = req.body;
+    if (!clientId || !phase) {
+      return res.status(400).json({ success: false, error: 'clientId e phase são obrigatórios' });
+    }
+
+    const { data: clientUser } = await supabase
+      .from('client_portal_users')
+      .select('id, name, phone')
+      .or(`id.eq.${clientId},auth_user_id.eq.${clientId}`)
+      .maybeSingle();
+
+    const actualClientId = clientUser?.id || clientId;
+
+    const { data, error } = await supabase.rpc('set_client_tracking_phase', {
+      p_client_id: actualClientId,
+      p_phase: phase,
+      p_phase_label: phaseLabel || phase,
+      p_notes: notes || null,
+    });
+
+    if (error) {
+      console.error('[TRACKING] Erro ao definir fase via RPC:', error.message);
+      return res.status(500).json({ success: false, error: error.message });
+    }
+
+    return res.json({ success: true, tracking: data });
+  } catch (err) {
+    console.error('[TRACKING] Erro inesperado em set-phase:', err);
+    return res.status(500).json({ success: false, error: err.message });
   }
 });
 

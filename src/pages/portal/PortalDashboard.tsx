@@ -13,7 +13,7 @@ import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { usePortal } from '../../contexts/PortalContext';
 import { useClientTelemetry } from '../../hooks/useClientTelemetry';
-import { useClientProjectTracking } from '../../hooks/useProjectTracking';
+import { useClientProjectTracking, SOLAR_PROJECT_PHASES, getPhasePercentage } from '../../hooks/useProjectTracking';
 
 const fallbackChartData = [
   { month: 'Mai/26', geracao: 480, consumo: 390 },
@@ -98,22 +98,19 @@ const PortalDashboard: React.FC = () => {
   const systemHealth = telemetry?.system_health || 'Operação Normal - Eficiência 98%';
   const isHealthWarning = systemHealth.toLowerCase().includes('limpeza') || systemHealth.toLowerCase().includes('atenção');
 
-  // Cálculo preciso da fase atual e porcentagem de evolução
-  const currentTrackingPhase = clientTracking?.find(t => t.is_current) || clientTracking?.[0];
-  const currentPhaseId = projectData?.current_phase?.phase || currentTrackingPhase?.phase;
-  const currentPhaseLabel = projectData?.current_phase?.label || projectData?.current_phase?.phase_label || currentTrackingPhase?.phase_label || 'Em Instalação e Montagem';
-  const completedTrackingCount = clientTracking?.filter(t => !!t.completed_at).length || 0;
+  // Cálculo preciso e sincronizado da fase atual e porcentagem de evolução
+  const currentTrackingPhase = clientTracking?.find(t => t.is_current);
+  const currentPhaseId = (projectData?.current_phase?.phase || currentTrackingPhase?.phase || client?.project_phase || 'compra_kit') as string;
+  const currentPhaseConfig = SOLAR_PROJECT_PHASES.find(p => p.id === currentPhaseId);
+  const currentPhaseLabel = projectData?.current_phase?.label || projectData?.current_phase?.phase_label || currentTrackingPhase?.phase_label || client?.project_phase_label || currentPhaseConfig?.label || 'Compra do Kit & Emissão de NF';
 
-  // REGRA DE NEGÓCIO: O sistema só tem geração ativa quando a obra foi finalizada e conectada à rede
-  const isSystemInstalled = telemetry?.is_installed !== undefined 
-    ? telemetry.is_installed 
-    : (currentPhaseId === 'finalizado');
+  // REGRA DE NEGÓCIO: O sistema só tem geração ativa quando a obra foi 100% finalizada e conectada à rede (Fase 'finalizado')
+  const isSystemInstalled = currentPhaseId === 'finalizado';
 
-  const completionPercent = (currentPhaseId === 'finalizado' || isSystemInstalled)
+  // Porcentagem calculada de forma exata baseada na fase em que a usina realmente se encontra
+  const completionPercent = currentPhaseId === 'finalizado'
     ? 100
-    : ((clientTracking && clientTracking.length > 0)
-        ? Math.min(100, Math.round((completedTrackingCount / (clientTracking.length - 1 || 1)) * 100))
-        : (projectData?.completion_percent ?? 25));
+    : getPhasePercentage(currentPhaseId);
 
   const systemSizeKw = Number(telemetry?.system_size_kw || client?.system_size_kw || 3.72);
   const expectedMonthlyGen = Math.round(systemSizeKw * 5.4 * 30 * 0.78);

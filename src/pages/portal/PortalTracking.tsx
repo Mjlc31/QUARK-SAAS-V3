@@ -17,66 +17,49 @@ const PortalTracking: React.FC = () => {
 
   // Mapeia as 9 fases solares oficiais com os registros reais do banco
   const phases = React.useMemo(() => {
-    // Se o cliente tem registros salvos no banco
-    if (trackingRecords && trackingRecords.length > 0) {
-      const recordsMap = new Map(trackingRecords.map((r) => [r.phase, r]));
-      
-      return SOLAR_PROJECT_PHASES.map((config, idx) => {
-        const tracked = recordsMap.get(config.id);
-        const isCompleted = Boolean(tracked?.completed_at);
-        const isCurrent = Boolean(tracked?.is_current);
+    // Determina a fase ativa oficial do cliente
+    const activePhaseKey = trackingRecords?.find(t => t.is_current)?.phase || client?.project_phase || 'compra_kit';
+    const activeIdx = SOLAR_PROJECT_PHASES.findIndex(p => p.id === activePhaseKey);
+    const targetIdx = activeIdx >= 0 ? activeIdx : 2;
 
-        let status: 'completed' | 'current' | 'future' = 'future';
-        if (isCompleted) status = 'completed';
-        else if (isCurrent) status = 'current';
+    const recordsMap = new Map(trackingRecords?.map((r) => [r.phase, r]) || []);
 
-        let date = 'Pendente';
-        if (tracked?.completed_at) {
-          date = new Date(tracked.completed_at).toLocaleDateString('pt-BR', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-          });
-        } else if (isCurrent) {
-          date = 'Em andamento';
-        }
-
-        return {
-          id: idx + 1,
-          phaseKey: config.id,
-          label: tracked?.phase_label || config.label,
-          shortLabel: config.shortLabel,
-          status,
-          date,
-          desc: tracked?.notes || config.description,
-        };
-      });
-    }
-
-    // Fallback padrão amigável (3 primeiras concluídas/em andamento) se ainda não houver dados no banco
     return SOLAR_PROJECT_PHASES.map((config, idx) => {
-      const status: 'completed' | 'current' | 'future' = 
-        idx < 2 ? 'completed' : idx === 2 ? 'current' : 'future';
-      
+      const tracked = recordsMap.get(config.id);
+
+      let status: 'completed' | 'current' | 'future' = 'future';
+      let date = 'Pendente';
+
+      if (idx < targetIdx) {
+        status = 'completed';
+        date = tracked?.completed_at
+          ? new Date(tracked.completed_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+          : 'Concluído';
+      } else if (idx === targetIdx) {
+        status = 'current';
+        date = 'Em andamento';
+      } else {
+        status = 'future';
+        date = 'Pendente';
+      }
+
       return {
         id: idx + 1,
         phaseKey: config.id,
-        label: config.label,
+        label: tracked?.phase_label || config.label,
         shortLabel: config.shortLabel,
         status,
-        date: status === 'completed' ? 'Concluído' : status === 'current' ? 'Em andamento' : 'Pendente',
-        desc: config.description,
+        date,
+        desc: tracked?.notes || config.description,
       };
     });
-  }, [trackingRecords]);
+  }, [trackingRecords, client?.project_phase]);
 
   // Contagem e porcentagem de progresso
-  const completedCount = phases.filter((p) => p.status === 'completed').length;
-  const currentPhase = phases.find((p) => p.status === 'current') || phases[0];
-  const progressPercent = Math.min(
-    100,
-    Math.round((completedCount / (phases.length - 1 || 1)) * 100)
-  );
+  const currentPhase = phases.find((p) => p.status === 'current') || phases[phases.length - 1];
+  const progressPercent = currentPhase.phaseKey === 'finalizado'
+    ? 100
+    : (SOLAR_PROJECT_PHASES.find(p => p.id === currentPhase.phaseKey)?.percent ?? 38);
 
   const clientName = client?.name || 'Cliente';
   const systemSize = client?.system_size_kw ? `${client.system_size_kw} kWp` : '3.72 kWp';

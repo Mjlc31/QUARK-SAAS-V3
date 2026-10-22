@@ -258,6 +258,8 @@ export interface ClientPortalUser {
   install_date?: string | null;
   monthly_avg_kwh?: number | null;
   notes?: string | null;
+  project_phase?: ProjectPhase | string;
+  project_phase_label?: string;
 }
 
 export interface SupportTicket {

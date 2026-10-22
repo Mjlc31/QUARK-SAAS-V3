@@ -249,23 +249,23 @@ const ClientTrackingSection: React.FC<{
   }, [trackingRecords]);
 
   const [selectedPhase, setSelectedPhase] = useState<ProjectPhase>(
-    (currentTracking?.phase as ProjectPhase) || 'compra_kit'
+    (currentTracking?.phase as ProjectPhase) || (client.project_phase as ProjectPhase) || 'compra_kit'
   );
   const [phaseNotes, setPhaseNotes] = useState(currentTracking?.notes || '');
 
   useEffect(() => {
-    if (currentTracking) {
+    if (currentTracking?.phase) {
       setSelectedPhase(currentTracking.phase as ProjectPhase);
       setPhaseNotes(currentTracking.notes || '');
+    } else if (client.project_phase) {
+      setSelectedPhase(client.project_phase as ProjectPhase);
     }
-  }, [currentTracking]);
+  }, [currentTracking, client.project_phase]);
 
-  const completedCount = trackingRecords?.filter(t => !!t.completed_at).length || 0;
-  const progressPercent = trackingRecords?.length 
-    ? Math.min(100, Math.round((completedCount / (SOLAR_PROJECT_PHASES.length - 1 || 1)) * 100))
-    : 25;
-
-  const currentConfig = SOLAR_PROJECT_PHASES.find(p => p.id === (currentTracking?.phase || selectedPhase));
+  const activePhaseIndex = SOLAR_PROJECT_PHASES.findIndex(p => p.id === (currentTracking?.phase || selectedPhase));
+  const completedCount = activePhaseIndex >= 0 ? activePhaseIndex : 0;
+  const currentConfig = SOLAR_PROJECT_PHASES[activePhaseIndex] || SOLAR_PROJECT_PHASES[0];
+  const progressPercent = currentConfig?.percent ?? 38;
 
   const handleSavePhase = async () => {
     const config = SOLAR_PROJECT_PHASES.find(p => p.id === selectedPhase);
@@ -278,6 +278,8 @@ const ClientTrackingSection: React.FC<{
         phaseLabel: config.label,
         notes: phaseNotes || config.description,
       });
+      client.project_phase = selectedPhase;
+      client.project_phase_label = config.label;
       toast.success(`Etapa atualizada para: ${config.shortLabel}! Sincronizado com o portal.`);
     } catch (err: any) {
       toast.error('Erro ao atualizar etapa: ' + (err.message || err));
@@ -299,6 +301,8 @@ const ClientTrackingSection: React.FC<{
         phaseLabel: nextConfig.label,
         notes: nextConfig.description,
       });
+      client.project_phase = currentConfig.next;
+      client.project_phase_label = nextConfig.label;
       setSelectedPhase(currentConfig.next);
       setPhaseNotes(nextConfig.description);
       toast.success(`Obra avançada para: ${nextConfig.shortLabel}!`);
