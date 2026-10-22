@@ -21,6 +21,7 @@ import ocrRouter from './routes/ocr.js';
 import prospectingRouter from './routes/prospecting.js';
 import clientsRouter from './routes/clients.js';
 import opportunitiesRouter from './routes/opportunities.js';
+import proposalsRouter from './routes/proposals.js';
 
 dotenv.config();
 
@@ -560,6 +561,7 @@ app.use('/api/utility', ocrRouter);
 app.use('/api/prospeccao', prospectingRouter);
 app.use('/api/clients', clientsRouter);
 app.use('/api/opportunities', opportunitiesRouter);
+app.use('/api/proposals', proposalsRouter);
 app.post('/api/portal/auth', (req, res) => res.json({ success: true, message: 'Portal auth ready' }));
 
 

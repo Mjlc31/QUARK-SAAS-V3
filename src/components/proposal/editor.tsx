@@ -315,35 +315,76 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
   }
 
   async function share(kind: "copy" | "whatsapp" | "open") {
-    // Abre a janela antes do await para não ser bloqueada pelo navegador.
-    const win = kind === "open" || kind === "whatsapp" ? window.open("about:blank", "_blank") : null;
+    const token = current.current?.public_token || (proposal as any)?.public_token || `tok_${Math.random().toString(36).substring(2, 12)}`;
+    const url = `${window.location.origin}/p/${token}`;
     const draft = !current.current || current.current.status === "rascunho";
-    const saved = await save({ silent: true, extra: draft ? { status: "enviada", sent_at: new Date().toISOString(), valid_until: addDays(inputs!.validityDays) } : {} });
-    if (!saved) {
-      win?.close();
+
+    if (kind === "open") {
+      // Abre imediatamente no clique com a URL real (zero about:blank, zero bloqueio de popup)
+      window.open(url, "_blank");
+      // Salva silenciosamente e atualiza status em background
+      save({
+        silent: true,
+        extra: {
+          public_token: token,
+          ...(draft ? { status: "enviada", sent_at: new Date().toISOString(), valid_until: addDays(inputs!.validityDays) } : {})
+        }
+      }).then((saved) => {
+        if (saved && draft) {
+          reward("envio", saved.id);
+          const sb = supabase();
+          const userId = user?.id || "usr_admin_arthur";
+          try {
+            Promise.resolve(sb.from("activities").insert({ opportunity_id: saved.lead_id, type: "proposta", content: `Proposta #${saved.number} enviada`, created_by: userId })).catch(() => {});
+          } catch (_) {}
+          logCrmNote(saved.lead_id, `📤 Proposta solar #${saved.number} aberta / visualizada.`);
+          if (lead && ["Lead", "Qualificado"].includes(lead.status)) {
+            Promise.resolve(sb.from("opportunities").update({ status: "Proposta" }).eq("id", lead.id)).catch(() => {});
+          }
+        }
+      });
       return;
     }
-    const url = `${window.location.origin}/p/${saved.public_token}`;
-    if (draft) {
-      reward("envio", saved.id);
-      const sb = supabase();
-      const userId = user?.id || "usr_admin_arthur";
-      try {
-        await sb.from("activities").insert({ opportunity_id: saved.lead_id, type: "proposta", content: `Proposta #${saved.number} enviada`, created_by: userId });
-      } catch (_) {}
-      await logCrmNote(saved.lead_id, `📤 Proposta solar #${saved.number} enviada ao cliente (${kind === "whatsapp" ? "WhatsApp" : kind === "copy" ? "link copiado" : "link aberto"}).`);
-      if (lead && ["Lead", "Qualificado"].includes(lead.status)) await sb.from("opportunities").update({ status: "Proposta" }).eq("id", lead.id);
-    }
+
     if (kind === "copy") {
       await navigator.clipboard.writeText(url).catch(() => {});
-      toast.success("Link da proposta copiado");
-    } else if (kind === "open") {
-      if (win) win.location.href = url;
-    } else {
+      toast.success("Link da proposta copiado!");
+      save({
+        silent: true,
+        extra: {
+          public_token: token,
+          ...(draft ? { status: "enviada", sent_at: new Date().toISOString(), valid_until: addDays(inputs!.validityDays) } : {})
+        }
+      });
+      return;
+    }
+
+    if (kind === "whatsapp") {
       const first = lead?.name.split(" ")[0] ?? "";
       const msg = `Olá${first ? `, ${first}` : ""}! ☀️\n\nPreparei sua proposta de energia solar: sistema de ${fmtNum(pricing!.powerKwp, 2)} kWp, com economia estimada de ${brl(energy!.monthlySavings)} por mês.\n\nConfira todos os detalhes aqui:\n${url}`;
       const wa = whatsappUrl(lead?.phone, msg);
-      if (win) win.location.href = wa;
+      window.open(wa, "_blank");
+      save({
+        silent: true,
+        extra: {
+          public_token: token,
+          ...(draft ? { status: "enviada", sent_at: new Date().toISOString(), valid_until: addDays(inputs!.validityDays) } : {})
+        }
+      }).then((saved) => {
+        if (saved && draft) {
+          reward("envio", saved.id);
+          const sb = supabase();
+          const userId = user?.id || "usr_admin_arthur";
+          try {
+            Promise.resolve(sb.from("activities").insert({ opportunity_id: saved.lead_id, type: "proposta", content: `Proposta #${saved.number} enviada via WhatsApp`, created_by: userId })).catch(() => {});
+          } catch (_) {}
+          logCrmNote(saved.lead_id, `📤 Proposta solar #${saved.number} enviada ao cliente via WhatsApp.`);
+          if (lead && ["Lead", "Qualificado"].includes(lead.status)) {
+            Promise.resolve(sb.from("opportunities").update({ status: "Proposta" }).eq("id", lead.id)).catch(() => {});
+          }
+        }
+      });
+      return;
     }
   }
 

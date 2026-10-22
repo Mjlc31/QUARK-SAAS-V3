@@ -3,20 +3,16 @@ import type { Proposal } from "../types";
 
 export interface StoredProposal extends Proposal {
   deleted_at?: string | null;
+  client_name?: string | null;
+  city?: string | null;
+  phone?: string | null;
 }
 
 export const INITIAL_PROPOSALS: StoredProposal[] = [];
 
-const MOCK_PROPOSAL_IDS = new Set([
-  'prop_luanda_001',
-  'prop_silva_002',
-  'prop_haroldo_003',
-  'prop_save_004'
-]);
-
 function filterRealProposals(list: any[]): StoredProposal[] {
   if (!Array.isArray(list)) return [];
-  return list.filter(p => p && p.id && !MOCK_PROPOSAL_IDS.has(p.id) && !p.id.startsWith('prop_mock_'));
+  return list.filter(p => p && p.id && !p.deleted_at);
 }
 
 function resolveLeadForProposal(leadId?: string | null): any {
@@ -125,7 +121,31 @@ class ProposalQueryBuilder {
   }
 
   private async execute(): Promise<{ data: StoredProposal[]; error: any }> {
-    // 1. Tenta buscar do Supabase com timeout seguro
+    // 1. Tenta buscar da API Backend /api/proposals (persistência garantida no servidor)
+    try {
+      const res = await fetch("/api/proposals", { signal: AbortSignal.timeout(2000) });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.proposals) && json.proposals.length > 0) {
+          saveStoredProposals(json.proposals);
+          let list = [...json.proposals];
+          list = this.filterList(list);
+          if (this.orderField) {
+            const field = this.orderField;
+            const asc = this.orderAscending;
+            list.sort((a: any, b: any) => {
+              if (a[field] < b[field]) return asc ? -1 : 1;
+              if (a[field] > b[field]) return asc ? 1 : -1;
+              return 0;
+            });
+          }
+          if (this.limitCount) list = list.slice(0, this.limitCount);
+          return { data: list, error: null };
+        }
+      }
+    } catch (_) {}
+
+    // 2. Tenta buscar do Supabase com timeout seguro
     try {
       let query = _supabase.from("proposals").select("*");
       for (const f of this.filters) {
@@ -142,7 +162,7 @@ class ProposalQueryBuilder {
       }
     } catch (_) {}
 
-    // 2. Fallback para cache local / orçamentos simulados
+    // 3. Fallback para cache local / orçamentos simulados
     let list = getStoredProposals();
     list = this.filterList(list);
 
@@ -257,6 +277,15 @@ class ProposalMutationBuilder {
         await Promise.race([_supabase.from("proposals").insert(dbRow), timeoutPromise]);
       } catch (_) {}
 
+      // Sincroniza com o servidor backend
+      try {
+        fetch("/api/proposals", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newProp),
+        }).catch(() => {});
+      } catch (_) {}
+
       const updated = [newProp, ...list];
       saveStoredProposals(updated);
       return { data: newProp, error: null };
@@ -273,6 +302,18 @@ class ProposalMutationBuilder {
         }
         return item;
       });
+
+      // Sincroniza com o servidor backend
+      try {
+        const itemToSync = target || this.payload;
+        if (itemToSync) {
+          fetch("/api/proposals", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(itemToSync),
+          }).catch(() => {});
+        }
+      } catch (_) {}
 
       // Tenta persistir no Supabase com payload sanitizado
       try {
@@ -312,6 +353,11 @@ class ProposalMutationBuilder {
       const idFilter = this.filters.find(f => f.field === "id")?.value;
       const updated = list.filter(item => !idFilter || item.id !== idFilter);
       saveStoredProposals(updated);
+      try {
+        if (idFilter) {
+          fetch(`/api/proposals/${idFilter}`, { method: "DELETE" }).catch(() => {});
+        }
+      } catch (_) {}
       return { data: null, error: null };
     }
 
@@ -339,12 +385,9 @@ export const supabase = () => {
       if (prop === "rpc") {
         return async (fnName: string, params: any) => {
           if (fnName === "get_public_proposal") {
-            try {
-              const res = await (target.rpc as any)(fnName, params);
-              if (res.data) return res;
-            } catch (_) {}
-
             const pToken = params?.p_token;
+
+            // 1. Tenta cache local primeiro (0ms)
             const list = getStoredProposals();
             const found = list.find(p => p.public_token === pToken || p.id === pToken);
             if (found) {
@@ -363,13 +406,77 @@ export const supabase = () => {
                     accepted_at: found.accepted_at || null,
                     accepted_by: found.accepted_by || null,
                   },
-                  lead: found.lead || { name: "Cliente Quark", city: "Maceió", state: "AL", address: null },
+                  lead: found.lead || { name: found.client_name || "Cliente Quark", city: found.city || "Maceió - AL", state: "AL", address: null },
                   seller: { name: "Arthur Duda", email: "arthurmoraesp12@gmail.com", phone: "(82) 99424-1835" },
                   settings: {},
                 },
                 error: null,
               };
             }
+
+            // 2. Tenta servidor backend /api/proposals/:token (garante funcionamento para links compartilhados)
+            try {
+              const res = await fetch(`/api/proposals/${pToken}`);
+              if (res.ok) {
+                const json = await res.json();
+                if (json.success && json.proposal) {
+                  return {
+                    data: {
+                      proposal: json.proposal,
+                      lead: json.lead,
+                      seller: json.seller,
+                      settings: json.settings || {},
+                    },
+                    error: null,
+                  };
+                }
+              }
+            } catch (_) {}
+
+            // 3. Tenta Supabase RPC com timeout de 1500ms
+            try {
+              const timeoutPromise = new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 1500));
+              const res = await Promise.race([(target.rpc as any)(fnName, params), timeoutPromise]);
+              if (res?.data) return res;
+            } catch (_) {}
+          }
+
+          if (fnName === "accept_public_proposal") {
+            const pToken = params?.p_token;
+            const pName = params?.p_name;
+            const now = new Date().toISOString();
+
+            // 1. Atualiza no cache local
+            const list = getStoredProposals();
+            let targetItem: any = null;
+            const updated = list.map(item => {
+              if (item.public_token === pToken || item.id === pToken) {
+                targetItem = { ...item, status: "aceita", accepted_at: now, accepted_by: pName, updated_at: now };
+                return targetItem;
+              }
+              return item;
+            });
+
+            if (targetItem) {
+              saveStoredProposals(updated);
+              // Sincroniza com o servidor backend
+              try {
+                fetch("/api/proposals", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(targetItem),
+                }).catch(() => {});
+              } catch (_) {}
+            }
+
+            // 2. Tenta no Supabase RPC remoto com timeout seguro
+            try {
+              const timeoutPromise = new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 1500));
+              const res = await Promise.race([(target.rpc as any)(fnName, params), timeoutPromise]);
+              if (res?.data) return res;
+            } catch (_) {}
+
+            return { data: { ok: true, accepted_at: now }, error: null };
           }
           return (target.rpc as any)(fnName, params);
         };

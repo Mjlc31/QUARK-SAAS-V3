@@ -48,13 +48,7 @@ function Proposals() {
       const raw = localStorage.getItem("quark_proposals_cache");
       if (raw) {
         const list = JSON.parse(raw);
-        return list.filter((p: any) =>
-          !p.deleted_at &&
-          p.id !== 'prop_luanda_001' &&
-          p.id !== 'prop_silva_002' &&
-          p.id !== 'prop_haroldo_003' &&
-          p.id !== 'prop_save_004'
-        );
+        return list.filter((p: any) => !p.deleted_at);
       }
     } catch (_) {}
     return [];
@@ -65,13 +59,7 @@ function Proposals() {
       const res = await supabase().from("proposals").select("*").order("created_at", { ascending: false }).limit(100);
       if (res.error) throw res.error;
       const rawProposals = res.data || [];
-      const proposals = rawProposals.filter((p: any) => 
-        !p.deleted_at && 
-        p.id !== 'prop_luanda_001' && 
-        p.id !== 'prop_silva_002' && 
-        p.id !== 'prop_haroldo_003' && 
-        p.id !== 'prop_save_004'
-      );
+      const proposals = rawProposals.filter((p: any) => !p.deleted_at);
       const leadIds = [...new Set(proposals.map((p) => p.lead_id).filter(Boolean))];
       
       const [leadsRes, views] = await Promise.all([
@@ -400,13 +388,13 @@ function ProposalRow({ p, idx, onDuplicate, onDelete }: { p: Proposal; idx: numb
           {Number(p.profit_value) >= 0 ? "+" : ""}{brl(p.profit_value, 0)} lucro
         </p>
       </div>
-      <RowMenu onDuplicate={onDuplicate} onDelete={onDelete} />
+      <RowMenu p={p} onDuplicate={onDuplicate} onDelete={onDelete} />
     </li>
   );
 }
 
 /* ─── Row Context Menu ─── */
-function RowMenu({ onDuplicate, onDelete }: { onDuplicate: () => void; onDelete: () => void }) {
+function RowMenu({ p, onDuplicate, onDelete }: { p: Proposal; onDuplicate: () => void; onDelete: () => void }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="relative z-10">
@@ -416,7 +404,31 @@ function RowMenu({ onDuplicate, onDelete }: { onDuplicate: () => void; onDelete:
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="animate-fade-scale absolute top-full right-0 z-20 mt-1 w-44 rounded-xl bg-zinc-900 p-1 shadow-2xl shadow-black/40 ring-1 ring-white/10">
+          <div className="animate-fade-scale absolute top-full right-0 z-20 mt-1 w-48 rounded-xl bg-zinc-900 p-1 shadow-2xl shadow-black/40 ring-1 ring-white/10">
+            {p.public_token && (
+              <a
+                href={`/p/${p.public_token}`}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => setOpen(false)}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-lime-400 transition-colors hover:bg-zinc-800 hover:text-lime-300"
+              >
+                <ArrowUpRight className="h-4 w-4" /> Ver proposta
+              </a>
+            )}
+            {p.public_token && (
+              <button
+                onClick={async () => {
+                  setOpen(false);
+                  const url = `${window.location.origin}/p/${p.public_token}`;
+                  await navigator.clipboard.writeText(url).catch(() => {});
+                  toast.success("Link copiado!");
+                }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-200 transition-colors hover:bg-zinc-800 hover:text-white"
+              >
+                <Copy className="h-4 w-4 text-zinc-400" /> Copiar link
+              </button>
+            )}
             <button onClick={() => { setOpen(false); onDuplicate(); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-200 transition-colors hover:bg-zinc-800 hover:text-white">
               <Copy className="h-4 w-4 text-zinc-400" /> Duplicar
             </button>

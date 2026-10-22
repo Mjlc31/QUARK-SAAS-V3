@@ -315,13 +315,15 @@ export default function ContractsPage() {
 
         const pData = propRow?.data || propRow;
         if (pData) {
-          if (pData.totalPrice || pData.price) setTotalPrice(Number(pData.totalPrice || pData.price));
-          if (pData.moduleBrand) setModuleBrand(pData.moduleBrand);
-          if (pData.modulePower) setModulePower(Number(pData.modulePower));
-          if (pData.moduleCount || pData.moduleQty) setModuleQty(Number(pData.moduleCount || pData.moduleQty));
-          if (pData.inverterBrand) setInverterBrand(pData.inverterBrand);
-          if (pData.inverterPower || pData.systemSizeKw) setInverterPower(Number(pData.inverterPower || pData.systemSizeKw));
-          if (pData.structureType) setStructureType(pData.structureType);
+          const inp = pData.inputs || {};
+          const finalVal = pData.final_price || pData.totalPrice || pData.price || inp.finalPrice;
+          if (finalVal) setTotalPrice(Number(finalVal));
+          if (pData.moduleBrand || inp.moduleBrand) setModuleBrand(pData.moduleBrand || inp.moduleBrand);
+          if (pData.modulePower || inp.modulePowerW) setModulePower(Number(pData.modulePower || inp.modulePowerW));
+          if (pData.moduleCount || pData.moduleQty || inp.moduleQty) setModuleQty(Number(pData.moduleCount || pData.moduleQty || inp.moduleQty));
+          if (pData.inverterBrand || inp.inverterBrand) setInverterBrand(pData.inverterBrand || inp.inverterBrand);
+          if (pData.inverterPower || pData.systemSizeKw || inp.inverterPowerKw || pData.power_kwp) setInverterPower(Number(pData.inverterPower || pData.systemSizeKw || inp.inverterPowerKw || pData.power_kwp));
+          if (pData.structureType || inp.structureType) setStructureType(pData.structureType || inp.structureType);
         }
       } catch (err) {
         console.warn('Busca de proposta opcional falhou:', err);
