@@ -173,14 +173,28 @@ router.post('/', async (req, res) => {
       try {
         const isUuid = (val) => typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
         if (isUuid(proposal.id)) {
+          const adminUserId = '7dacc88f-9ebd-4710-a1be-0647841db24a';
+          const oppId = proposal.opportunity_id && isUuid(proposal.opportunity_id) ? proposal.opportunity_id : (proposal.lead_id && isUuid(proposal.lead_id) ? proposal.lead_id : null);
           await supabase.from('proposals').upsert({
             id: proposal.id,
+            opportunity_id: oppId,
+            lead_id: proposal.lead_id || null,
+            user_id: isUuid(proposal.user_id) ? proposal.user_id : adminUserId,
+            created_by: isUuid(proposal.created_by) ? proposal.created_by : adminUserId,
+            title: proposal.title,
             client_name: proposal.client_name,
             city: proposal.lead?.city || null,
             phone: proposal.lead?.phone || null,
+            inputs: proposal.inputs,
+            power_kwp: proposal.power_kwp,
             system_size_kw: proposal.power_kwp,
+            monthly_generation: proposal.monthly_generation,
+            direct_cost: proposal.direct_cost,
+            commission_value: proposal.commission_value,
+            tax_value: proposal.tax_value,
+            profit_value: proposal.profit_value,
             final_price: proposal.final_price,
-            status: proposal.status === 'aceita' ? 'approved' : proposal.status === 'enviada' ? 'sent' : 'draft',
+            status: proposal.status || 'rascunho',
             data: {
               inputs: proposal.inputs,
               title: proposal.title,

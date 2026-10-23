@@ -1,8 +1,11 @@
 import express from 'express';
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { supabase } from '../services/supabase.js';
+
+const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -95,8 +98,10 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ success: false, error: 'O título ou nome é obrigatório.' });
     }
 
+    const targetId = isUUID(body.id) ? body.id : crypto.randomUUID();
+
     const newOpp = {
-      id: body.id || `opp_${Date.now()}`,
+      id: targetId,
       title,
       status: body.status || 'Lead',
       amount: Number(body.amount) || 0,
@@ -109,6 +114,7 @@ router.post('/', async (req, res) => {
       avg_bill: Number(body.avg_bill) || null,
       consumption_kwh: Number(body.consumption_kwh) || null,
       notes: body.notes?.trim() || null,
+      user_id: isUUID(body.user_id) ? body.user_id : '7dacc88f-9ebd-4710-a1be-0647841db24a',
       created_at: body.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -131,14 +137,32 @@ router.post('/', async (req, res) => {
     writeStore(list);
 
     // Tenta salvar no Supabase em background
-    supabase.from('opportunities').upsert({
-      id: newOpp.id.length === 36 ? newOpp.id : undefined,
+    const sbPayload = {
+      id: newOpp.id,
       title: newOpp.title,
       status: newOpp.status,
       amount: newOpp.amount,
       phone: newOpp.phone,
+      email: newOpp.email,
       city: newOpp.city,
-    }).catch(() => {});
+      services: newOpp.services,
+      source: newOpp.source,
+      temperature: newOpp.temperature,
+      avg_bill: newOpp.avg_bill,
+      consumption_kwh: newOpp.consumption_kwh,
+      notes: newOpp.notes,
+      user_id: newOpp.user_id,
+    };
+
+    supabase.from('opportunities').upsert(sbPayload).then(({ error }) => {
+      if (error) {
+        console.error('[OpportunitiesAPI] Erro ao sincronizar oportunidade com Supabase:', error);
+      } else {
+        console.log(`[OpportunitiesAPI] Oportunidade salva com sucesso no Supabase: ${newOpp.title} (${newOpp.id})`);
+      }
+    }).catch((sbErr) => {
+      console.error('[OpportunitiesAPI] Exceção ao gravar no Supabase:', sbErr);
+    });
 
     console.log(`[OpportunitiesAPI] Nova oportunidade criada: ${newOpp.title} (${newOpp.status})`);
     return res.status(201).json({ success: true, opportunity: newOpp });

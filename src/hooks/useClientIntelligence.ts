@@ -153,19 +153,20 @@ export function useClientIntelligence() {
     queryKey: ['client_intelligence'],
     queryFn: async () => {
       try {
-        const userPromise = withTimeout(supabase.auth.getUser(), 800);
+        const userPromise = withTimeout(supabase.auth.getUser(), 4000);
         const { data: userAuth } = await userPromise;
         
         let query = supabase
           .from('client_intelligence')
           .select('*')
+          .is('deleted_at', null)
           .order('client_name', { ascending: true });
 
         if (userAuth?.user?.id) {
           query = query.eq('user_id', userAuth.user.id);
         }
 
-        const { data, error } = await withTimeout(Promise.resolve(query), 1200);
+        const { data, error } = await withTimeout(Promise.resolve(query), 8000);
         if (error) throw error;
         if (data && data.length > 0) {
           localStorage.setItem(STORAGE_KEY_INTELLIGENCE, JSON.stringify(data));
@@ -185,9 +186,13 @@ export function useCreateIntelligence() {
 
   return useMutation({
     mutationFn: async (record: Partial<ClientIntelligenceRecord>) => {
+      const { data: userAuth } = await withTimeout(supabase.auth.getUser(), 4000).catch(() => ({ data: { user: null } }));
+      const targetUserId = userAuth?.user?.id || '7dacc88f-9ebd-4710-a1be-0647841db24a';
+      const targetId = crypto.randomUUID();
+
       const newRec: ClientIntelligenceRecord = {
-        id: `intel-${Date.now()}`,
-        user_id: 'default-user',
+        id: targetId,
+        user_id: targetUserId,
         client_name: record.client_name || 'Novo Cliente',
         total_savings_brl: record.total_savings_brl || 0,
         installed_by: record.installed_by || 'quark',
@@ -201,17 +206,14 @@ export function useCreateIntelligence() {
       localStorage.setItem(STORAGE_KEY_INTELLIGENCE, JSON.stringify([newRec, ...stored]));
 
       try {
-        const { data: userAuth } = await withTimeout(supabase.auth.getUser(), 600);
-        if (userAuth?.user?.id) {
-          await withTimeout(
-            Promise.resolve(
-              supabase.from('client_intelligence').insert({ ...newRec, user_id: userAuth.user.id })
-            ),
-            1200
-          );
-        }
-      } catch {
-        // offline fallback
+        await withTimeout(
+          Promise.resolve(
+            supabase.from('client_intelligence').insert({ ...newRec, user_id: targetUserId })
+          ),
+          8000
+        );
+      } catch (err) {
+        console.warn('[useCreateIntelligence] Erro ao sincronizar com Supabase:', err);
       }
       return newRec;
     },
@@ -235,10 +237,10 @@ export function useUpdateIntelligence() {
           Promise.resolve(
             supabase.from('client_intelligence').update({ ...record, updated_at: new Date().toISOString() }).eq('id', id)
           ),
-          1000
+          8000
         );
-      } catch {
-        // offline
+      } catch (err) {
+        console.warn('[useUpdateIntelligence] Falha ao atualizar remoto:', err);
       }
       return updated.find(item => item.id === id);
     },
@@ -262,10 +264,10 @@ export function useDeleteIntelligence() {
           Promise.resolve(
             supabase.from('client_intelligence').update({ deleted_at: new Date().toISOString() }).eq('id', id)
           ),
-          1000
+          8000
         );
-      } catch {
-        // offline
+      } catch (err) {
+        console.warn('[useDeleteIntelligence] Falha ao deletar remoto:', err);
       }
     },
     onSuccess: () => {
@@ -288,7 +290,7 @@ export function useUtilityInvoices(intelligenceId: string) {
               .eq('intelligence_id', intelligenceId)
               .order('captured_at', { ascending: false })
           ),
-          1200
+          8000
         );
         if (error) throw error;
         if (data && data.length > 0) return data as UtilityInvoice[];

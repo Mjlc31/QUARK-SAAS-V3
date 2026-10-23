@@ -271,13 +271,14 @@ export function useReferFriend(clientId?: string | null) {
         console.warn('[useReferFriend] Falha no backend HTTP, executando fallback Supabase:', httpErr);
       }
 
-      // 2. Fallback direto Supabase com timeout
+      // 2. Fallback direto Supabase com timeout generoso
       const cleanPhone = payload.referred_phone.replace(/\D/g, '');
-      const leadId = `lead_ref_${Date.now()}`;
+      const leadId = crypto.randomUUID();
+      const referralId = crypto.randomUUID();
       const nowIso = new Date().toISOString();
 
       const newReferral: ClientReferral = {
-        id: `ref_${Date.now()}`,
+        id: referralId,
         referrer_client_id: clientId,
         referred_name: payload.referred_name,
         referred_phone: cleanPhone,
@@ -313,7 +314,7 @@ export function useReferFriend(clientId?: string | null) {
               },
             })
           ),
-          1000
+          8000
         );
 
         const refRes: any = await withTimeout(
@@ -321,6 +322,7 @@ export function useReferFriend(clientId?: string | null) {
             supabase
               .from('client_referrals')
               .insert({
+                id: referralId,
                 referrer_client_id: clientId,
                 referred_name: payload.referred_name,
                 referred_phone: cleanPhone,
@@ -334,12 +336,12 @@ export function useReferFriend(clientId?: string | null) {
               .select()
               .single()
           ),
-          1000
+          8000
         );
 
         if (refRes?.data) return { success: true, referral: refRes.data };
       } catch (dbErr) {
-        console.warn('[useReferFriend] Banco offline, indicação salva localmente');
+        console.warn('[useReferFriend] Banco offline ou erro ao salvar indicação:', dbErr);
       }
 
       return { success: true, referral: newReferral };

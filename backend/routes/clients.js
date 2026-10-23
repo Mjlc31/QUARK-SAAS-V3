@@ -77,16 +77,37 @@ async function syncClientToCrmAndFinancial(client, rawBody = {}) {
       }
     }
 
-    // Tenta persistir no Supabase (opportunities) em background
+    // Tenta persistir no Supabase (opportunities) de forma segura
     try {
-      supabase.from('opportunities').upsert({
-        title: oppPayload.title,
-        status: 'Ganho',
-        amount: contractAmount,
-        phone: oppPayload.phone,
-        city: oppPayload.city,
-      }).catch(() => {});
-    } catch (_) {}
+      if (client.opportunity_id) {
+        await supabase.from('opportunities').update({
+          title: oppPayload.title,
+          status: 'Ganho',
+          amount: contractAmount,
+          phone: oppPayload.phone,
+          city: oppPayload.city,
+          updated_at: new Date().toISOString(),
+        }).eq('id', client.opportunity_id);
+      } else {
+        const { data: newOppRow } = await supabase.from('opportunities').insert([{
+          title: oppPayload.title,
+          status: 'Ganho',
+          amount: contractAmount,
+          phone: oppPayload.phone,
+          email: oppPayload.email,
+          city: oppPayload.city,
+          services: ['solar'],
+          source: 'Catálogo de Clientes',
+          user_id: client.user_id || '7dacc88f-9ebd-4710-a1be-0647841db24a',
+        }]).select('id').single();
+
+        if (newOppRow?.id) {
+          await supabase.from('client_portal_users').update({ opportunity_id: newOppRow.id }).eq('id', client.id);
+        }
+      }
+    } catch (oppSbErr) {
+      console.error('[ClientsAPI] Erro ao sincronizar oportunidade no Supabase:', oppSbErr);
+    }
 
     // 2. Sincronização com o Financeiro
     const txDate = client.install_date || new Date().toISOString().split('T')[0];

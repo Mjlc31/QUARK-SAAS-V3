@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabaseClient';
 import type { ProjectTrackingPhase, ProjectPhase } from '../types';
 
-export const withTimeout = <T,>(p: PromiseLike<T>, ms = 1200): Promise<T> =>
+export const withTimeout = <T,>(p: PromiseLike<T>, ms = 8000): Promise<T> =>
   Promise.race([Promise.resolve(p), new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 
 export interface PhaseInfo {
@@ -246,7 +246,7 @@ export function useClientProjectTracking(clientId?: string) {
             supabase.rpc('get_or_create_client_tracking', {
               p_client_id: clientId,
             }),
-            1500
+            8000
           );
 
           if (!error && data && Array.isArray(data) && data.length > 0) {
@@ -339,7 +339,7 @@ export function useSetClientPhase() {
               p_phase_label: phaseLabel,
               p_notes: notes || null,
             }),
-            2000
+            8000
           );
 
           await withTimeout(
@@ -347,7 +347,7 @@ export function useSetClientPhase() {
               .from('client_portal_users')
               .update({ project_phase: phase, project_phase_label: phaseLabel })
               .eq('id', clientId),
-            2000
+            8000
           );
         } catch (err) {
           console.warn('[useSetClientPhase] Supabase erro:', err);
@@ -451,7 +451,7 @@ export function useActiveProjectsTracking() {
       } catch {}
 
       try {
-        const { data: userAuth } = await withTimeout(supabase.auth.getUser(), 800);
+        const { data: userAuth } = await withTimeout(supabase.auth.getUser(), 4000);
         if (userAuth?.user) {
           const { data } = await withTimeout(
             supabase
@@ -459,16 +459,18 @@ export function useActiveProjectsTracking() {
               .select(`
                 *,
                 opportunities (
-                  id, title, value, pipeline_stage, phone, email, client_name
+                  id, title, amount, status, phone, email
                 )
               `)
               .eq('user_id', userAuth.user.id)
               .eq('is_current', true),
-            1200
+            8000
           );
           if (data && data.length > 0) return data;
         }
-      } catch {}
+      } catch (err) {
+        console.warn('[useAllProjectTracking] Falha ao consultar Supabase:', err);
+      }
 
       return SAMPLE_ACTIVE_TRACKINGS;
     },
@@ -490,13 +492,15 @@ export function useCreateTrackingPhase() {
             })
             .select()
             .single(),
-          1000
+          8000
         );
         if (data) return data as ProjectTrackingPhase;
-      } catch {}
+      } catch (err) {
+        console.warn('[useCreateTrackingPhase] Erro no insert remoto:', err);
+      }
 
       return {
-        id: `trk_${Date.now()}`,
+        id: crypto.randomUUID(),
         ...phase,
         started_at: now,
       } as ProjectTrackingPhase;

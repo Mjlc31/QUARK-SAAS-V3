@@ -221,7 +221,7 @@ export const storageService = {
   // --- LEADS ---
   getLeads: async (): Promise<Lead[]> => {
     try {
-      const res = await withTimeout(supabase.from('leads').select('*') as any).catch(() => ({ data: null, error: true }));
+      const res = await withTimeout(supabase.from('leads').select('*').is('deleted_at', null) as any).catch(() => ({ data: null, error: true }));
       const { data, error } = res as any;
 
       if (error) {
@@ -229,12 +229,14 @@ export const storageService = {
       }
 
       // Robust mapping: handles both {id, data: Lead} and direct {id, name...}
-      const cloudLeads = (data || []).map((row: any) => {
-        if (row.data && typeof row.data === 'object') {
-          return { ...row.data, id: row.id };
-        }
-        return row;
-      }) as Lead[];
+      const cloudLeads = (data || [])
+        .filter((row: any) => !row.deleted_at)
+        .map((row: any) => {
+          if (row.data && typeof row.data === 'object') {
+            return { ...row.data, id: row.id };
+          }
+          return row;
+        }) as Lead[];
 
       const localStr = safeLocalStorage.getItem('quark_leads');
       const localData: Lead[] = localStr ? JSON.parse(localStr) : [];
@@ -276,12 +278,21 @@ export const storageService = {
     }
 
     // 2. Sincroniza com Supabase
-    // Agora o banco será limpo e otimizado, usando apenas JSONB
     try {
+      const { data: userAuth } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
+      const currentUserId = userAuth?.user?.id || '7dacc88f-9ebd-4710-a1be-0647841db24a';
+
       const { error } = await supabase.from('leads').upsert({
         id: lead.id,
+        user_id: currentUserId,
+        name: lead.name || 'Sem nome',
+        phone: lead.phone || null,
+        email: lead.email || null,
+        city: lead.city || null,
+        status: lead.status || 'Lead',
+        value: Number(lead.value) || 0,
         data: lead,
-        updated_at: new Date()
+        updated_at: new Date().toISOString()
       });
 
       if (error) {

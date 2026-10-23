@@ -18,9 +18,11 @@ export default function ProposalEditorPage() {
       if (!id) return null;
       const p = must(await supabase().from("proposals").select("*").eq("id", id).maybeSingle()) as any;
       if (!p) return null;
+      const inputs = p.inputs || p.data?.inputs || null;
       return {
         ...p,
-        lead: p.lead || { name: p.client_name || p.data?.clientName || 'Sem nome', city: p.city || p.data?.city, phone: p.phone }
+        inputs,
+        lead: p.lead || p.data?.lead || { name: p.client_name || p.data?.clientName || 'Sem nome', city: p.city || p.data?.city, phone: p.phone }
       } as Proposal;
     },
     [id],

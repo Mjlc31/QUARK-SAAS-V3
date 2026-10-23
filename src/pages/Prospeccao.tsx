@@ -210,22 +210,22 @@ export default function Prospeccao() {
       const leadAddress = prospect.endereco || (prospect as any).address || '';
 
       const newOpp = {
-        id: `opp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        id: crypto.randomUUID(),
         title: leadName,
         phone: leadPhone,
         city: leadAddress.split('-')[0]?.trim() || 'Maceió',
         amount: 25000,
         status: 'Lead',
-        user_id: user?.id,
+        user_id: user?.id || '7dacc88f-9ebd-4710-a1be-0647841db24a',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
 
       let persistedInRemote = false;
 
-      // Tentar Supabase com timeout
+      // Tentar Supabase com timeout generoso
       try {
-        const withTimeout = <T,>(p: Promise<T>, ms = 1500): Promise<T> =>
+        const withTimeout = <T,>(p: Promise<T>, ms = 8000): Promise<T> =>
           Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 
         if (newOpp.phone && newOpp.phone !== '-') {

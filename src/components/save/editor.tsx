@@ -88,18 +88,27 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
     const synced: SaveInputs = { ...inputs, extraCosts: inputs.extraCosts.map((it) => (it.key === "infra" ? { ...it, qty: inputs.distanceM, value: inputs.distanceM * it.unit } : it)) };
     setSaving(true);
     try {
-      const oppId = leadId && leadId.length === 36 ? leadId : null;
-      const userId = user?.id || "usr_admin_arthur";
+      const isUuid = (val?: string | null): val is string =>
+        typeof val === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+      const oppId = leadId && isUuid(leadId) ? leadId : null;
+      const validUserId = isUuid(user?.id) ? user.id : (isUuid(current.current?.user_id) ? current.current.user_id : "7dacc88f-9ebd-4710-a1be-0647841db24a");
+
       const row = {
         lead_id: leadId,
         opportunity_id: oppId,
-        user_id: userId,
+        user_id: validUserId,
+        created_by: validUserId,
         title: title || (lead?.name ? `Proposta S.A.V.E — ${lead.name}` : null),
         client_name: lead?.name || "Cliente",
         city: lead?.city || null,
         phone: lead?.phone || null,
-        lead: lead ? { id: lead.id, name: lead.name, city: lead.city, phone: lead.phone } : undefined,
         inputs: synced,
+        data: {
+          ...((current.current as any)?.data || {}),
+          inputs: synced,
+          title: title || (lead?.name ? `Proposta S.A.V.E — ${lead.name}` : null),
+          lead: lead ? { id: lead.id, name: lead.name, city: lead.city, phone: lead.phone } : undefined,
+        },
         power_kwp: inputs.chargerPowerKw,
         monthly_generation: 0,
         direct_cost: result.directCost,
@@ -113,7 +122,7 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
       const sb = supabase();
       const res = current.current
         ? await sb.from("proposals").update(row).eq("id", current.current.id).select("*").single()
-        : await sb.from("proposals").insert({ ...row, user_id: userId, created_by: userId }).select("*").single();
+        : await sb.from("proposals").insert(row).select("*").single();
 
       if (res.error) {
         toast.error(res.error.message || "Erro ao salvar orçamento S.A.V.E");

@@ -30,7 +30,7 @@ async function loadCrm(): Promise<CrmData> {
 
   try {
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Supabase query timeout")), 4000)
+      setTimeout(() => reject(new Error("Supabase query timeout")), 12000)
     );
 
     const queryPromise = Promise.all([
@@ -578,6 +578,7 @@ const CRM: React.FC = () => {
           onSaved={(o, merged) => {
             setOpps((prev) => (merged ? prev.map((x) => (x.id === o.id ? o : x)) : [o, ...prev]));
             setSelectedId(o.id);
+            reload();
           }}
         />
       )}

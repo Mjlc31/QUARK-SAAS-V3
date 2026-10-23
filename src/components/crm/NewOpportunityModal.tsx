@@ -50,6 +50,10 @@ export function NewOpportunityModal({ onClose, onSaved }: { onClose: () => void;
     if (phoneError) return toast.error("WhatsApp incompleto");
     if (!services.length) return toast.error("Escolha ao menos um serviço");
     setSaving(true);
+
+    const { data: userAuth } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
+    const currentUserId = userAuth?.user?.id || "7dacc88f-9ebd-4710-a1be-0647841db24a";
+
     const row: Partial<Opportunity> & Record<string, unknown> = {
       title: form.title.trim(),
       phone: form.phone || null,
@@ -69,29 +73,57 @@ export function NewOpportunityModal({ onClose, onSaved }: { onClose: () => void;
       connection_type: hasSolar && form.connection_type ? form.connection_type : null,
       system_power: form.system_power || null,
       notes: form.notes || null,
+      user_id: currentUserId,
     };
 
     let savedOpp: Opportunity | null = null;
     let isMerged = false;
 
     try {
-      const withTimeout = <T,>(promise: Promise<T>, ms = 1500): Promise<T> =>
+      const withTimeout = <T,>(promise: Promise<T>, ms = 10000): Promise<T> =>
         Promise.race([
           promise,
           new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Supabase timeout")), ms)),
         ]);
 
-      // Mesmo telefone ou e-mail já no CRM: completa o cadastro em vez de duplicar.
-      if (phoneDigits || form.email) {
-        const resAll = await withTimeout(supabase.from("opportunities").select("id, title, status, phone, email, services").limit(2000) as any).catch(() => ({ data: null }));
-        const all = (resAll as any)?.data;
-        const existing = (all ?? []).find(
-          (o: any) => (phoneDigits && onlyDigits(o.phone) === phoneDigits) || (form.email && o.email?.toLowerCase() === form.email.toLowerCase()),
-        );
+      // Mesmo telefone ou e-mail já no CRM: busca pontual direta no banco sem baixar a tabela toda
+      if ((phoneDigits && phoneDigits.length >= 8) || form.email) {
+        let existing: any = null;
+        try {
+          if (phoneDigits && phoneDigits.length >= 8) {
+            const lastDigits = phoneDigits.slice(-8);
+            const resPhone: any = await withTimeout(
+              supabase.from("opportunities")
+                .select("id, title, status, phone, email, services")
+                .is("deleted_at", null)
+                .ilike("phone", `%${lastDigits}%`)
+                .limit(1)
+                .maybeSingle() as any,
+              4000
+            );
+            if (resPhone?.data) existing = resPhone.data;
+          }
+          if (!existing && form.email && form.email.trim()) {
+            const resEmail: any = await withTimeout(
+              supabase.from("opportunities")
+                .select("id, title, status, phone, email, services")
+                .is("deleted_at", null)
+                .ilike("email", form.email.trim().toLowerCase())
+                .limit(1)
+                .maybeSingle() as any,
+              4000
+            );
+            if (resEmail?.data) existing = resEmail.data;
+          }
+        } catch (_) {}
+
         if (existing) {
           const patch = Object.fromEntries(Object.entries(row).filter(([k, v]) => v != null && v !== "" && k !== "status" && k !== "amount"));
           patch.services = [...new Set([...(existing.services ?? []), ...services])];
-          const resUpdate = await withTimeout(supabase.from("opportunities").update(patch).eq("id", existing.id).select().single() as any).catch(() => ({ data: null, error: true }));
+          const resUpdate = await withTimeout(supabase.from("opportunities").update(patch).eq("id", existing.id).select().single() as any, 8000).catch((err) => {
+            console.warn("Falha no update da oportunidade:", err);
+            return { data: null, error: err };
+          });
           const { data, error } = resUpdate as any;
           if (!error && data) {
             savedOpp = data as Opportunity;
@@ -101,19 +133,25 @@ export function NewOpportunityModal({ onClose, onSaved }: { onClose: () => void;
       }
 
       if (!savedOpp) {
-        const resInsert = await withTimeout(supabase.from("opportunities").insert([row]).select().single() as any).catch(() => ({ data: null, error: true }));
+        const resInsert = await withTimeout(supabase.from("opportunities").insert([row]).select().single() as any, 10000).catch((err) => {
+          console.error("Erro no insert da oportunidade:", err);
+          return { data: null, error: err };
+        });
         const { data, error } = resInsert as any;
         if (!error && data) {
           savedOpp = data as Opportunity;
+        } else if (error) {
+          console.error("Supabase insert error:", error);
+          toast.error(friendly(error.message || "Erro ao salvar no banco"));
         }
       }
     } catch (err) {
-      console.warn("Supabase offline, usando fallback local para salvar oportunidade:", err);
+      console.warn("Supabase erro/offline:", err);
     }
 
     // Fallback offline resiliente: se Supabase falhou ou não retornou dados
     if (!savedOpp) {
-      const fallbackId = `opp_${Date.now()}`;
+      const fallbackId = crypto.randomUUID();
       savedOpp = {
         ...row,
         id: fallbackId,

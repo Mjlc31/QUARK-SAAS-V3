@@ -111,7 +111,11 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
   const { openLead } = useQuick();
   const { reward } = useReward();
 
-  const [inputs, setInputs] = useState<ProposalInputs | null>(proposal ? mergeInputs(proposal.inputs) : null);
+  const [inputs, setInputs] = useState<ProposalInputs | null>(() => {
+    if (!proposal) return null;
+    const rawInputs = proposal.inputs || (proposal as any).data?.inputs;
+    return mergeInputs(rawInputs);
+  });
   const [leadId, setLeadId] = useState<string | null>(proposal?.lead_id ?? initialLeadId ?? null);
   const [title, setTitle] = useState(proposal?.title ?? "");
   const [saving, setSaving] = useState(false);
@@ -134,16 +138,18 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
 
   const leadAppliedFor = useRef<string | null>(proposal?.lead_id ?? null);
   useEffect(() => {
-    if (!lead || !inputs || leadAppliedFor.current === lead.id) return;
+    if (!lead || !inputs) return;
+    if (leadAppliedFor.current === lead.id && inputs.consumptionKwh > 0) return;
     leadAppliedFor.current = lead.id;
     setInputs((i) => {
       if (!i) return i;
       const tariff = lead.tariff ?? i.tariff;
       // Consumo informado no CRM; sem ele, deriva da conta média: (conta − iluminação pública) ÷ tarifa.
       const fromBill = lead.avg_bill && tariff > 0 ? Math.round(Math.max(0, lead.avg_bill - i.publicLighting) / tariff) : 0;
+      const consumptionKwh = i.consumptionKwh > 0 ? i.consumptionKwh : (lead.consumption_kwh || fromBill || i.consumptionKwh);
       return {
         ...i,
-        consumptionKwh: lead.consumption_kwh ?? (fromBill || i.consumptionKwh),
+        consumptionKwh,
         tariff,
         connectionType: lead.connection_type ?? i.connectionType,
         structureType: lead.roof_type && ROOF_TYPES.includes(lead.roof_type) ? lead.roof_type : i.structureType,
@@ -229,18 +235,27 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
 
     setSaving(true);
     try {
-      const oppId = leadId && leadId.length === 36 ? leadId : null;
-      const userId = user?.id || "usr_admin_arthur";
+      const isUuid = (val?: string | null): val is string =>
+        typeof val === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+      const oppId = leadId && isUuid(leadId) ? leadId : null;
+      const validUserId = isUuid(user?.id) ? user.id : (isUuid(current.current?.user_id) ? current.current.user_id : "7dacc88f-9ebd-4710-a1be-0647841db24a");
+
       const row = {
         lead_id: leadId,
         opportunity_id: oppId,
-        user_id: userId,
+        user_id: validUserId,
+        created_by: validUserId,
         title: title || (lead?.name ? `Proposta Solar — ${lead.name}` : null),
         client_name: lead?.name || "Cliente",
         city: lead?.city || null,
         phone: lead?.phone || null,
-        lead: lead ? { id: lead.id, name: lead.name, city: lead.city, phone: lead.phone } : undefined,
         inputs,
+        data: {
+          ...((current.current as any)?.data || {}),
+          inputs,
+          title: title || (lead?.name ? `Proposta Solar — ${lead.name}` : null),
+          lead: lead ? { id: lead.id, name: lead.name, city: lead.city, phone: lead.phone } : undefined,
+        },
         power_kwp: pricing.powerKwp,
         monthly_generation: Math.round(energy.monthlyGeneration),
         direct_cost: pricing.directCost,
@@ -254,7 +269,7 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
       const sb = supabase();
       const res = current.current
         ? await sb.from("proposals").update(row).eq("id", current.current.id).select("*").single()
-        : await sb.from("proposals").insert({ ...row, user_id: userId, created_by: userId }).select("*").single();
+        : await sb.from("proposals").insert(row).select("*").single();
 
       if (res.error) {
         toast.error(res.error.message || "Erro ao salvar orçamento");
@@ -275,7 +290,7 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
                 opportunity_id: isUuid(leadId) ? leadId : undefined, 
                 type: "proposta", 
                 content: `Orçamento #${saved.number} criado — ${brl(saved.final_price)}`, 
-                created_by: isUuid(userId) ? userId : undefined 
+                created_by: isUuid(validUserId) ? validUserId : undefined 
               }),
               new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 1200))
             ]);
@@ -333,9 +348,10 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
         if (saved && draft) {
           reward("envio", saved.id);
           const sb = supabase();
-          const userId = user?.id || "usr_admin_arthur";
+          const isUuid = (val?: string | null) => typeof val === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+          const validUserId = isUuid(user?.id) ? (user?.id as string) : "7dacc88f-9ebd-4710-a1be-0647841db24a";
           try {
-            Promise.resolve(sb.from("activities").insert({ opportunity_id: saved.lead_id, type: "proposta", content: `Proposta #${saved.number} enviada`, created_by: userId })).catch(() => {});
+            Promise.resolve(sb.from("activities").insert({ opportunity_id: saved.lead_id, type: "proposta", content: `Proposta #${saved.number} enviada`, created_by: validUserId })).catch(() => {});
           } catch (_) {}
           logCrmNote(saved.lead_id, `📤 Proposta solar #${saved.number} aberta / visualizada.`);
           if (lead && ["Lead", "Qualificado"].includes(lead.status)) {
@@ -374,9 +390,10 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
         if (saved && draft) {
           reward("envio", saved.id);
           const sb = supabase();
-          const userId = user?.id || "usr_admin_arthur";
+          const isUuid = (val?: string | null) => typeof val === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+          const validUserId = isUuid(user?.id) ? (user?.id as string) : "7dacc88f-9ebd-4710-a1be-0647841db24a";
           try {
-            Promise.resolve(sb.from("activities").insert({ opportunity_id: saved.lead_id, type: "proposta", content: `Proposta #${saved.number} enviada via WhatsApp`, created_by: userId })).catch(() => {});
+            Promise.resolve(sb.from("activities").insert({ opportunity_id: saved.lead_id, type: "proposta", content: `Proposta #${saved.number} enviada via WhatsApp`, created_by: validUserId })).catch(() => {});
           } catch (_) {}
           logCrmNote(saved.lead_id, `📤 Proposta solar #${saved.number} enviada ao cliente via WhatsApp.`);
           if (lead && ["Lead", "Qualificado"].includes(lead.status)) {
