@@ -28,7 +28,7 @@ export function companyOf(s: CompanySettings) {
     fantasy: s.company_name || "Quark Energia",
     cnpj: s.cnpj,
     address: [s.address, s.city].filter(Boolean).join(" – "),
-    city: (s.city || "Maceió/AL").split(/[-–,]/)[0].trim() || "Maceió",
+    city: (s.city || "Maceió").split(/[-–,/]/)[0].trim() || "Maceió",
     phone: s.whatsapp || s.phone,
     email: s.email,
     logo: s.logo_url,
@@ -84,16 +84,16 @@ export function useToolDocs<T>(kind: ToolKind) {
   async function save(doc: { id?: string | null; title: string; number: number; opportunity_id: string | null; data: T }): Promise<ToolDoc<T> | null> {
     const now = new Date().toISOString();
     if (!local) {
-      const row = { kind, title: doc.title, number: doc.number, opportunity_id: doc.opportunity_id, data: doc.data, updated_at: now };
-      const res = doc.id ? await supabase.from("tool_documents").update(row).eq("id", doc.id).select().single() : await supabase.from("tool_documents").insert(row).select().single();
-      if (!res.error && res.data) {
-        const saved = res.data as ToolDoc<T>;
-        setDocs((cur) => [saved, ...cur.filter((d) => d.id !== saved.id)]);
-        return saved;
-      }
-      if (res.error && !/relation|does not exist|schema cache/i.test(res.error.message)) {
-        toast.error(res.error.message);
-        return null;
+      try {
+        const row = { kind, title: doc.title, number: doc.number, opportunity_id: doc.opportunity_id, data: doc.data, updated_at: now };
+        const res = doc.id ? await supabase.from("tool_documents").update(row).eq("id", doc.id).select().single() : await supabase.from("tool_documents").insert(row).select().single();
+        if (!res.error && res.data) {
+          const saved = res.data as ToolDoc<T>;
+          setDocs((cur) => [saved, ...cur.filter((d) => d.id !== saved.id)]);
+          return saved;
+        }
+      } catch (err) {
+        console.warn("[tool save] Erro ao salvar no Supabase, usando armazenamento local:", err);
       }
       setLocal(true);
     }

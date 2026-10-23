@@ -1,5 +1,44 @@
 [
   {
+    "id": "eea4c1e0-7ae7-466f-9fe6-06dd9c5c80b2",
+    "title": "Verificação Backend 201 Playwright",
+    "status": "Lead",
+    "amount": 25000,
+    "phone": "82998877112",
+    "email": null,
+    "city": "Maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "manual",
+    "temperature": "morno",
+    "avg_bill": null,
+    "consumption_kwh": null,
+    "notes": null,
+    "user_id": "7dacc88f-9ebd-4710-a1be-0647841db24a",
+    "created_at": "2026-10-23T03:48:25.364Z",
+    "updated_at": "2026-10-23T03:48:25.364Z"
+  },
+  {
+    "id": "efd57343-8f04-4182-bc41-0b047f53dc62",
+    "title": "Oportunidade Playwright E2E",
+    "status": "Lead",
+    "amount": 0,
+    "phone": "(82) 99887-7665",
+    "email": null,
+    "city": "Maceió",
+    "services": [
+      "solar"
+    ],
+    "source": "Manual",
+    "temperature": "morno",
+    "avg_bill": null,
+    "consumption_kwh": null,
+    "notes": null,
+    "created_at": "2026-10-23T03:46:15.989498+00:00",
+    "updated_at": "2026-10-23T03:46:16.923Z"
+  },
+  {
     "id": "297a21b6-5db4-468f-8b29-0834a632bdac",
     "title": "Lead Teste Antigravity E2E",
     "phone": "(82) 99999-7777",

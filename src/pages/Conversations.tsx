@@ -382,7 +382,16 @@ const Conversations: React.FC = () => {
     );
 
     const handleTagChange = (chatId: string, tag: { label: string; color: string }) => {
-        setChats(prev => prev.map(c => c.id === chatId ? { ...c, tag: tag.label, tagColor: tag.color } : c));
+        setChats(prev => {
+            const next = prev.map(c => c.id === chatId ? { ...c, tag: tag.label, tagColor: tag.color } : c);
+            try {
+                const tagsMap = JSON.parse(localStorage.getItem('quark_chats_tags') || '{}');
+                tagsMap[chatId] = { label: tag.label, color: tag.color };
+                localStorage.setItem('quark_chats_tags', JSON.stringify(tagsMap));
+            } catch (_) {}
+            return next;
+        });
+        toast.success(`Etapa atualizada: ${tag.label}`);
     };
 
     const handleAiAssist = async () => {

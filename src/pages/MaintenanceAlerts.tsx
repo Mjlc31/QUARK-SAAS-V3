@@ -22,6 +22,7 @@ const MaintenanceAlerts: React.FC = () => {
   const updateAlert = useUpdateAlertStatus();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedClientId, setSelectedClientId] = useState<string>('all');
   const [formData, setFormData] = useState({
     alert_type: 'manutencao_preventiva' as AlertType,
     message: '',
@@ -75,8 +76,14 @@ const MaintenanceAlerts: React.FC = () => {
     setSuccessMessage('');
 
     try {
-      const realClientIds = clients.length > 0 ? clients.slice(0, 10).map(c => c.id) : ['base-clientes'];
-      const primaryClientName = clients[0]?.name || 'Base de Clientes';
+      const targetClients = selectedClientId === 'all' 
+        ? clients 
+        : clients.filter(c => c.id === selectedClientId);
+
+      const realClientIds = targetClients.length > 0 
+        ? targetClients.map(c => c.id) 
+        : ['base-clientes'];
+      const primaryClientName = targetClients[0]?.name || 'Base de Clientes';
 
       const res = await fetch('/api/maintenance/alert-batch', {
         method: 'POST',
@@ -257,11 +264,19 @@ const MaintenanceAlerts: React.FC = () => {
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Selecione Clientes</label>
-                <div className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 flex items-center justify-between cursor-pointer hover:border-lime-500/50 transition-colors">
-                  <span className="text-slate-400 text-sm flex items-center gap-2"><Users size={16}/> Selecionar base (integração IA)...</span>
-                  <Plus size={16} className="text-lime-400" />
-                </div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Destinatário dos Alertas</label>
+                <select
+                  value={selectedClientId}
+                  onChange={e => setSelectedClientId(e.target.value)}
+                  className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-lime-500 transition-colors"
+                >
+                  <option value="all">⚡ Todos os Clientes com Usina Ativa ({clients.length} clientes)</option>
+                  {clients.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} {c.city ? `(${c.city})` : ''} — {c.system_size_kw ? `${c.system_size_kw} kWp` : 'Sem potência'}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

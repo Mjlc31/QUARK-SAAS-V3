@@ -474,9 +474,16 @@ export const storageService = {
       const localData: Project[] = localStr ? JSON.parse(localStr) : [];
 
       if (cloudProjects.length === 0 && localData.length > 0) {
-        for (const proj of localData) {
-          await supabase.from('projects').upsert({ id: proj.id, data: proj, updated_at: new Date() });
-        }
+        // Tenta sincronizar em lote silenciosamente apenas se houver conexão ativa
+        try {
+          const { data: sessionData } = await supabase.auth.getSession();
+          if (sessionData?.session) {
+            for (const proj of localData) {
+              const { error: upsertErr } = await supabase.from('projects').upsert({ id: proj.id, data: proj, updated_at: new Date() });
+              if (upsertErr) break; // Interrompe para evitar loop de 401s
+            }
+          }
+        } catch (_) {}
         return localData;
       }
 

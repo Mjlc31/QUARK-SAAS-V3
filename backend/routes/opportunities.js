@@ -154,15 +154,18 @@ router.post('/', async (req, res) => {
       user_id: newOpp.user_id,
     };
 
-    supabase.from('opportunities').upsert(sbPayload).then(({ error }) => {
-      if (error) {
-        console.error('[OpportunitiesAPI] Erro ao sincronizar oportunidade com Supabase:', error);
-      } else {
-        console.log(`[OpportunitiesAPI] Oportunidade salva com sucesso no Supabase: ${newOpp.title} (${newOpp.id})`);
-      }
-    }).catch((sbErr) => {
-      console.error('[OpportunitiesAPI] Exceção ao gravar no Supabase:', sbErr);
-    });
+    // Tenta salvar no Supabase em background de forma segura
+    Promise.resolve(supabase.from('opportunities').upsert(sbPayload))
+      .then(({ error }) => {
+        if (error) {
+          console.error('[OpportunitiesAPI] Erro ao sincronizar oportunidade com Supabase:', error);
+        } else {
+          console.log(`[OpportunitiesAPI] Oportunidade salva com sucesso no Supabase: ${newOpp.title} (${newOpp.id})`);
+        }
+      })
+      .catch((sbErr) => {
+        console.error('[OpportunitiesAPI] Exceção ao gravar no Supabase:', sbErr);
+      });
 
     console.log(`[OpportunitiesAPI] Nova oportunidade criada: ${newOpp.title} (${newOpp.status})`);
     return res.status(201).json({ success: true, opportunity: newOpp });
@@ -190,7 +193,7 @@ router.post('/bulk-delete', async (req, res) => {
     writeStore(list);
 
     // Tenta remover no Supabase se possível
-    supabase.from('opportunities').delete().in('id', ids).catch(() => {});
+    Promise.resolve(supabase.from('opportunities').delete().in('id', ids)).catch(() => {});
     return res.json({ success: true, count: ids.length });
   } catch (err) {
     console.error('[OpportunitiesAPI] Erro ao deletar em lote:', err);
@@ -218,12 +221,27 @@ router.put('/:id', async (req, res) => {
     list[idx] = updated;
     writeStore(list);
 
-    // Tenta atualizar no Supabase se possível
-    supabase.from('opportunities').update({
+    // Tenta atualizar todos os campos no Supabase de forma resiliente
+    const updatePayload = {
+      title: updated.title,
+      client_name: updated.client_name || updated.title,
+      phone: updated.phone,
+      email: updated.email,
+      city: updated.city,
       status: updated.status,
       amount: updated.amount,
+      temperature: updated.temperature,
+      notes: updated.notes,
+      services: updated.services,
+      system_power: updated.system_power,
+      avg_bill: updated.avg_bill,
+      consumption_kwh: updated.consumption_kwh,
       updated_at: new Date().toISOString()
-    }).eq('id', id).catch(() => {});
+    };
+
+    Promise.resolve(supabase.from('opportunities').update(updatePayload).eq('id', id)).catch((err) => {
+      console.warn('[OpportunitiesAPI] Erro ao sincronizar update no Supabase:', err);
+    });
 
     return res.json({ success: true, opportunity: updated });
   } catch (err) {
@@ -248,8 +266,8 @@ router.delete('/:id', async (req, res) => {
     writeStore(list);
 
     // 3. Tenta deletar no Supabase
-    supabase.from('opportunities').delete().eq('id', id).catch(() => {});
-    supabase.from('opportunities').update({ deleted_at: new Date().toISOString() }).eq('id', id).catch(() => {});
+    Promise.resolve(supabase.from('opportunities').delete().eq('id', id)).catch(() => {});
+    Promise.resolve(supabase.from('opportunities').update({ deleted_at: new Date().toISOString() }).eq('id', id)).catch(() => {});
 
     return res.json({ success: true, id });
   } catch (err) {

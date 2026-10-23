@@ -90,8 +90,8 @@ const QuickQuoteStudio: React.FC = () => {
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const [previewScale, setPreviewScale] = useState(1);
 
-  // Número identificador da proposta
-  const [proposalNumber, setProposalNumber] = useState('');
+  // Número identificador da proposta dinâmico e sequencial
+  const [proposalNumber, setProposalNumber] = useState(() => `QK-${Math.floor(100000 + Math.random() * 900000)}`);
   const [searchParams] = useSearchParams();
 
   // Preenchimento automático quando acessado via link direto de cliente
@@ -176,7 +176,7 @@ const QuickQuoteStudio: React.FC = () => {
     validityDays,
     company: 'QUARK ENERGIA',
     seller: user?.name?.split(' ')[0] || 'Consultor Quark',
-    sellerPhone: '82 99999-9999',
+    sellerPhone: (user as any)?.phone || '82 99610-4223',
     number: proposalNumber,
   };
 
@@ -193,7 +193,7 @@ const QuickQuoteStudio: React.FC = () => {
     validityDays,
     company: 'QUARK ENERGIA',
     seller: user?.name?.split(' ')[0] || 'Consultor Quark',
-    sellerPhone: '82 99999-9999',
+    sellerPhone: (user as any)?.phone || '82 99610-4223',
     number: proposalNumber,
   };
 

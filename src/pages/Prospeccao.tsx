@@ -311,9 +311,15 @@ export default function Prospeccao() {
       const formattedPhone = leadPhone.replace(/\D/g, '');
       const message = `Olá, somos a Quark Energia! Vi que vocês são um destaque no segmento e gostaríamos de apresentar nossas soluções em energia solar para reduzir sua conta de luz. Podemos conversar?`;
       
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY;
+
       const res = await fetch('/api/evolution/send', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({ number: formattedPhone, text: message })
       });
       

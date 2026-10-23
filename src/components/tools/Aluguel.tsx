@@ -218,7 +218,7 @@ export function AluguelTool({ company }: { company: Company }) {
       </Clause>
       <Clause>E, por estarem assim justas e contratadas, as partes assinam o presente em 2 (duas) vias de igual teor, na presença das testemunhas abaixo.</Clause>
       <p className="mt-6 text-right">
-        {d.cidade || "Maceió"}/AL, {todayLong(d.data)}.
+        {(d.cidade || "Maceió").replace(/\/AL$/i, "")}/AL, {todayLong(d.data)}.
       </p>
       <div className="tool-avoid-break grid grid-cols-2 gap-x-10">
         <Signature name={d.locador.nome} role={A.de === "LOCADOR" ? "Locador" : "Comodante"} doc={d.locador.cpf} />

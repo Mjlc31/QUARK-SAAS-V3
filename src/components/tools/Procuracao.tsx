@@ -215,7 +215,7 @@ export function ProcuracaoTool({ company }: { company: Company }) {
         assinatura, podendo ser revogada a qualquer tempo mediante comunicação ao OUTORGADO e à distribuidora.
       </Clause>
       <p className="mt-8 text-right">
-        {d.cidade || "Maceió"}/AL, {todayLong(d.data)}.
+        {(d.cidade || "Maceió").replace(/\/AL$/i, "")}/AL, {todayLong(d.data)}.
       </p>
       <div className="mx-auto mt-4 max-w-[420px]">
         <Signature name={pj ? d.representante || d.nome : d.nome} role={pj ? `Outorgante · p/ ${d.nome || "empresa"}` : "Outorgante"} doc={pj ? d.representanteCpf : d.cpf} />

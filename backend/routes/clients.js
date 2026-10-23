@@ -124,7 +124,7 @@ async function syncClientToCrmAndFinancial(client, rawBody = {}) {
 
     // Tenta salvar no Supabase (financial_transactions)
     try {
-      supabase.from('financial_transactions').upsert(txPayload).catch(() => {});
+      Promise.resolve(supabase.from('financial_transactions').upsert(txPayload)).catch(() => {});
     } catch (_) {}
 
   } catch (syncErr) {

@@ -305,7 +305,7 @@ const Dashboard: React.FC = () => {
           </div>
           <span className="text-sm font-bold text-zinc-300 group-hover:text-white whitespace-nowrap">Financeiro</span>
         </button>
-        <button onClick={() => navigate('/proposals')} className="flex items-center gap-2.5 px-4 py-2.5 bg-zinc-900/70 hover:bg-zinc-800 border border-white/5 hover:border-orange-500/30 rounded-xl transition-all group shrink-0 snap-start">
+        <button onClick={() => navigate('/propostas')} className="flex items-center gap-2.5 px-4 py-2.5 bg-zinc-900/70 hover:bg-zinc-800 border border-white/5 hover:border-orange-500/30 rounded-xl transition-all group shrink-0 snap-start">
           <div className="p-1.5 bg-orange-500/10 text-orange-400 rounded-lg">
             <FileText size={16} />
           </div>

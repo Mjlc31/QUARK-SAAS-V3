@@ -110,14 +110,30 @@ router.post('/audit/equatorial', async (req, res) => {
 // POST /api/utility/crawl - Disparo de robô crawler de faturas
 router.post(['/crawl', '/utility/crawl'], async (req, res) => {
   try {
-    const { intelligence_id, cpf, birth_date, uc } = req.body || {};
-    const jobId = `crawl_${Date.now()}`;
-    console.log(`[UTILITY ROBOT] Crawler iniciado para UC/Cliente: ${uc || cpf || intelligence_id || 'Varredura Geral'}`);
+    const { intelligence_id, clientId, client_id, cpf, birth_date, uc } = req.body || {};
+    let resolvedIntelligenceId = intelligence_id || clientId || client_id;
+    
+    // Se recebemos um clientId, tenta buscar o id correspondente em client_intelligence
+    if (resolvedIntelligenceId) {
+      try {
+        const { data: intelRecord } = await supabase
+          .from('client_intelligence')
+          .select('id')
+          .eq('client_id', resolvedIntelligenceId)
+          .maybeSingle();
+        if (intelRecord?.id) {
+          resolvedIntelligenceId = intelRecord.id;
+        }
+      } catch (_) {}
+    }
 
-    if (intelligence_id) {
+    const jobId = `crawl_${Date.now()}`;
+    console.log(`[UTILITY ROBOT] Crawler iniciado para UC/Cliente: ${uc || cpf || resolvedIntelligenceId || 'Varredura Geral'}`);
+
+    if (resolvedIntelligenceId) {
       const currentMonth = new Date().toLocaleDateString('pt-BR', { month: '2-digit', year: 'numeric' });
       await supabase.from('utility_invoices').insert({
-        intelligence_id,
+        intelligence_id: resolvedIntelligenceId,
         month_ref: currentMonth,
         consumption_kwh: 520,
         generation_kwh: 480,

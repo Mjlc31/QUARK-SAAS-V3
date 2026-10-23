@@ -6,6 +6,14 @@ export function useReceipts() {
   return useQuery({
     queryKey: ['receipts'],
     queryFn: async () => {
+      const local = localStorage.getItem('quark_receipts_cache');
+      let localList: ReceiptRow[] = [];
+      if (local) {
+        try {
+          localList = JSON.parse(local);
+        } catch {}
+      }
+
       const { data, error } = await supabase
         .from('receipts')
         .select('*')
@@ -13,9 +21,7 @@ export function useReceipts() {
 
       if (error) {
         console.warn('[useReceipts] Falha ao buscar receipts do Supabase:', error.message);
-        // Fallback local caso a tabela ainda esteja sendo sincronizada
-        const local = localStorage.getItem('quark_receipts_cache');
-        return local ? JSON.parse(local) : [];
+        return localList;
       }
 
       const rows: ReceiptRow[] = (data || []).map((r: any) => ({
@@ -33,6 +39,13 @@ export function useReceipts() {
         user_id: r.user_id,
         created_at: r.created_at,
       }));
+
+      // Merge local items not in remote
+      localList.forEach((item) => {
+        if (!rows.some((r) => r.id === item.id)) {
+          rows.unshift(item);
+        }
+      });
 
       localStorage.setItem('quark_receipts_cache', JSON.stringify(rows));
       return rows;

@@ -33,6 +33,7 @@ backend/.env
 whatsapp-backend/.env
 
 # Temporary artifacts, logs, and dumps
+.gemini_scratch/
 .playwright-mcp/
 scratch/
 *.patch

@@ -78,7 +78,7 @@ const LegacyAppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const updatedTask = { ...task, completed: !task.completed };
     setTasks(prev => prev.map(t => t.id === id ? updatedTask : t));
     await storageService.syncTask(updatedTask);
-    if (!updatedTask.completed) addActivity('concluiu tarefa', task.title);
+    if (updatedTask.completed) addActivity('concluiu tarefa', task.title);
   };
 
   const deleteTask = async (id: string) => {

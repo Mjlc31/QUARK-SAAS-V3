@@ -130,7 +130,7 @@ export function ReciboTool({ company }: { company: Company }) {
         {parcelaTxt}, paga via <b>{d.forma}</b>, pelo que firmo(amos) o presente recibo dando plena e geral quitação do valor recebido.
       </p>
       <p className="mt-6 text-right">
-        {d.cidade}/AL, {todayLong(d.data)}.
+        {(d.cidade || "Maceió").replace(/\/AL$/i, "")}/AL, {todayLong(d.data)}.
       </p>
       <div className="mx-auto max-w-[380px]">
         <Signature name={d.recebedor} role="Recebedor" doc={d.recebedorDoc} />

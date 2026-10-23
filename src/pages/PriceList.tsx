@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Table, Search, Settings2, Package, Check, ArrowRight, TrendingUp, SunMedium, Zap, Calculator, Plus, Share2, FileText, ChevronDown, ChevronUp, X, Save, Edit, History } from "lucide-react";
+import { Table, Search, Settings2, Package, Check, ArrowRight, TrendingUp, SunMedium, Zap, Calculator, Plus, Share2, FileText, ChevronDown, ChevronUp, X, Save, Edit, History, Trash2 } from "lucide-react";
 import { useApp } from "@/components/app/app-context";
 import { Badge, Button, Card, CardHeader, Input, MoneyInput, NumberInput, Segmented, cx, Field } from "@/components/ui";
 import { brl, calcPricing, calcFinancing, type ProposalInputs } from "@/lib/pricing";
@@ -107,6 +107,30 @@ export default function PriceList() {
       `\n\n_Valores sujeitos a análise de crédito e validade da proposta._`;
 
     window.open(whatsappUrl("", txt), '_blank');
+  };
+
+  const handleDeleteKit = async (kitId: string, kitName: string) => {
+    if (!window.confirm(`Deseja realmente excluir o kit "${kitName || 'Sem Nome'}"?`)) return;
+    try {
+      const newKits = kits.filter(k => k.id !== kitId);
+      const updatedData = toStoredSettings({ ...settings, kits: newKits });
+      localStorage.setItem("quark_settings_cache", JSON.stringify(updatedData));
+      try {
+        const timeoutPromise = new Promise<never>((_, rej) =>
+          setTimeout(() => rej(new Error("timeout")), 1500)
+        );
+        await Promise.race([
+          supabase().from("settings").upsert({ id: 1, data: updatedData }),
+          timeoutPromise
+        ]);
+      } catch (upsertErr) {
+        console.warn("[PriceList] Excluído em cache local offline:", upsertErr);
+      }
+      toast.success("Kit excluído com sucesso!");
+      window.location.reload();
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao excluir kit");
+    }
   };
 
   if (!settingsLoaded) return <div className="p-8 text-center text-zinc-500 animate-pulse">Carregando catálogo...</div>;
@@ -222,6 +246,7 @@ export default function PriceList() {
                 onShare={() => handleShare(row)} 
                 onEdit={() => setEditingKit(row.kit)}
                 onHistory={() => setHistoryKit(row.kit)}
+                onDelete={() => handleDeleteKit(row.kit.id, row.kit.name)}
               />
             ))}
             
@@ -243,7 +268,7 @@ export default function PriceList() {
   );
 }
 
-function KitRow({ row, onShare, onEdit, onHistory }: { row: any; onShare: () => void; onEdit: () => void; onHistory: () => void; }) {
+function KitRow({ row, onShare, onEdit, onHistory, onDelete }: { row: any; onShare: () => void; onEdit: () => void; onHistory: () => void; onDelete: () => void; }) {
   const { kit, pricing, financing, powerKw } = row;
   const [expanded, setExpanded] = useState(false);
 
@@ -307,6 +332,9 @@ function KitRow({ row, onShare, onEdit, onHistory }: { row: any; onShare: () => 
             </Button>
             <Button size="sm" variant="secondary" onClick={onEdit} title="Editar Kit" className="bg-zinc-800 text-zinc-400 hover:text-white">
               <Edit className="h-4 w-4" />
+            </Button>
+            <Button size="sm" variant="secondary" onClick={onDelete} title="Excluir Kit" className="bg-zinc-800 text-zinc-400 hover:text-red-400 hover:bg-red-500/10">
+              <Trash2 className="h-4 w-4" />
             </Button>
           </div>
         </td>

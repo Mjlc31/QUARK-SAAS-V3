@@ -94,11 +94,27 @@ export function useMaintenance() {
           query = query.or(`user_id.eq.${userId},user_id.is.null`);
         }
 
-        const { data, error } = await withTimeout(Promise.resolve(query), 1200);
+        const { data, error } = await withTimeout(Promise.resolve(query), 1500);
 
         if (!error && data && data.length > 0) {
-          localStorage.setItem('quark_maintenance_cache', JSON.stringify(data));
-          return data as MaintenanceService[];
+          const cached = localStorage.getItem('quark_maintenance_cache');
+          let merged = [...(data as MaintenanceService[])];
+          if (cached) {
+            try {
+              const localList = JSON.parse(cached) as MaintenanceService[];
+              localList.forEach(localItem => {
+                const existingIdx = merged.findIndex(m => m.id === localItem.id);
+                if (existingIdx === -1) {
+                  merged.unshift(localItem);
+                } else {
+                  // Keep status updated locally if newer
+                  merged[existingIdx] = { ...merged[existingIdx], ...localItem };
+                }
+              });
+            } catch {}
+          }
+          localStorage.setItem('quark_maintenance_cache', JSON.stringify(merged));
+          return merged;
         }
       } catch (err) {
         console.warn('[useMaintenance] Fallback para cache local offline:', err);
@@ -203,29 +219,17 @@ export function useCreateMaintenance() {
       localStorage.setItem('quark_maintenance_cache', JSON.stringify(list));
 
       try {
-        await withTimeout(
-          Promise.resolve(
-            supabase.from('maintenance_services').insert({
-              id: newRecord.id,
-              client_id: validClientId,
-              client_name: newRecord.client_name,
-              service_type: newRecord.service_type,
-              status: newRecord.status,
-              scheduled_date: newRecord.scheduled_date,
-              completed_date: newRecord.completed_date,
-              price: newRecord.price,
-              cost: newRecord.cost,
-              technician: newRecord.technician,
-              notes: newRecord.notes,
-              before_photos: newRecord.before_photos,
-              after_photos: newRecord.after_photos,
-              user_id: currentUserId,
-              created_at: newRecord.created_at,
-              updated_at: newRecord.updated_at,
-            })
-          ),
-          8000
-        );
+        const res = await fetch('/api/maintenance/services', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newRecord),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.service) {
+            newRecord.id = json.service.id;
+          }
+        }
       } catch (e) {
         console.warn('[useCreateMaintenance] Salvo em cache local offline:', e);
       }
@@ -252,24 +256,20 @@ export function useUpdateMaintenance() {
         localStorage.setItem('quark_maintenance_cache', JSON.stringify(list));
       }
 
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-      if (isUuid) {
-        try {
-          await withTimeout(
-            Promise.resolve(
-              supabase
-                .from('maintenance_services')
-                .update({
-                  ...service,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq('id', id)
-            ),
-            3000
-          );
-        } catch (e) {
-          console.warn('[useUpdateMaintenance] Atualizado localmente offline:', e);
+      try {
+        const res = await fetch('/api/maintenance/services', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, ...service }),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.service) {
+            return json.service;
+          }
         }
+      } catch (e) {
+        console.warn('[useUpdateMaintenance] Atualizado localmente offline:', e);
       }
 
       return list[idx] || service;

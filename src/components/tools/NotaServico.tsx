@@ -390,7 +390,7 @@ export function NotaServicoTool({ company }: { company: Company }) {
         registra o serviço prestado e não substitui a nota fiscal.
       </p>
       <p className="mt-4 text-right">
-        {company.city || "Maceió"}/AL, {todayLong(d.data)}.
+        {(company.city || "Maceió").replace(/\/AL$/i, "")}/AL, {todayLong(d.data)}.
       </p>
       <div className="tool-avoid-break grid grid-cols-2 gap-x-10">
         <Signature name={d.tecnico} role="Responsável técnico" doc={d.tecnicoRegistro} />

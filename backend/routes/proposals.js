@@ -122,7 +122,8 @@ router.post('/', async (req, res) => {
     const body = req.body || {};
     const list = readStore();
 
-    const id = body.id || `prop_${Date.now()}`;
+    const isUuid = (val) => typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+    const id = (body.id && isUuid(body.id)) ? body.id : crypto.randomUUID();
     const nextNumber = body.number || (list.reduce((max, p) => Math.max(max, Number(p.number) || 0), 41) + 1);
     const publicToken = body.public_token || `tok_${Math.random().toString(36).slice(2, 10)}`;
 

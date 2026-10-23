@@ -512,8 +512,16 @@ const Financial: React.FC = () => {
                     attachmentUrl = publicUrl;
                 }
             } catch {
-                // If offline upload fails, keep local filename reference
-                attachmentUrl = URL.createObjectURL(attachment);
+                // Fallback offline: converte para Base64 persistente em vez de Blob URL efêmera
+                try {
+                    attachmentUrl = await new Promise<string>((resolve) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => resolve(reader.result as string);
+                        reader.readAsDataURL(attachment);
+                    });
+                } catch {
+                    attachmentUrl = `anexo_${attachment.name}`;
+                }
             }
         }
         
