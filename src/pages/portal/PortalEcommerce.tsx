@@ -7,6 +7,8 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { usePortal } from '../../contexts/PortalContext';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '../../lib/supabaseClient';
 import { 
   useQuarkPoints, 
   useQuarkRewards, 
@@ -73,7 +75,34 @@ const PortalEcommerce: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState('Todos');
 
   const categories = ['Todos', 'Kits Completos', 'Módulos', 'Inversores', 'Estruturas'];
-  const filteredProducts = mockProducts.filter(p => activeCategory === 'Todos' || p.category === activeCategory);
+
+  const { data: dbProducts } = useQuery({
+    queryKey: ['portal_products'],
+    queryFn: async () => {
+      try {
+        const { data, error } = await supabase.from('products').select('*');
+        if (error || !data || data.length === 0) return mockProducts;
+        return data.map(p => ({
+          id: p.id,
+          name: p.name || p.model || 'Equipamento Fotovoltaico',
+          category: p.category || 'Módulos',
+          price: Number(p.price) || 0,
+          pointsPrice: Math.round((Number(p.price) || 0) * 10),
+          oldPrice: p.old_price ? Number(p.old_price) : undefined,
+          overload: p.overload ? Number(p.overload) : undefined,
+          includesInstall: false,
+          delivery: '7 dias',
+          image: 'bg-gradient-to-br from-blue-900 to-zinc-900',
+          desc: p.description || `${p.brand || ''} ${p.power ? p.power + 'W' : ''}`
+        }));
+      } catch {
+        return mockProducts;
+      }
+    }
+  });
+
+  const productList = dbProducts && dbProducts.length > 0 ? dbProducts : mockProducts;
+  const filteredProducts = productList.filter(p => activeCategory === 'Todos' || p.category === activeCategory);
 
   const handleCopyCode = async () => {
     try {

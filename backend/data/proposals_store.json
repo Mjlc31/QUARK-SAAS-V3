@@ -79,7 +79,7 @@
     "accepted_by": null,
     "created_by": "7dacc88f-9ebd-4710-a1be-0647841db24a",
     "created_at": "2026-10-22T22:23:34.492682+00:00",
-    "updated_at": "2026-10-23T00:38:00.538Z",
+    "updated_at": "2026-10-23T15:19:04.971Z",
     "lead": {
       "id": "0f2daff5-778f-4a09-910b-c1f5e39d5dfa",
       "name": "Yasmine",
@@ -406,19 +406,37 @@
     "opportunity_id": "7f485b20-013b-4076-92e6-dc54a19ede54",
     "title": "Proposta Solar — Cassiano",
     "status": "enviada",
-    "client_name": "Cassiano",
+    "client_name": "Cassiano Victor de Moraes Belo Neto",
     "inputs": {
-      "product": "solar",
       "kitPrice": 25500,
       "inverterBrand": "Solis",
+      "inverterModel": "",
       "inverterPowerKw": 15,
       "inverterQty": 1,
       "moduleBrand": "Canadian Solar",
+      "moduleModel": "",
       "modulePowerW": 610,
       "moduleQty": 27,
       "structureType": "Telhado cerâmico",
+      "moduleImage": "",
+      "inverterImage": "",
       "laborPerModule": 110,
       "electricalPerKwp": 120,
+      "extraCosts": [],
+      "commission": {
+        "mode": "percent",
+        "value": 0
+      },
+      "tax": {
+        "mode": "percent",
+        "value": 2
+      },
+      "profit": {
+        "mode": "percent",
+        "value": 18
+      },
+      "discount": 0,
+      "roundTo": 0,
       "consumptionKwh": 2060,
       "tariff": 1.18,
       "connectionType": "tri",
@@ -442,34 +460,26 @@
       "cardInstallments": 12,
       "cardRate": 1.99,
       "validityDays": 10,
-      "commission": {
-        "mode": "percent",
-        "value": 0
-      },
-      "tax": {
-        "mode": "percent",
-        "value": 2
-      },
-      "profit": {
-        "mode": "percent",
-        "value": 18
-      }
+      "installationDays": 40,
+      "paymentNotes": "",
+      "notes": "",
+      "product": "solar"
     },
-    "power_kwp": 16.5,
-    "monthly_generation": 2062,
-    "direct_cost": 28500,
-    "commission_value": 1882.35,
-    "tax_value": 1129.41,
-    "profit_value": 6135.24,
-    "final_price": 37647,
-    "valid_until": null,
+    "power_kwp": 16.47,
+    "monthly_generation": 2058,
+    "direct_cost": 30446.4,
+    "commission_value": 0,
+    "tax_value": 208.54,
+    "profit_value": 5480.35,
+    "final_price": 36135.29,
+    "valid_until": "2026-11-06",
     "sent_at": "2026-10-22T01:59:37.791788+00:00",
     "viewed_at": null,
     "accepted_at": null,
     "accepted_by": null,
-    "created_by": "usr_admin",
+    "created_by": "7dacc88f-9ebd-4710-a1be-0647841db24a",
     "created_at": "2026-10-22T01:59:37.791788+00:00",
-    "updated_at": "2026-10-22T02:59:37.791788+00:00",
+    "updated_at": "2026-10-27T03:56:50.125Z",
     "lead": {
       "id": "7f485b20-013b-4076-92e6-dc54a19ede54",
       "name": "Cassiano",

@@ -15,6 +15,9 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: 5173,
+      watch: {
+        ignored: ['**/backend/**', '**/backend/data/**', '**/supabase/**'],
+      },
       proxy: {
         '/api': {
           target: 'http://localhost:3001',

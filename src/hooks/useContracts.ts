@@ -57,7 +57,7 @@ export function useContracts(filterKind: string = 'contrato') {
       try {
         const queryPromise = supabase
           .from('documents')
-          .select('*, signers:document_signers(*), lead:leads(id,name)')
+          .select('*, signers:document_signers(*)')
           .eq('kind', filterKind)
           .order('updated_at', { ascending: false });
 

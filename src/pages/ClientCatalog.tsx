@@ -89,6 +89,16 @@ const ClientCard = React.memo(function ClientCard({
                   </span>
                 )}
 
+                {(!client.cpf || !client.email) && (
+                  <span 
+                    onClick={(e) => { e.stopPropagation(); onEdit(client); }}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-400 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-full hover:bg-amber-500/25 transition-all cursor-pointer"
+                    title="Completar dados cadastrais (CPF/Email) para o Portal"
+                  >
+                    <Edit2 className="w-2.5 h-2.5" /> Completar Dados
+                  </span>
+                )}
+
                 {Boolean(client.quark_points) && (
                   <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
                     <Sparkles className="w-2.5 h-2.5" /> {client.quark_points} pts
@@ -1380,6 +1390,33 @@ export default function ClientCatalog() {
 
               {/* Corpo de Detalhes */}
               <div className="p-6 space-y-6 flex-1">
+                
+                {/* Alerta de Dados Faltantes para Acesso ao Portal */}
+                {(!selectedClient.cpf || !selectedClient.email) && (
+                  <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 animate-fade-in">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-lg bg-amber-500/20 text-amber-400 shrink-0 mt-0.5">
+                        <User className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-white">Dados Incompletos para Acesso ao Portal</p>
+                        <p className="text-[11px] text-amber-200/70 mt-0.5">
+                          Este cliente veio do CRM (Venda Fechada). Preencha o CPF e Email para liberar o login e enviar o acesso.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const clientToEdit = selectedClient;
+                        setSelectedClient(null);
+                        handleOpenEditModal(clientToEdit);
+                      }}
+                      className="py-2 px-3 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-lg text-xs transition-all shrink-0 active:scale-95 shadow-md shadow-amber-500/20"
+                    >
+                      Completar Agora
+                    </button>
+                  </div>
+                )}
                 
                 {/* Cards de Métricas Principais */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

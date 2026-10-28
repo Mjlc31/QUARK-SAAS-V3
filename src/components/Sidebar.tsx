@@ -63,6 +63,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     { id: 'orcamento-rapido', label: 'Oferta Rápida', icon: Sparkles, path: '/orcamento-rapido' },
     { id: 'prospeccao', label: 'Prospecção', icon: MapPin, path: '/prospeccao' },
     { id: 'conversations', label: 'WhatsApp & IA', icon: MessageSquare, path: '/conversations' },
+    { id: 'social-studio', label: 'Social Studio', icon: Instagram, path: '/social-studio' },
     { id: 'propostas', label: 'Propostas', icon: FileText, path: '/propostas' },
     { id: 'contratos', label: 'Contratos', icon: ScrollText, path: '/contratos' },
     { id: 'price-list', label: 'Tabela de Preços', icon: Table, path: '/price-list' },
@@ -71,7 +72,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
   const operationsItems = [
     { id: 'equipe', label: 'Equipe & Metas', icon: UserCheck, path: '/equipe' },
-    { id: 'follow-up', label: 'Acompanhamento de Obras', icon: HardHat, path: '/follow-up' },
+    { id: 'engineering', label: 'Acompanhamento de Obras', icon: HardHat, path: '/engineering' },
     { id: 'tasks', label: 'Tarefas', icon: CheckSquare, path: '/tasks' },
     { id: 'clientes', label: 'Clientes', icon: Users, path: '/clientes' },
     { id: 'maintenance', label: 'Manutenção', icon: Wrench, path: '/maintenance' },

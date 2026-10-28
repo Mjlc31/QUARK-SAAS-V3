@@ -17,7 +17,8 @@ const NAVY = "#1C1234";
 
 export function SaveDocument({ data, token }: { data: PublicProposal; token: string | null }) {
   const s = mergeSettings(data.settings);
-  const i = mergeSave(data.proposal.inputs as Partial<SaveInputs>);
+  const rawInputs = (data.proposal.inputs || (data.proposal as any).data?.inputs) as Partial<SaveInputs>;
+  const i = mergeSave(rawInputs);
   const price = Number(data.proposal.final_price);
   const [accepted, setAccepted] = useState<{ at: string; by: string } | null>(
     data.proposal.accepted_at ? { at: data.proposal.accepted_at, by: data.proposal.accepted_by ?? "" } : null,

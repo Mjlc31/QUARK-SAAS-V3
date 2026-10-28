@@ -90,6 +90,7 @@ const LegacyAppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     ...auth,
     ...project,
     ...crm,
+    isSupabaseConnected: auth.isSupabaseConnected,
     tasks,
     users: directoryUsers,
     products,

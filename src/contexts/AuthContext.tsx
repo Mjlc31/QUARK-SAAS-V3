@@ -42,7 +42,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const [isLoading, setIsLoading] = useState(false);
   const [isRecoveryMode, setIsRecoveryMode] = useState(false);
-  const [isSupabaseConnected, setIsSupabaseConnected] = useState(false);
+  const [isSupabaseConnected, setIsSupabaseConnected] = useState<boolean>(() => {
+    return Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
+  });
 
   const resolveUserProfile = async (sessionUser: any): Promise<User> => {
     const isPartnerAdmin = 
@@ -124,17 +126,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     });
 
-    return () => subscription.unsubscribe();
+    const connInterval = setInterval(checkSupabaseConnection, 30000);
+    return () => {
+      subscription.unsubscribe();
+      clearInterval(connInterval);
+    };
   }, []);
 
   const checkSupabaseConnection = async () => {
     try {
-      const { error } = await supabase.from('leads').select('id').limit(1);
+      const timeoutPromise = new Promise<{ error: any }>((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), 4000)
+      );
+      const queryPromise = supabase.from('opportunities').select('id').limit(1);
+      const res = await Promise.race([queryPromise, timeoutPromise]) as any;
+      const error = res?.error;
       const isConnected = !error || (error.code !== 'PGRST301' && !error.message?.includes('fetch') && !error.message?.includes('network'));
       setIsSupabaseConnected(isConnected);
-      if (!isConnected) console.warn("⚠️ Supabase offline:", error?.message);
+      if (!isConnected) console.warn("⚠️ Supabase status notice:", error?.message);
     } catch (err) {
-      setIsSupabaseConnected(false);
+      try {
+        const ping = await fetch('/api/opportunities', { method: 'HEAD', signal: AbortSignal.timeout(1500) });
+        setIsSupabaseConnected(ping.ok || ping.status === 200 || ping.status === 304);
+      } catch {
+        setIsSupabaseConnected(typeof navigator !== 'undefined' ? navigator.onLine : false);
+      }
     }
   };
 

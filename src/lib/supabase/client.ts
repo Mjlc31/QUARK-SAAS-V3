@@ -175,7 +175,7 @@ class ProposalQueryBuilder {
       }
     } catch (_) {}
 
-    // 2. Tenta buscar do Supabase com timeout seguro
+    // 2. Tenta buscar do Supabase com timeout seguro e normalização de campos
     try {
       let query = _supabase.from("proposals").select("*");
       for (const f of this.filters) {
@@ -185,10 +185,24 @@ class ProposalQueryBuilder {
       if (this.orderField) query = query.order(this.orderField, { ascending: this.orderAscending });
       if (this.limitCount) query = query.limit(this.limitCount);
 
-      const timeoutPromise = new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 1500));
+      const timeoutPromise = new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 5000));
       const res: any = await Promise.race([query, timeoutPromise]);
-      if (res?.data && res.data.length > 0) {
-        return { data: res.data, error: null };
+      if (res?.data && Array.isArray(res.data) && res.data.length > 0) {
+        const mapped = res.data.map((p: any) => ({
+          ...p,
+          title: p.title || p.data?.title || (p.client_name ? `Proposta Solar — ${p.client_name}` : `Orçamento #${p.number}`),
+          inputs: p.inputs || p.data?.inputs || {},
+          power_kwp: Number(p.power_kwp || p.system_size_kw || p.data?.power_kwp || 0),
+          monthly_generation: Number(p.monthly_generation || p.data?.monthly_generation || 0),
+          direct_cost: Number(p.direct_cost || p.data?.direct_cost || 0),
+          commission_value: Number(p.commission_value || p.data?.commission_value || 0),
+          tax_value: Number(p.tax_value || p.data?.tax_value || 0),
+          profit_value: Number(p.profit_value || p.data?.profit_value || 0),
+          final_price: Number(p.final_price || p.data?.final_price || 0),
+          lead: p.lead || p.data?.lead || { id: p.lead_id, name: p.client_name || "Cliente Quark", city: p.city || "Maceió - AL", phone: p.phone }
+        }));
+        saveStoredProposals(mapped);
+        return { data: mapped, error: null };
       }
     } catch (_) {}
 
@@ -240,6 +254,9 @@ class ProposalMutationBuilder {
   private async execute(): Promise<{ data: any; error: any }> {
     const list = getStoredProposals();
 
+    const isUuid = (val?: string | null): val is string => 
+      typeof val === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+
     if (this.mode === "insert") {
       let nextNumber = 42;
       if (list.length > 0) {
@@ -247,16 +264,27 @@ class ProposalMutationBuilder {
         const maxNum = validNumbers.length > 0 ? Math.max(...validNumbers) : 41;
         nextNumber = maxNum + 1;
       }
+
+      const targetId = (this.payload.id && isUuid(this.payload.id)) 
+        ? this.payload.id 
+        : (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `prop_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`);
+
+      const defaultUserId = "7dacc88f-9ebd-4710-a1be-0647841db24a";
+      const validUserId = isUuid(this.payload.user_id) ? this.payload.user_id : (isUuid(this.payload.created_by) ? this.payload.created_by : defaultUserId);
+      const validOppId = isUuid(this.payload.opportunity_id) ? this.payload.opportunity_id : (isUuid(this.payload.lead_id) ? this.payload.lead_id : null);
+      const pubToken = this.payload.public_token || `tok_${Math.random().toString(36).substring(2, 14)}`;
+
       const newProp: StoredProposal = {
-        id: this.payload.id || `prop_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        id: targetId,
         number: this.payload.number || nextNumber,
-        public_token: this.payload.public_token || `tok_${Math.random().toString(36).substring(2, 12)}`,
+        public_token: pubToken,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         status: this.payload.status || "rascunho",
         view_count: 0,
-        lead_id: this.payload.lead_id || "lead_001",
-        title: this.payload.title || null,
+        lead_id: this.payload.lead_id || null,
+        opportunity_id: validOppId,
+        title: this.payload.title || (this.payload.client_name ? `Proposta Solar — ${this.payload.client_name}` : `Orçamento #${nextNumber}`),
         inputs: this.payload.inputs || {},
         power_kwp: Number(this.payload.power_kwp) || 0,
         monthly_generation: Number(this.payload.monthly_generation) || 0,
@@ -270,45 +298,70 @@ class ProposalMutationBuilder {
         viewed_at: this.payload.viewed_at || null,
         accepted_at: this.payload.accepted_at || null,
         accepted_by: this.payload.accepted_by || null,
-        created_by: this.payload.created_by || "usr_admin",
+        created_by: validUserId,
+        user_id: validUserId,
+        client_name: this.payload.client_name || this.payload.lead?.name || "Cliente",
+        city: this.payload.city || this.payload.lead?.city || null,
+        phone: this.payload.phone || this.payload.lead?.phone || null,
         ...this.payload,
-        lead: this.payload.lead || resolveLeadForProposal(this.payload.lead_id) || { id: this.payload.lead_id, name: "Cliente Quark", city: "Maceió - AL" },
+        lead: this.payload.lead || resolveLeadForProposal(this.payload.lead_id) || { id: this.payload.lead_id, name: this.payload.client_name || "Cliente Quark", city: this.payload.city || "Maceió - AL", phone: this.payload.phone || null },
       };
 
-      // Tenta persistir no Supabase com payload sanitizado compatível com o schema
+      // Tenta persistir no Supabase com payload completo sanitizado compatível com o schema
       try {
-        const isUuid = (val?: string | null) => typeof val === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
         const dbRow: Record<string, any> = {
-          client_name: this.payload.client_name || this.payload.lead?.name || "Cliente",
-          city: this.payload.city || this.payload.lead?.city || null,
-          phone: this.payload.phone || this.payload.lead?.phone || null,
-          system_size_kw: Number(this.payload.power_kwp) || 0,
-          final_price: Number(this.payload.final_price) || 0,
-          status: this.payload.status === "enviada" ? "sent" : this.payload.status === "ganho" ? "approved" : "draft",
+          id: targetId,
+          user_id: validUserId,
+          created_by: validUserId,
+          opportunity_id: validOppId,
+          lead_id: this.payload.lead_id || null,
+          title: newProp.title,
+          client_name: newProp.client_name,
+          city: newProp.city,
+          phone: newProp.phone,
+          inputs: newProp.inputs,
+          power_kwp: newProp.power_kwp,
+          system_size_kw: newProp.power_kwp,
+          monthly_generation: newProp.monthly_generation,
+          direct_cost: newProp.direct_cost,
+          commission_value: newProp.commission_value,
+          tax_value: newProp.tax_value,
+          profit_value: newProp.profit_value,
+          final_price: newProp.final_price,
+          valid_until: newProp.valid_until,
+          public_token: pubToken,
+          status: newProp.status || "rascunho",
           data: {
-            inputs: this.payload.inputs,
-            power_kwp: this.payload.power_kwp,
-            monthly_generation: this.payload.monthly_generation,
-            direct_cost: this.payload.direct_cost,
-            commission_value: this.payload.commission_value,
-            tax_value: this.payload.tax_value,
-            profit_value: this.payload.profit_value,
-            valid_until: this.payload.valid_until,
-            title: this.payload.title,
+            inputs: newProp.inputs,
+            power_kwp: newProp.power_kwp,
+            monthly_generation: newProp.monthly_generation,
+            direct_cost: newProp.direct_cost,
+            commission_value: newProp.commission_value,
+            tax_value: newProp.tax_value,
+            profit_value: newProp.profit_value,
+            valid_until: newProp.valid_until,
+            title: newProp.title,
             number: newProp.number,
-            public_token: newProp.public_token,
+            public_token: pubToken,
             lead: newProp.lead,
           }
         };
-        if (isUuid(this.payload.id)) dbRow.id = this.payload.id;
-        if (isUuid(this.payload.user_id)) dbRow.user_id = this.payload.user_id;
-        if (this.payload.lead_id) dbRow.lead_id = this.payload.lead_id;
 
-        const timeoutPromise = new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 1500));
-        await Promise.race([_supabase.from("proposals").insert(dbRow), timeoutPromise]);
-      } catch (_) {}
+        const timeoutPromise = new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 4000));
+        const resInsert: any = await Promise.race([
+          _supabase.from("proposals").insert(dbRow).select().single(),
+          timeoutPromise
+        ]);
 
-      // Sincroniza com o servidor backend
+        if (resInsert?.data) {
+          if (resInsert.data.number) newProp.number = resInsert.data.number;
+          if (resInsert.data.public_token) newProp.public_token = resInsert.data.public_token;
+        }
+      } catch (sbErr) {
+        console.warn("[ProposalsClient] Supabase insert warning:", sbErr);
+      }
+
+      // Sincroniza com o servidor backend em background
       try {
         fetch("/api/proposals", {
           method: "POST",
@@ -334,7 +387,7 @@ class ProposalMutationBuilder {
         return item;
       });
 
-      // Sincroniza com o servidor backend
+      // Sincroniza com o servidor backend em background
       try {
         const itemToSync = target || this.payload;
         if (itemToSync) {
@@ -346,35 +399,55 @@ class ProposalMutationBuilder {
         }
       } catch (_) {}
 
-      // Tenta persistir no Supabase com payload sanitizado
-      try {
-        const isUuid = (val?: string | null) => typeof val === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
-        const idFilter = this.filters.find(f => f.field === "id")?.value;
-        if (isUuid(idFilter)) {
-          const dbUpdate: Record<string, any> = {};
+      // Tenta persistir no Supabase com payload sanitizado completo
+      if (idFilter) {
+        try {
+          const dbUpdate: Record<string, any> = {
+            updated_at: new Date().toISOString(),
+          };
+          if (this.payload.title !== undefined) dbUpdate.title = this.payload.title;
           if (this.payload.client_name || this.payload.lead?.name) dbUpdate.client_name = this.payload.client_name || this.payload.lead?.name;
           if (this.payload.city !== undefined) dbUpdate.city = this.payload.city;
           if (this.payload.phone !== undefined) dbUpdate.phone = this.payload.phone;
-          if (this.payload.power_kwp !== undefined) dbUpdate.system_size_kw = Number(this.payload.power_kwp) || 0;
+          if (this.payload.inputs !== undefined) dbUpdate.inputs = this.payload.inputs;
+          if (this.payload.power_kwp !== undefined) {
+            dbUpdate.power_kwp = Number(this.payload.power_kwp) || 0;
+            dbUpdate.system_size_kw = Number(this.payload.power_kwp) || 0;
+          }
+          if (this.payload.monthly_generation !== undefined) dbUpdate.monthly_generation = Number(this.payload.monthly_generation) || 0;
+          if (this.payload.direct_cost !== undefined) dbUpdate.direct_cost = Number(this.payload.direct_cost) || 0;
+          if (this.payload.commission_value !== undefined) dbUpdate.commission_value = Number(this.payload.commission_value) || 0;
+          if (this.payload.tax_value !== undefined) dbUpdate.tax_value = Number(this.payload.tax_value) || 0;
+          if (this.payload.profit_value !== undefined) dbUpdate.profit_value = Number(this.payload.profit_value) || 0;
           if (this.payload.final_price !== undefined) dbUpdate.final_price = Number(this.payload.final_price) || 0;
-          if (this.payload.status !== undefined) dbUpdate.status = this.payload.status === "enviada" ? "sent" : this.payload.status === "ganho" ? "approved" : "draft";
+          if (this.payload.status !== undefined) dbUpdate.status = this.payload.status;
+          if (this.payload.valid_until !== undefined) dbUpdate.valid_until = this.payload.valid_until;
+          if (this.payload.accepted_at !== undefined) dbUpdate.accepted_at = this.payload.accepted_at;
+          if (this.payload.accepted_by !== undefined) dbUpdate.accepted_by = this.payload.accepted_by;
+          const prevTarget: any = target || {};
           dbUpdate.data = {
-            inputs: this.payload.inputs,
-            power_kwp: this.payload.power_kwp,
-            monthly_generation: this.payload.monthly_generation,
-            direct_cost: this.payload.direct_cost,
-            commission_value: this.payload.commission_value,
-            tax_value: this.payload.tax_value,
-            profit_value: this.payload.profit_value,
-            valid_until: this.payload.valid_until,
-            title: this.payload.title,
-            lead: this.payload.lead,
+            ...(prevTarget.data || {}),
+            inputs: this.payload.inputs ?? prevTarget.inputs,
+            power_kwp: this.payload.power_kwp ?? prevTarget.power_kwp,
+            monthly_generation: this.payload.monthly_generation ?? prevTarget.monthly_generation,
+            direct_cost: this.payload.direct_cost ?? prevTarget.direct_cost,
+            commission_value: this.payload.commission_value ?? prevTarget.commission_value,
+            tax_value: this.payload.tax_value ?? prevTarget.tax_value,
+            profit_value: this.payload.profit_value ?? prevTarget.profit_value,
+            valid_until: this.payload.valid_until ?? prevTarget.valid_until,
+            title: this.payload.title ?? prevTarget.title,
+            lead: this.payload.lead ?? prevTarget.lead,
           };
-          let q = _supabase.from("proposals").update(dbUpdate).eq("id", idFilter);
-          const timeoutPromise = new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 1500));
-          await Promise.race([q, timeoutPromise]);
+
+          const timeoutPromise = new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 4000));
+          await Promise.race([
+            _supabase.from("proposals").update(dbUpdate).eq("id", idFilter),
+            timeoutPromise
+          ]);
+        } catch (sbErr) {
+          console.warn("[ProposalsClient] Supabase update warning:", sbErr);
         }
-      } catch (_) {}
+      }
 
       saveStoredProposals(updated);
       return { data: target || this.payload, error: null };

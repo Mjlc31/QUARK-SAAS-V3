@@ -83,7 +83,12 @@ export function useMaintenanceAlerts() {
           .select('*')
           .order('created_at', { ascending: false });
 
-        if (userAuth?.user?.id) {
+        const isPartnerAdmin = 
+          userAuth?.user?.email === 'arthurmoraesp12@gmail.com' || 
+          userAuth?.user?.email === 'ctt.andersonalves@gmail.com' ||
+          userAuth?.user?.user_metadata?.role === 'Admin';
+
+        if (!isPartnerAdmin && userAuth?.user?.id) {
           query = query.eq('user_id', userAuth.user.id);
         }
 

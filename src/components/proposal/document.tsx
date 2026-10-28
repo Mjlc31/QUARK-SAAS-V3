@@ -43,7 +43,8 @@ export const CTA_STYLE = { backgroundImage: "linear-gradient(135deg, #F3EA3B 0%,
 
 export function ProposalDocument({ data, token }: { data: PublicProposal; token: string | null }) {
   const s = mergeSettings(data.settings);
-  const inputs = mergeInputs(data.proposal.inputs);
+  const rawInputs = data.proposal.inputs || (data.proposal as any).data?.inputs;
+  const inputs = mergeInputs(rawInputs);
   const price = Number(data.proposal.final_price);
   const startYear = new Date(data.proposal.created_at).getFullYear();
   const [accepted, setAccepted] = useState<{ at: string; by: string } | null>(

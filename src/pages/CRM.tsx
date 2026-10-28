@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Check, CheckSquare, Copy, Eye, EyeOff, FileText, Flame, LayoutGrid, Link2, List, MapPin, MessageCircle, Plus, Receipt, Search, Snowflake, Trash2, X, Zap } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { OpportunityDetailsPanel } from "../components/OpportunityDetailsPanel";
@@ -68,6 +69,7 @@ async function loadCrm(): Promise<CrmData> {
 }
 
 const CRM: React.FC = () => {
+  const queryClient = useQueryClient();
   const { data, setData, loading, reload } = useLive(loadCrm, [], ["opportunities", "proposals", "proposal_views"]);
   const opportunities = data?.opps ?? [];
   const [searchTerm, setSearchTerm] = useState("");
@@ -221,14 +223,32 @@ const CRM: React.FC = () => {
   );
 
   const metrics = useMemo(() => {
-    const open = opportunities.filter((o) => o.status !== "Ganho" && o.status !== "Perdido");
+    const isWon = (status: string) => {
+      const s = (status || "").toLowerCase().trim();
+      return s === "ganho" || s === "fechado" || s === "fechado / ganho" || s === "venda fechada" || s === "won";
+    };
+    const isLost = (status: string) => {
+      const s = (status || "").toLowerCase().trim();
+      return s === "perdido" || s === "cancelado" || s === "lost";
+    };
+
+    const won = opportunities.filter((o) => isWon(o.status));
+    const lost = opportunities.filter((o) => isLost(o.status));
+    const closed = won.length + lost.length;
+    const open = opportunities.filter((o) => !isWon(o.status) && !isLost(o.status));
     const weighted = open.reduce((acc, o) => acc + (o.amount || 0) * (OPPORTUNITY_STAGES.find((s) => s.id === o.status)?.weight ?? 0.1), 0);
-    const won = opportunities.filter((o) => o.status === "Ganho");
-    const closed = won.length + opportunities.filter((o) => o.status === "Perdido").length;
     const viewedNotClosed = open.filter((o) => (byLead.get(o.id)?.views.length ?? 0) > 0).length;
+    const totalCount = opportunities.length;
+    const conversionRate = totalCount ? Number(((won.length / totalCount) * 100).toFixed(1)) : 0;
+    const winRate = closed ? Math.round((won.length / closed) * 100) : 0;
+
     return {
       weighted,
-      winRate: closed ? Math.round((won.length / closed) * 100) : 0,
+      conversionRate,
+      winRate,
+      wonCount: won.length,
+      closedCount: closed,
+      totalCount,
       wonValue: won.reduce((a, o) => a + (o.amount || 0), 0),
       open: open.length,
       viewedNotClosed,
@@ -240,7 +260,10 @@ const CRM: React.FC = () => {
     const nextOpps = opportunities.map((o) => (o.id === opp.id ? { ...o, status, loss_reason: reason || o.loss_reason } : o));
     setOpps(() => nextOpps);
 
-    if (status === "Ganho") await convertToClient(opp).catch(() => {});
+    if (status === "Ganho") {
+      await convertToClient(opp).catch(() => {});
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+    }
 
     const updatePayload: Partial<Opportunity> = { status };
     if (reason) updatePayload.loss_reason = reason;
@@ -418,7 +441,12 @@ const CRM: React.FC = () => {
       {/* Métricas */}
       <div className="mb-4 grid shrink-0 grid-cols-2 gap-3 lg:grid-cols-4">
         <Metric label="Pipeline ponderado" value={brl(metrics.weighted, 0)} sub={`${metrics.open} negócios abertos`} />
-        <Metric label="Taxa de conversão" value={`${metrics.winRate}%`} sub="ganhos ÷ fechados" accent />
+        <Metric 
+          label="Taxa de conversão" 
+          value={`${metrics.conversionRate}%`} 
+          sub={`${metrics.wonCount} de ${metrics.totalCount} leads • ${metrics.winRate}% win rate`} 
+          accent 
+        />
         <Metric label="Receita ganha" value={formatCurrencyShort(metrics.wonValue)} sub="negócios na etapa Ganho" />
         <Metric label="Viram a proposta" value={String(metrics.viewedNotClosed)} sub="abertos e já visualizaram — ligue!" icon={<Eye className="h-3.5 w-3.5 text-violet-300" />} />
       </div>

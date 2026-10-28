@@ -5,6 +5,70 @@ import { useApp } from '../contexts/AppContext';
 import { useNavigate } from 'react-router-dom';
 import { SkeletonPage } from '../components/SkeletonLoader';
 import { AttentionAlerts } from '../components/AttentionAlerts';
+import { supabase } from '../lib/supabaseClient';
+import { useLive } from '../lib/live';
+import { type Opportunity } from '../lib/crm';
+
+interface UnifiedDeal {
+  id: string;
+  name: string;
+  value: number;
+  stage: 'Lead' | 'Qualificacao' | 'Proposta' | 'Fechado' | 'Perdido';
+  rawStatus: string;
+  createdAt: string;
+  city?: string | null;
+  source?: string | null;
+  lossReason?: string | null;
+}
+
+async function loadDashboardCrm(): Promise<Opportunity[]> {
+  const getCachedOpps = (): Opportunity[] => {
+    try {
+      const raw = localStorage.getItem('quark_dashboard_crm_cache');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (_) {}
+    return [];
+  };
+
+  try {
+    const timeoutPromise = new Promise<{ data: any; error: any }>((_, rej) =>
+      setTimeout(() => rej(new Error('timeout')), 6000)
+    );
+    const sbPromise = supabase
+      .from('opportunities')
+      .select('id, title, status, amount, services, temperature, created_at, source, loss_reason, city')
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false });
+
+    const res = await Promise.race([sbPromise, timeoutPromise]) as any;
+    if (res?.data && Array.isArray(res.data) && res.data.length > 0) {
+      try {
+        localStorage.setItem('quark_dashboard_crm_cache', JSON.stringify(res.data));
+      } catch (_) {}
+      return res.data as Opportunity[];
+    }
+  } catch (err) {
+    console.warn('[Dashboard] Supabase timeout, buscando /api/opportunities:', err);
+  }
+
+  try {
+    const resp = await fetch('/api/opportunities');
+    if (resp.ok) {
+      const json = await resp.json();
+      if (json.success && Array.isArray(json.opportunities) && json.opportunities.length > 0) {
+        try {
+          localStorage.setItem('quark_dashboard_crm_cache', JSON.stringify(json.opportunities));
+        } catch (_) {}
+        return json.opportunities as Opportunity[];
+      }
+    }
+  } catch (_) {}
+
+  return getCachedOpps();
+}
 
 /** Inline SVG sparkline for KPI cards */
 const Sparkline: React.FC<{ data: number[]; color?: string }> = ({ data, color = '#a3e635' }) => {
@@ -64,17 +128,105 @@ const StatCard: React.FC<{ title: string; value: string; icon: any; trend: strin
   </div>
 );
 
+const isStatusWon = (s?: string | null) => {
+  if (!s) return false;
+  const str = s.toLowerCase().trim();
+  return str === 'ganho' || str === 'fechado' || str === 'fechado / ganho' || str === 'venda fechada' || str === 'won' || str === 'closed';
+};
+const isStatusLost = (s?: string | null) => {
+  if (!s) return false;
+  const str = s.toLowerCase().trim();
+  return str === 'perdido' || str === 'cancelado' || str === 'lost';
+};
+const isStatusProposal = (s?: string | null) => {
+  if (!s) return false;
+  const str = s.toLowerCase().trim();
+  return str === 'proposta' || str === 'proposta enviada' || str === 'proposal';
+};
+const isStatusQual = (s?: string | null) => {
+  if (!s) return false;
+  const str = s.toLowerCase().trim();
+  return str === 'qualificado' || str === 'qualificacao' || str === 'qualificação' || str === 'em qualificacao';
+};
+
+const resolveStage = (status?: string | null, entries?: any[]): UnifiedDeal['stage'] => {
+  if (isStatusWon(status) || (entries && entries.some((e: any) => isStatusWon(e.stage || e.status)))) return 'Fechado';
+  if (isStatusLost(status) || (entries && entries.some((e: any) => isStatusLost(e.stage || e.status)))) return 'Perdido';
+  if (isStatusProposal(status) || (entries && entries.some((e: any) => isStatusProposal(e.stage || e.status)))) return 'Proposta';
+  if (isStatusQual(status) || (entries && entries.some((e: any) => isStatusQual(e.stage || e.status)))) return 'Qualificacao';
+  return 'Lead';
+};
+
 const Dashboard: React.FC = () => {
-  const { leads, activities, user, isLoading } = useApp();
+  const { leads, activities, user, isLoading: appLoading } = useApp();
   const navigate = useNavigate();
   const [periodFilter, setPeriodFilter] = useState('all');
 
-  const filteredLeads = useMemo(() => {
+  const { data: remoteOpps, loading: oppsLoading } = useLive(
+    loadDashboardCrm,
+    [],
+    ['opportunities', 'proposals', 'financial_transactions']
+  );
+
+  const allDeals = useMemo(() => {
+    const list: UnifiedDeal[] = [];
+    const seenNamesOrIds = new Set<string>();
+
+    // 1. Oportunidades oficiais do CRM Quark
+    if (remoteOpps && remoteOpps.length > 0) {
+      for (const o of remoteOpps) {
+        if (!o || o.deleted_at) continue;
+        const oppName = (o.title || (o as any).client_name || '').trim();
+        const stage = resolveStage(o.status);
+
+        list.push({
+          id: o.id,
+          name: oppName || 'Sem nome',
+          value: Number(o.amount || (o as any).value || (o as any).contract_value || 0),
+          stage,
+          rawStatus: o.status,
+          createdAt: o.created_at || (o as any).updated_at || new Date().toISOString(),
+          city: o.city || 'Maceió',
+          source: o.source || 'Indicação',
+          lossReason: o.loss_reason || null
+        });
+        if (o.id) seenNamesOrIds.add(o.id);
+        if (oppName) seenNamesOrIds.add(oppName.toLowerCase());
+      }
+    }
+
+    // 2. Leads do contexto legado que não estejam duplicados
+    for (const l of leads) {
+      if (!l || (l as any).deletedAt || (l as any).deleted_at) continue;
+      const lName = (l.name || '').trim().toLowerCase();
+      if (seenNamesOrIds.has(l.id) || (lName && seenNamesOrIds.has(lName))) continue;
+
+      const stage = resolveStage(l.status, l.pipelineEntries);
+      const val = Number(l.value || (l as any).amount || (l as any).contract_value || ((l as any).data && ((l as any).data.value || (l as any).data.amount)) || 0);
+
+      list.push({
+        id: l.id,
+        name: l.name || 'Sem nome',
+        value: val,
+        stage,
+        rawStatus: l.status,
+        createdAt: l.createdAt || (l as any).created_at || (l as any).updated_at || new Date().toISOString(),
+        city: l.city || 'Maceió',
+        source: l.source || 'Indicação',
+        lossReason: l.lossReason || null
+      });
+    }
+
+    return list;
+  }, [remoteOpps, leads]);
+
+  const filteredDeals = useMemo(() => {
     const now = new Date();
-    return leads.filter(lead => {
+    return allDeals.filter(deal => {
       if (periodFilter === 'all') return true;
-      const leadDate = new Date(lead.createdAt);
-      const diffTime = Math.abs(now.getTime() - leadDate.getTime());
+      const dealDate = new Date(deal.createdAt);
+      if (isNaN(dealDate.getTime())) return true;
+      const diffTime = Math.abs(now.getTime() - dealDate.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       
       if (periodFilter === '7d') return diffDays <= 7;
@@ -83,47 +235,42 @@ const Dashboard: React.FC = () => {
       if (periodFilter === 'year') return diffDays <= 365;
       return true;
     });
-  }, [leads, periodFilter]);
+  }, [allDeals, periodFilter]);
 
   // --- Real-time Data Calculation ---
   const kpis = useMemo(() => {
-    // Normalização: se o lead tiver 'Fechado' em alguma pipelineEntry, contamos como fechado global
-    const isLeadFechado = (lead: any) => {
-      if (lead.status === 'Fechado' || lead.status === 'Fechado / Ganho') return true;
-      if (lead.pipelineEntries && lead.pipelineEntries.some((e: any) => e.stage === 'Fechado')) return true;
-      return false;
-    };
+    const isDealClosed = (d: UnifiedDeal) => d.stage === 'Fechado' || isStatusWon(d.rawStatus);
 
-    const totalPipeline = filteredLeads.reduce((acc, curr) => acc + (!isLeadFechado(curr) ? (Number(curr.value) || 0) : 0), 0);
-    const totalRevenue = filteredLeads.filter(l => isLeadFechado(l)).reduce((acc, curr) => acc + (Number(curr.value) || 0), 0);
-    const activeLeads = filteredLeads.filter(l => !isLeadFechado(l)).length;
-    const closedCount = filteredLeads.filter(l => isLeadFechado(l)).length;
-    const totalLeadsCount = filteredLeads.length;
+    const totalPipeline = filteredDeals.reduce((acc, curr) => acc + (!isDealClosed(curr) && curr.stage !== 'Perdido' ? curr.value : 0), 0);
+    const totalRevenue = filteredDeals.filter(isDealClosed).reduce((acc, curr) => acc + curr.value, 0);
+    const activeLeads = filteredDeals.filter(d => !isDealClosed(d) && d.stage !== 'Perdido').length;
+    const closedCount = filteredDeals.filter(isDealClosed).length;
+    const totalCount = filteredDeals.length;
     const avgTicket = closedCount > 0 ? totalRevenue / closedCount : 0;
-    const conversionRate = totalLeadsCount > 0 ? ((closedCount / totalLeadsCount) * 100).toFixed(1) : '0.0';
+    const conversionRate = totalCount > 0 ? ((closedCount / totalCount) * 100).toFixed(1) : '0.0';
 
     // Cálculo do Faturamento Projetado (Forecast Baseado em Probabilidade)
-    // Usando pesos: Lead(10%), Qualificação(30%), Proposta(60%)
-    const projectedRevenue = filteredLeads.reduce((acc, curr) => {
-      if (isLeadFechado(curr)) return acc;
+    const projectedRevenue = filteredDeals.reduce((acc, curr) => {
+      if (isDealClosed(curr)) return acc + curr.value;
+      if (curr.stage === 'Perdido') return acc;
       let prob = 0.1;
-      if (curr.status === 'Qualificacao') prob = 0.3;
-      if (curr.status === 'Proposta') prob = 0.6;
-      return acc + ((Number(curr.value) || 0) * prob);
+      if (curr.stage === 'Qualificacao') prob = 0.3;
+      if (curr.stage === 'Proposta') prob = 0.6;
+      return acc + (curr.value * prob);
     }, 0);
 
-    return { totalPipeline, totalRevenue, activeLeads, avgTicket, closedCount, conversionRate, totalLeadsCount, projectedRevenue };
-  }, [filteredLeads]);
+    return { totalPipeline, totalRevenue, activeLeads, avgTicket, closedCount, conversionRate, totalLeadsCount: totalCount, projectedRevenue };
+  }, [filteredDeals]);
 
   // --- Funnel Data ---
   const funnelData = useMemo(() => {
     const counts = { Lead: 0, Qualificacao: 0, Proposta: 0, Fechado: 0 };
-    filteredLeads.forEach(l => {
-      if (l.status === 'Perdido') return; // ignora perdidos no funil simples
-      if (l.status === 'Lead') counts.Lead++;
-      if (l.status === 'Qualificacao') counts.Qualificacao++;
-      if (l.status === 'Proposta') counts.Proposta++;
-      if (l.status === 'Fechado') counts.Fechado++;
+    filteredDeals.forEach(d => {
+      if (d.stage === 'Perdido') return;
+      if (d.stage === 'Lead') counts.Lead++;
+      if (d.stage === 'Qualificacao') counts.Qualificacao++;
+      if (d.stage === 'Proposta') counts.Proposta++;
+      if (d.stage === 'Fechado') counts.Fechado++;
     });
     return [
       { name: 'Novo', value: counts.Lead, fill: '#3b82f6' },
@@ -131,31 +278,33 @@ const Dashboard: React.FC = () => {
       { name: 'Proposta', value: counts.Proposta, fill: '#a855f7' },
       { name: 'Fechado', value: counts.Fechado, fill: '#84cc16' },
     ].filter(item => item.value > 0);
-  }, [filteredLeads]);
+  }, [filteredDeals]);
 
   // --- Win/Loss Data ---
   const lossReasonData = useMemo(() => {
     const reasons: Record<string, number> = {};
-    filteredLeads.filter(l => l.status === 'Perdido').forEach(l => {
-      const reason = l.lossReason || 'Outro';
+    filteredDeals.filter(d => d.stage === 'Perdido').forEach(d => {
+      const reason = d.lossReason || 'Outro';
       reasons[reason] = (reasons[reason] || 0) + 1;
     });
     return Object.entries(reasons).map(([name, value]) => ({ name, value }));
-  }, [filteredLeads]);
+  }, [filteredDeals]);
 
   // --- Source Data ---
   const sourceData = useMemo(() => {
     const sources: Record<string, number> = {};
-    filteredLeads.filter(l => l.status === 'Fechado').forEach(l => {
-      const src = l.source || 'Indicação';
+    const closed = filteredDeals.filter(d => d.stage === 'Fechado');
+    const targetList = closed.length > 0 ? closed : filteredDeals.slice(0, 15);
+    targetList.forEach(d => {
+      const src = d.source || 'Indicação';
       sources[src] = (sources[src] || 0) + 1;
     });
     return Object.entries(sources).map(([name, value]) => ({ name, value }));
-  }, [filteredLeads]);
+  }, [filteredDeals]);
 
   const COLORS = ['#84cc16', '#3b82f6', '#a855f7', '#f97316', '#ef4444', '#14b8a6'];
 
-  // --- Chart Data Generation based on Leads ---
+  // --- Chart Data Generation based on Deals ---
   const chartData = useMemo(() => {
     const months: { dateObj: Date; name: string; revenue: number; pipeline: number }[] = [];
     
@@ -170,31 +319,25 @@ const Dashboard: React.FC = () => {
       });
     }
 
-    // Função de normalização espelhada para garantir consistência
-    const isLeadFechado = (lead: any) => {
-      if (lead.status === 'Fechado' || lead.status === 'Fechado / Ganho') return true;
-      if (lead.pipelineEntries && lead.pipelineEntries.some((e: any) => e.stage === 'Fechado')) return true;
-      return false;
-    };
-
-    filteredLeads.forEach(lead => {
-      const leadDate = new Date(lead.createdAt);
+    filteredDeals.forEach(deal => {
+      const dealDate = new Date(deal.createdAt);
+      if (isNaN(dealDate.getTime())) return;
       const monthData = months.find(m => 
-        m.dateObj.getMonth() === leadDate.getMonth() && 
-        m.dateObj.getFullYear() === leadDate.getFullYear()
+        m.dateObj.getMonth() === dealDate.getMonth() && 
+        m.dateObj.getFullYear() === dealDate.getFullYear()
       );
 
       if (monthData) {
-        if (isLeadFechado(lead)) {
-          monthData.revenue += (Number(lead.value) || 0);
-        } else {
-          monthData.pipeline += (Number(lead.value) || 0);
+        if (deal.stage === 'Fechado') {
+          monthData.revenue += deal.value;
+        } else if (deal.stage !== 'Perdido') {
+          monthData.pipeline += deal.value;
         }
       }
     });
 
     return months.map(({ name, revenue, pipeline }) => ({ name, revenue, pipeline }));
-  }, [filteredLeads]);
+  }, [filteredDeals]);
 
   // Sparkline data from chart months
   const revenueSparkData = chartData.map(d => d.revenue);
@@ -247,7 +390,7 @@ const Dashboard: React.FC = () => {
     doc.save('Quark_Relatorio_Executivo.pdf');
   };
 
-  if (isLoading) return <SkeletonPage />;
+  if (appLoading && oppsLoading && allDeals.length === 0) return <SkeletonPage />;
 
   return (
     <div className="space-y-6 animate-enter pb-10">
@@ -255,7 +398,7 @@ const Dashboard: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
          <div>
             <h1 className="text-2xl sm:text-3xl font-display font-bold text-white tracking-tight">Visão Geral</h1>
-            <p className="text-zinc-500 text-sm mt-1">Bem-vindo de volta, {user?.name.split(' ')[0]}.</p>
+            <p className="text-zinc-500 text-sm mt-1">Bem-vindo de volta, {user?.name?.split(' ')[0] || 'Gestor'}.</p>
          </div>
          <div className="flex gap-2 w-full sm:w-auto">
             <select
@@ -322,33 +465,33 @@ const Dashboard: React.FC = () => {
         {/* Row 1: Key Metrics */}
         <StatCard 
           title="Receita Realizada" 
-          value={`R$ ${(kpis.totalRevenue/1000).toFixed(1)}k`} 
+          value={kpis.totalRevenue >= 1_000_000 ? `R$ ${(kpis.totalRevenue/1_000_000).toFixed(2)}M` : `R$ ${(kpis.totalRevenue/1000).toFixed(1)}k`} 
           icon={DollarSign} 
           trend="+12.5%" 
-          subtext="Vendas Fechadas" 
+          subtext={`${kpis.closedCount} contratos fechados`} 
           sparkData={revenueSparkData}
         />
         <StatCard 
           title="Faturamento Projetado" 
-          value={`R$ ${(kpis.projectedRevenue/1000).toFixed(1)}k`} 
+          value={kpis.projectedRevenue >= 1_000_000 ? `R$ ${(kpis.projectedRevenue/1_000_000).toFixed(2)}M` : `R$ ${(kpis.projectedRevenue/1000).toFixed(1)}k`} 
           icon={Zap} 
           trend="+15.0%" 
-          subtext="Baseado em Probabilidade" 
+          subtext="Baseado em probabilidade" 
           color="orange" 
           sparkData={pipelineSparkData}
         />
         <StatCard 
           title="Pipeline Ativo" 
-          value={`R$ ${(kpis.totalPipeline/1000).toFixed(1)}k`} 
+          value={kpis.totalPipeline >= 1_000_000 ? `R$ ${(kpis.totalPipeline/1_000_000).toFixed(2)}M` : `R$ ${(kpis.totalPipeline/1000).toFixed(1)}k`} 
           icon={Activity} 
           trend="+5.2%" 
-          subtext={`${kpis.activeLeads} oportunidades em aberto`} 
+          subtext={`${kpis.activeLeads} oportunidades abertas`} 
           color="blue" 
           sparkData={pipelineSparkData}
         />
         <StatCard 
           title="Ticket Médio" 
-          value={`R$ ${(kpis.avgTicket/1000).toFixed(1)}k`} 
+          value={kpis.avgTicket >= 1000 ? `R$ ${(kpis.avgTicket/1000).toFixed(1)}k` : `R$ ${kpis.avgTicket.toFixed(0)}`} 
           icon={BarChart3} 
           trend="+8.1%" 
           subtext="Baseado em fechamentos" 
@@ -360,7 +503,7 @@ const Dashboard: React.FC = () => {
           value={`${kpis.conversionRate}%`} 
           icon={TrendingUp} 
           trend="+1.2%" 
-          subtext={`${kpis.closedCount} de ${kpis.totalLeadsCount} leads`} 
+          subtext={`${kpis.closedCount} de ${kpis.totalLeadsCount} negócios`} 
           color="orange" 
           sparkData={conversionSparkData}
         />

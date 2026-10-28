@@ -25,8 +25,9 @@ export default function PublicProposalPage() {
           const list = JSON.parse(raw);
           const found = list.find((p: any) => p.public_token === token || p.id === token);
           if (found && isMounted) {
+            const inputs = found.inputs || found.data?.inputs;
             setData({
-              proposal: found,
+              proposal: { ...found, inputs },
               lead: found.lead || { name: found.client_name || "Cliente Quark", city: found.city || "Maceió - AL", state: "AL", address: null },
               seller: { name: "Arthur Duda", email: "arthurmoraesp12@gmail.com", phone: "(82) 99424-1835" },
               settings: {},

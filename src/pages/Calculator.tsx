@@ -10,6 +10,7 @@ import { pdf } from '@react-pdf/renderer';
 import ProposalPDF from '../components/proposal/ProposalPDF';
 import { buildInitialBlocks } from '../components/proposal/catalog';
 import { ProposalData, DEFAULT_THEME } from '../components/proposal/types';
+import { supabase } from '../lib/supabaseClient';
 
 const ALAGOAS_TARIFF_DEFAULT = 0.98;
 
@@ -317,6 +318,28 @@ const Calculator: React.FC = () => {
     try {
       const leadName = clientName || `Projeto ${selectedCity} - ${result.systemSizeKw}kWp`;
 
+      // 1. Salva na tabela moderna de oportunidades (CRM oficial)
+      try {
+        await supabase.from('opportunities').insert([{
+          title: leadName,
+          client_name: clientName || leadName,
+          city: selectedCity,
+          consumption_kwh: consumption,
+          amount: result.totalInvestment,
+          value: result.totalInvestment,
+          status: 'Lead',
+          pipeline_stage: 'lead',
+          services: ['solar'],
+          system_power: result.systemSizeKw,
+          source: 'Calculadora Solar',
+          tariff: tariff,
+          notes: `Simulação de ${result.systemSizeKw} kWp (${result.modulesCount} módulos) | Economia anual: R$ ${result.annualSavings.toLocaleString('pt-BR')}`
+        }]);
+      } catch (sbErr) {
+        console.warn('[Calculator] Falha ao gravar em opportunities, usando fallback:', sbErr);
+      }
+
+      // 2. Mantém compatibilidade com contexto legado
       await addLead({
         name: leadName,
         city: selectedCity,

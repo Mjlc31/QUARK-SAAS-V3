@@ -80,34 +80,143 @@ export function formatCurrencyShort(value: number) {
   return `R$ ${Math.round(value)}`;
 }
 
-/** Ao ganhar o negócio, cria o cliente no portal (e a ficha técnica, se houver dados). */
+/** Ao ganhar o negócio, cria o cliente no portal, adiciona ao catálogo de clientes, inicializa a engenharia e registra no financeiro. */
 export async function convertToClient(o: Opportunity) {
   try {
-    const { data: auth } = await supabase.auth.getUser();
-    if (!auth?.user) return;
-    const { data: client, error } = await supabase
-      .from("client_portal_users")
-      .insert({
-        user_id: auth.user.id,
-        name: o.title || "Cliente sem nome",
-        email: o.email || "",
-        phone: o.phone || "",
-        cpf: o.cpf_cnpj || "",
-        birth_date: o.birth_date || null,
-        is_active: true,
-      })
-      .select()
-      .single();
-    if (!error && client && (o.installation_date || o.system_power)) {
-      await supabase.from("client_intelligence").insert({
-        user_id: auth.user.id,
-        client_id: client.id,
-        client_name: client.name,
-        install_start_date: o.installation_date || null,
-        system_size_kw: o.system_power || 0,
-        is_active: true,
-      });
+    let currentUserId = '7dacc88f-9ebd-4710-a1be-0647841db24a';
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      if (auth?.user?.id) currentUserId = auth.user.id;
+    } catch {}
+
+    const contractAmount = Number(o.amount || (o as any).value || 0);
+    const cleanPhone = o.phone ? o.phone.trim() : null;
+    const cleanEmail = o.email ? o.email.trim().toLowerCase() : null;
+    const cleanCpf = o.cpf_cnpj ? o.cpf_cnpj.trim() : null;
+
+    const isUuid = (val?: string | null): val is string =>
+      typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+    const validOppId = o.id && isUuid(o.id) ? o.id : null;
+
+    const clientPayload: Record<string, any> = {
+      name: o.title || "Cliente sem nome",
+      email: cleanEmail,
+      phone: cleanPhone,
+      cpf: cleanCpf,
+      birth_date: o.birth_date || null,
+      city: o.city || "Maceió",
+      state: "AL",
+      address: o.address || null,
+      system_size_kw: o.system_power || 0,
+      contract_value: contractAmount,
+      system_cost: contractAmount,
+      notes: o.notes || `Cliente originado do CRM (Venda Fechada - ${o.system_power || 0} kWp).`,
+      opportunity_id: validOppId,
+      is_active: true,
+      user_id: currentUserId,
+    };
+
+    // 1. Tenta persistência direta no Supabase Cloud (garante persistência imediata)
+    let createdClient: any = null;
+    try {
+      const { data: client, error } = await supabase
+        .from("client_portal_users")
+        .insert({
+          ...clientPayload,
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .maybeSingle();
+      if (!error && client) createdClient = client;
+    } catch (sbErr) {
+      console.warn('[convertToClient] Supabase direto aviso:', sbErr);
     }
+
+    // 2. Sincroniza via API do backend em background
+    try {
+      fetch('/api/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(createdClient || clientPayload)
+      }).catch(() => {});
+    } catch (apiErr) {
+      console.warn('[convertToClient] /api/clients aviso:', apiErr);
+    }
+
+    // 3. Salva no cache local de clientes para exibição imediata
+    const clientId = createdClient?.id || `cli_opp_${o.id}`;
+    const fullClient = {
+      ...clientPayload,
+      id: clientId,
+      created_at: createdClient?.created_at || new Date().toISOString(),
+      deleted_at: null,
+      ...createdClient
+    };
+
+    try {
+      const cachedRaw = localStorage.getItem('quark_clients_cache');
+      let cachedList = cachedRaw ? JSON.parse(cachedRaw) : [];
+      if (!Array.isArray(cachedList)) cachedList = [];
+      const idx = cachedList.findIndex((c: any) => c.id === clientId || (c.name && c.name.toLowerCase() === fullClient.name.toLowerCase()));
+      if (idx >= 0) {
+        cachedList[idx] = { ...cachedList[idx], ...fullClient };
+      } else {
+        cachedList.unshift(fullClient);
+      }
+      localStorage.setItem('quark_clients_cache', JSON.stringify(cachedList));
+      window.dispatchEvent(new CustomEvent('quark_client_updated', { detail: fullClient }));
+    } catch (_) {}
+
+    // 4. Cria registros associados (Inteligência, Tracking de Obra e Financeiro)
+    if (fullClient.id) {
+      if (o.installation_date || o.system_power) {
+        try {
+          await supabase.from("client_intelligence").insert({
+            user_id: currentUserId,
+            client_id: fullClient.id,
+            client_name: fullClient.name,
+            install_start_date: o.installation_date || null,
+            system_size_kw: o.system_power || 0,
+            is_active: true,
+          });
+        } catch (_) {}
+      }
+
+      try {
+        await supabase.from('project_tracking').insert({
+          client_id: fullClient.id,
+          opportunity_id: o.id,
+          user_id: currentUserId,
+          phase: 'venda_confirmada',
+          phase_label: 'Venda Confirmada & Contrato',
+          started_at: new Date().toISOString(),
+          is_current: true,
+          notes: `Venda concluída no CRM (${o.system_power || 0} kWp). Início do processo de engenharia.`
+        });
+      } catch (trkErr) {
+        console.warn('Erro ao criar tracking de engenharia:', trkErr);
+      }
+
+      if (contractAmount > 0) {
+        try {
+          await supabase.from('financial_transactions').insert({
+            description: `Venda Solar — ${fullClient.name}`,
+            type: 'receita',
+            category: (o.system_power && o.system_power > 10) ? 'instalacao_comercial' : 'instalacao_residencial',
+            amount: contractAmount,
+            date: new Date().toISOString().split('T')[0],
+            status: 'pago',
+            opportunity_id: o.id,
+            user_id: currentUserId,
+            note: `Fechamento no CRM (${o.system_power || 0} kWp). Cidade: ${o.city || 'N/A'}`
+          });
+        } catch (finErr) {
+          console.warn('Erro ao criar receita no financeiro:', finErr);
+        }
+      }
+    }
+
+    return fullClient;
   } catch (err) {
     console.error("Erro ao converter lead em cliente:", err);
   }

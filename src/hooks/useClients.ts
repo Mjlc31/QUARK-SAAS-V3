@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabaseClient';
 import { ClientPortalUser } from '../types';
@@ -163,7 +164,6 @@ function mergeClientsList(remote: ClientData[], cached: ClientData[], includeDel
     if (!c || !c.id) continue;
     // Ignora apenas mocks clássicos de demonstração
     if (KNOWN_MOCK_CLIENT_IDS.has(c.id) || c.id.startsWith('sample_')) continue;
-    if (c.id.startsWith('cli_opp_') || c.id.startsWith('opp_')) continue;
 
     if (!map.has(c.id)) {
       // Verifica se há correspondência por CPF limpo ou email idêntico para não duplicar
@@ -191,10 +191,19 @@ function mergeClientsList(remote: ClientData[], cached: ClientData[], includeDel
 
 export function useClients(options?: { includeDeleted?: boolean }) {
   const includeDeleted = options?.includeDeleted ?? false;
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const handleClientUpdated = () => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+    };
+    window.addEventListener('quark_client_updated', handleClientUpdated);
+    return () => window.removeEventListener('quark_client_updated', handleClientUpdated);
+  }, [queryClient]);
 
   return useQuery({
     queryKey: ['clients', { includeDeleted }],
-    initialData: () => {
+    placeholderData: () => {
       try {
         const cachedRaw = localStorage.getItem('quark_clients_cache');
         if (cachedRaw) {
@@ -206,7 +215,7 @@ export function useClients(options?: { includeDeleted?: boolean }) {
       } catch (_) {}
       return undefined;
     },
-    staleTime: 30_000,
+    staleTime: 5_000,
     queryFn: async () => {
       let remoteClients: ClientData[] | null = null;
 
@@ -221,7 +230,7 @@ export function useClients(options?: { includeDeleted?: boolean }) {
           query = query.is('deleted_at', null);
         }
 
-        const { data, error } = await withTimeout(Promise.resolve(query), 8000);
+        const { data, error } = await withTimeout(Promise.resolve(query), 2500);
         if (!error && Array.isArray(data) && data.length > 0) {
           remoteClients = data as ClientData[];
         }
@@ -234,7 +243,7 @@ export function useClients(options?: { includeDeleted?: boolean }) {
         try {
           const res = await withTimeout(
             fetch(`/api/clients${includeDeleted ? '?includeDeleted=true' : ''}`),
-            5000
+            2000
           );
           if (res.ok) {
             const json = await res.json();
@@ -313,24 +322,79 @@ export function useCreateClient() {
         payload.user_id = currentUserId;
       }
 
-      const tempId = `cli_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const isUuid = (val?: string | null): val is string =>
+        typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+      const targetId = (client.id && isUuid(client.id))
+        ? client.id
+        : (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined);
+
+      const defaultAdminUserId = '7dacc88f-9ebd-4710-a1be-0647841db24a';
+      payload.user_id = currentUserId || defaultAdminUserId;
+      if (targetId) payload.id = targetId;
+
       let savedClient: ClientData = {
-        id: tempId,
+        id: targetId || `cli_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
         ...payload,
         created_at: new Date().toISOString(),
         deleted_at: null,
       } as ClientData;
 
-      // 1. Grava no cache local imediatamente para feedback instantâneo na UI
+      // 1. Tenta persistência primária DIRETA no Supabase Cloud (0 dependência de Docker ou backend local)
+      try {
+        let existingId: string | null = null;
+        if (formattedCpf) {
+          const { data: existing } = await supabase
+            .from('client_portal_users')
+            .select('id')
+            .eq('cpf', formattedCpf)
+            .maybeSingle();
+          if (existing?.id) existingId = existing.id;
+        }
+
+        if (!existingId && cleanEmail) {
+          const { data: existing } = await supabase
+            .from('client_portal_users')
+            .select('id')
+            .eq('email', cleanEmail)
+            .maybeSingle();
+          if (existing?.id) existingId = existing.id;
+        }
+
+        if (existingId) {
+          const { data: updated, error: updErr } = await supabase
+            .from('client_portal_users')
+            .update(payload)
+            .eq('id', existingId)
+            .select()
+            .single();
+          if (!updErr && updated) {
+            savedClient = updated as ClientData;
+          }
+        } else {
+          const { data: inserted, error: insErr } = await supabase
+            .from('client_portal_users')
+            .insert(payload)
+            .select()
+            .single();
+          if (!insErr && inserted) {
+            savedClient = inserted as ClientData;
+          }
+        }
+      } catch (sbErr) {
+        console.warn('[useCreateClient] Supabase direto falhou, usando fallback resiliente:', sbErr);
+      }
+
+      // 2. Grava no cache local imediatamente com o ID definitivo do banco
       try {
         const cached = localStorage.getItem('quark_clients_cache');
         const list: ClientData[] = cached ? JSON.parse(cached) : [];
         const existingIdx = list.findIndex(c => 
+          c.id === savedClient.id ||
           (formattedCpf && onlyDigits(c.cpf) === cpfDigits) ||
           (cleanEmail && c.email?.toLowerCase() === cleanEmail)
         );
         if (existingIdx !== -1) {
-          list[existingIdx] = { ...list[existingIdx], ...payload, deleted_at: null, is_active: true };
+          list[existingIdx] = { ...list[existingIdx], ...savedClient, deleted_at: null, is_active: true };
           savedClient = list[existingIdx];
         } else {
           list.unshift(savedClient);
@@ -340,87 +404,14 @@ export function useCreateClient() {
         console.warn('[useCreateClient] Erro ao gravar cache local:', err);
       }
 
-      // 2. Persistência de alta disponibilidade via Backend API
+      // 3. Sincroniza em background com o servidor backend (não bloqueia UI)
       try {
-        const apiRes = await withTimeout(
-          fetch('/api/clients', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          }),
-          2000
-        );
-
-        if (apiRes.ok) {
-          const apiJson = await apiRes.json();
-          if (apiJson.success && apiJson.client) {
-            const realClient = apiJson.client as ClientData;
-            // Atualiza cache local substituindo o ID temporário pelo ID real do banco
-            try {
-              const cached = localStorage.getItem('quark_clients_cache');
-              if (cached) {
-                const list: ClientData[] = JSON.parse(cached);
-                const idx = list.findIndex(c => c.id === tempId || c.id === realClient.id);
-                if (idx !== -1) list[idx] = realClient;
-                else list.unshift(realClient);
-                localStorage.setItem('quark_clients_cache', JSON.stringify(list));
-              }
-            } catch (_) {}
-            return realClient;
-          }
-        }
-      } catch (apiErr) {
-        console.warn('[useCreateClient] Backend API indisponível, tentando Supabase direto:', apiErr);
-      }
-
-      // 3. Fallback: Persistência direta no Supabase
-      try {
-        // Verifica se já existe por CPF ou email antes de inserir
-        let existingId: string | null = null;
-        if (formattedCpf) {
-          const { data: existing } = await withTimeout(
-            Promise.resolve(supabase
-              .from('client_portal_users')
-              .select('id')
-              .eq('cpf', formattedCpf)
-              .maybeSingle()),
-            1500
-          ).catch(() => ({ data: null }));
-          if (existing) existingId = existing.id;
-        }
-
-        if (!existingId && cleanEmail) {
-          const { data: existing } = await withTimeout(
-            Promise.resolve(supabase
-              .from('client_portal_users')
-              .select('id')
-              .eq('email', cleanEmail)
-              .maybeSingle()),
-            1500
-          ).catch(() => ({ data: null }));
-          if (existing) existingId = existing.id;
-        }
-
-        if (existingId) {
-          const { data: updated, error: updErr } = await withTimeout(
-            Promise.resolve(supabase.from('client_portal_users').update(payload).eq('id', existingId).select().single()),
-            2000
-          ).catch(() => ({ data: null, error: true }));
-          if (!updErr && updated) {
-            return updated as ClientData;
-          }
-        } else {
-          const { data: inserted, error: insErr } = await withTimeout(
-            Promise.resolve(supabase.from('client_portal_users').insert(payload).select().single()),
-            2000
-          ).catch(() => ({ data: null, error: true }));
-          if (!insErr && inserted) {
-            return inserted as ClientData;
-          }
-        }
-      } catch (sbErr) {
-        console.warn('[useCreateClient] Salvo localmente em cache offline resiliente:', sbErr);
-      }
+        fetch('/api/clients', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(savedClient),
+        }).catch(() => {});
+      } catch (_) {}
 
       return savedClient;
     },

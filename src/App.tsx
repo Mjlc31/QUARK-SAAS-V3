@@ -42,6 +42,7 @@ const QuickQuoteStudio = React.lazy(() => import('./pages/QuickQuoteStudio'));
 const TeamManagement = React.lazy(() => import('./pages/TeamManagement'));
 const Receipts = React.lazy(() => import('./pages/Receipts'));
 const Contracts = React.lazy(() => import('./pages/Contracts'));
+const SocialStudio = React.lazy(() => import('./pages/SocialStudio'));
 import { AppProvider, useApp } from './contexts/AppContext';
 import { LayoutDashboard, Menu, Zap, Users, CheckSquare, HardHat, DollarSign } from 'lucide-react';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -93,6 +94,7 @@ const MainLayout: React.FC = () => {
             <Route path="/orcamento-rapido" element={<PageWrapper><QuickQuoteStudio /></PageWrapper>} />
             <Route path="/equipe" element={<PageWrapper><TeamManagement /></PageWrapper>} />
             <Route path="/conversations" element={<PageWrapper><Conversations /></PageWrapper>} />
+            <Route path="/social-studio" element={<PageWrapper><SocialStudio /></PageWrapper>} />
             <Route path="/calculator" element={<PageWrapper><Calculator /></PageWrapper>} />
             <Route path="/price-list" element={<PageWrapper><PriceList /></PageWrapper>} />
             <Route path="/propostas" element={<PageWrapper><Proposals /></PageWrapper>} />
@@ -103,7 +105,7 @@ const MainLayout: React.FC = () => {
             <Route path="/tasks" element={<PageWrapper><Tasks /></PageWrapper>} />
             <Route path="/products" element={<PageWrapper><Products /></PageWrapper>} />
             <Route path="/ecommerce" element={<PageWrapper><Products /></PageWrapper>} />
-            <Route path="/follow-up" element={<PageWrapper><FollowUp /></PageWrapper>} />
+            <Route path="/follow-up" element={<Navigate to="/engineering" replace />} />
             <Route path="/reports" element={<PageWrapper><Reports /></PageWrapper>} />
             <Route path="/financeiro" element={<PageWrapper><Financial /></PageWrapper>} />
             <Route path="/recibos" element={<PageWrapper><Receipts /></PageWrapper>} />

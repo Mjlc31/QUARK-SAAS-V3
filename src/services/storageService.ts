@@ -214,7 +214,7 @@ const INITIAL_USERS: User[] = [
   { id: '1', name: 'Admin User', email: 'admin@quark.com', role: 'Admin', avatarInitials: 'AD' },
 ];
 
-const withTimeout = <T,>(p: Promise<T>, ms = 8000): Promise<T> =>
+const withTimeout = <T,>(p: Promise<T>, ms = 2000): Promise<T> =>
   Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 
 export const storageService = {
@@ -241,12 +241,11 @@ export const storageService = {
       const localStr = safeLocalStorage.getItem('quark_leads');
       const localData: Lead[] = localStr ? JSON.parse(localStr) : [];
 
-      // Cloud empty but local has data → sync local to cloud
+      // Cloud empty but local has data → sync local to cloud in background non-blocking
       if (cloudLeads.length === 0 && localData.length > 0) {
-        console.log("☁️ Nuvem vazia, tentando restaurar dados locais...");
-        for (const lead of localData) {
-          await supabase.from('leads').upsert({ id: lead.id, data: lead, updated_at: lead.updatedAt });
-        }
+        Promise.allSettled(
+          localData.map(lead => supabase.from('leads').upsert({ id: lead.id, data: lead, updated_at: lead.updatedAt }))
+        ).catch(() => {});
         return localData;
       }
 
@@ -342,9 +341,9 @@ export const storageService = {
       const localData: Task[] = localStr ? JSON.parse(localStr) : [];
 
       if ((!data || data.length === 0) && localData.length > 0) {
-        for (const task of localData) {
-          await supabase.from('tasks').upsert({ id: task.id, data: task, updated_at: new Date() });
-        }
+        Promise.allSettled(
+          localData.map(task => supabase.from('tasks').upsert({ id: task.id, data: task, updated_at: new Date() }))
+        ).catch(() => {});
         return localData;
       }
 
@@ -474,15 +473,15 @@ export const storageService = {
       const localData: Project[] = localStr ? JSON.parse(localStr) : [];
 
       if (cloudProjects.length === 0 && localData.length > 0) {
-        // Tenta sincronizar em lote silenciosamente apenas se houver conexão ativa
+        // Tenta sincronizar em lote silenciosamente apenas se houver conexão ativa sem bloquear
         try {
-          const { data: sessionData } = await supabase.auth.getSession();
-          if (sessionData?.session) {
-            for (const proj of localData) {
-              const { error: upsertErr } = await supabase.from('projects').upsert({ id: proj.id, data: proj, updated_at: new Date() });
-              if (upsertErr) break; // Interrompe para evitar loop de 401s
+          supabase.auth.getSession().then(({ data: sessionData }) => {
+            if (sessionData?.session) {
+              Promise.allSettled(
+                localData.map(proj => supabase.from('projects').upsert({ id: proj.id, data: proj, updated_at: new Date() }))
+              ).catch(() => {});
             }
-          }
+          }).catch(() => {});
         } catch (_) {}
         return localData;
       }

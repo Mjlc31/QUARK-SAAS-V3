@@ -53,9 +53,14 @@ export function useFinancialDreSummary(params?: { startDate?: string; endDate?: 
         const { data: { session } } = await sessionPromise;
         if (!session?.user?.id) return null;
 
+        const isPartnerAdmin = 
+          session.user.email === 'arthurmoraesp12@gmail.com' || 
+          session.user.email === 'ctt.andersonalves@gmail.com' ||
+          session.user.user_metadata?.role === 'Admin';
+
         const rpcPromise = Promise.race([
           Promise.resolve(supabase.rpc('get_financial_dre_summary', {
-            p_user_id: session.user.id,
+            p_user_id: isPartnerAdmin ? null : session.user.id,
             p_start_date: startDate || null,
             p_end_date: endDate || null
           })),

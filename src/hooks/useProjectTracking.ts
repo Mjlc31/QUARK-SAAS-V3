@@ -453,17 +453,28 @@ export function useActiveProjectsTracking() {
       try {
         const { data: userAuth } = await withTimeout(supabase.auth.getUser(), 4000);
         if (userAuth?.user) {
+          const isPartnerAdmin = 
+            userAuth.user.email === 'arthurmoraesp12@gmail.com' || 
+            userAuth.user.email === 'ctt.andersonalves@gmail.com' ||
+            userAuth.user.user_metadata?.role === 'Admin';
+
+          let query = supabase
+            .from('project_tracking')
+            .select(`
+              *,
+              opportunities (
+                id, title, amount, status, phone, email
+              )
+            `)
+            .eq('is_current', true)
+            .is('deleted_at', null);
+
+          if (!isPartnerAdmin) {
+            query = query.eq('user_id', userAuth.user.id);
+          }
+
           const { data } = await withTimeout(
-            supabase
-              .from('project_tracking')
-              .select(`
-                *,
-                opportunities (
-                  id, title, amount, status, phone, email
-                )
-              `)
-              .eq('user_id', userAuth.user.id)
-              .eq('is_current', true),
+            query,
             8000
           );
           if (data && data.length > 0) return data;
