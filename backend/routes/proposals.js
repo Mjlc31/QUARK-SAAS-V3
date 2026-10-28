@@ -68,6 +68,26 @@ router.get('/', async (req, res) => {
 router.get('/:idOrToken', async (req, res) => {
   try {
     const { idOrToken } = req.params;
+
+    // 1. Tenta PRIMEIRO no Supabase (Fonte Única da Verdade)
+    try {
+      const isUuid = (val) => typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+      const orFilter = isUuid(idOrToken) ? `id.eq.${idOrToken},public_token.eq.${idOrToken}` : `public_token.eq.${idOrToken}`;
+      const { data, error } = await supabase.from('proposals').select('*').or(orFilter).maybeSingle();
+      if (!error && data && !data.deleted_at) {
+        return res.json({
+          success: true,
+          proposal: data,
+          lead: data.lead || { name: data.client_name || "Cliente Quark", city: data.city || "Maceió - AL", state: "AL", address: null },
+          seller: { name: "Arthur Duda", email: "arthurmoraesp12@gmail.com", phone: "(82) 99424-1835" },
+          settings: {},
+        });
+      }
+    } catch (e) {
+      console.warn('[ProposalsAPI] Supabase individual query falhou, recorrendo ao store local:', e.message);
+    }
+
+    // 2. Fallback somente se o Supabase estiver indisponível
     const list = readStore();
     const found = list.find(p => !p.deleted_at && (p.id === idOrToken || p.public_token === idOrToken));
 
@@ -92,20 +112,6 @@ router.get('/:idOrToken', async (req, res) => {
         settings: {},
       });
     }
-
-    // Tenta no Supabase
-    try {
-      const { data } = await supabase.from('proposals').select('*').or(`id.eq.${idOrToken},public_token.eq.${idOrToken}`).single();
-      if (data) {
-        return res.json({
-          success: true,
-          proposal: data,
-          lead: data.lead || { name: data.client_name || "Cliente Quark", city: data.city || "Maceió - AL", state: "AL", address: null },
-          seller: { name: "Arthur Duda", email: "arthurmoraesp12@gmail.com", phone: "(82) 99424-1835" },
-          settings: {},
-        });
-      }
-    } catch (_) {}
 
     return res.status(404).json({ success: false, error: 'Proposta não encontrada.' });
   } catch (err) {
@@ -167,47 +173,44 @@ router.post('/', async (req, res) => {
 
     writeStore(list);
 
-    // Tenta persistir no Supabase em background sem bloquear
-    Promise.resolve().then(async () => {
-      try {
-        const isUuid = (val) => typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
-        if (isUuid(proposal.id)) {
-          const adminUserId = '7dacc88f-9ebd-4710-a1be-0647841db24a';
-          const oppId = proposal.opportunity_id && isUuid(proposal.opportunity_id) ? proposal.opportunity_id : (proposal.lead_id && isUuid(proposal.lead_id) ? proposal.lead_id : null);
-          await supabase.from('proposals').upsert({
-            id: proposal.id,
-            opportunity_id: oppId,
-            lead_id: proposal.lead_id || null,
-            user_id: isUuid(proposal.user_id) ? proposal.user_id : adminUserId,
-            created_by: isUuid(proposal.created_by) ? proposal.created_by : adminUserId,
-            title: proposal.title,
-            client_name: proposal.client_name,
-            city: proposal.lead?.city || null,
-            phone: proposal.lead?.phone || null,
+    // Persiste no Supabase garantindo consistência transacional
+    try {
+      if (isUuid(proposal.id)) {
+        const adminUserId = '7dacc88f-9ebd-4710-a1be-0647841db24a';
+        const oppId = proposal.opportunity_id && isUuid(proposal.opportunity_id) ? proposal.opportunity_id : (proposal.lead_id && isUuid(proposal.lead_id) ? proposal.lead_id : null);
+        await supabase.from('proposals').upsert({
+          id: proposal.id,
+          opportunity_id: oppId,
+          lead_id: proposal.lead_id || null,
+          user_id: isUuid(proposal.user_id) ? proposal.user_id : adminUserId,
+          created_by: isUuid(proposal.created_by) ? proposal.created_by : adminUserId,
+          title: proposal.title,
+          client_name: proposal.client_name,
+          city: proposal.lead?.city || null,
+          phone: proposal.lead?.phone || null,
+          inputs: proposal.inputs,
+          power_kwp: proposal.power_kwp,
+          system_size_kw: proposal.power_kwp,
+          monthly_generation: proposal.monthly_generation,
+          direct_cost: proposal.direct_cost,
+          commission_value: proposal.commission_value,
+          tax_value: proposal.tax_value,
+          profit_value: proposal.profit_value,
+          final_price: proposal.final_price,
+          status: proposal.status || 'rascunho',
+          data: {
             inputs: proposal.inputs,
-            power_kwp: proposal.power_kwp,
-            system_size_kw: proposal.power_kwp,
-            monthly_generation: proposal.monthly_generation,
-            direct_cost: proposal.direct_cost,
-            commission_value: proposal.commission_value,
-            tax_value: proposal.tax_value,
-            profit_value: proposal.profit_value,
-            final_price: proposal.final_price,
-            status: proposal.status || 'rascunho',
-            data: {
-              inputs: proposal.inputs,
-              title: proposal.title,
-              number: proposal.number,
-              public_token: proposal.public_token,
-              lead: proposal.lead,
-            },
-            updated_at: new Date().toISOString(),
-          });
-        }
-      } catch (err) {
-        console.warn('[ProposalsAPI] Aviso ao salvar no Supabase:', err.message);
+            title: proposal.title,
+            number: proposal.number,
+            public_token: proposal.public_token,
+            lead: proposal.lead,
+          },
+          updated_at: new Date().toISOString(),
+        });
       }
-    });
+    } catch (err) {
+      console.warn('[ProposalsAPI] Aviso ao salvar no Supabase:', err.message);
+    }
 
     return res.json({ success: true, proposal });
   } catch (err) {

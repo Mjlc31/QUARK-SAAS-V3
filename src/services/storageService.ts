@@ -214,7 +214,7 @@ const INITIAL_USERS: User[] = [
   { id: '1', name: 'Admin User', email: 'admin@quark.com', role: 'Admin', avatarInitials: 'AD' },
 ];
 
-const withTimeout = <T,>(p: Promise<T>, ms = 2000): Promise<T> =>
+const withTimeout = <T,>(p: Promise<T>, ms = 8000): Promise<T> =>
   Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 
 export const storageService = {
@@ -330,7 +330,7 @@ export const storageService = {
   // --- TASKS ---
   getTasks: async (): Promise<Task[]> => {
     try {
-      const withTimeout = <T,>(p: Promise<T>, ms = 1500): Promise<T> =>
+      const withTimeout = <T,>(p: Promise<T>, ms = 8000): Promise<T> =>
         Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 
       const res = await withTimeout(supabase.from('tasks').select('*') as any).catch(() => ({ data: null, error: true }));
@@ -552,11 +552,13 @@ export const storageService = {
   // --- TAGS (CRM v2) ---
   getTags: async () => {
     const FALLBACK_TAGS = [
-      { id: 'tag-1', name: 'Anúncios', color: '#f59e0b' },
-      { id: 'tag-2', name: 'Indicação', color: '#10b981' },
-      { id: 'tag-3', name: 'Instagram orgânico', color: '#8b5cf6' },
-      { id: 'tag-4', name: 'Google Ads', color: '#3b82f6' },
-      { id: 'tag-5', name: 'Indicação interna', color: '#ec4899' },
+      { id: 'fd757218-8f7d-48e8-bb1d-a9a4f138a0ac', name: 'Anúncios', color: '#f59e0b' },
+      { id: '124c1b1c-9b45-4821-9001-0246330a6ab7', name: 'Indicação', color: '#10b981' },
+      { id: 'd2ff45bc-7eb9-4b99-a2c7-b564cb290118', name: 'Instagram orgânico', color: '#8b5cf6' },
+      { id: '4b2a163e-51c9-4e7d-a53c-4384cdd4b494', name: 'Google Ads', color: '#3b82f6' },
+      { id: '396ffc01-bab6-4a44-899c-ad23927b0d56', name: 'Indicação interna', color: '#ec4899' },
+      { id: '0abf98b7-b3e3-4595-becd-da982de420b1', name: 'WhatsApp Bot', color: '#06b6d4' },
+      { id: '9fa1385e-3963-4e63-b149-cfde700ea0e3', name: 'Fechado Solar', color: '#10b981' },
     ];
     try {
       const { data, error } = await supabase.from('tags').select('*').order('name');

@@ -34,7 +34,7 @@ export interface ContractRow {
 
 const CACHE_KEY = 'quark_contracts_cache';
 
-const withTimeout = <T,>(p: Promise<T>, ms = 2000): Promise<T> =>
+const withTimeout = <T,>(p: Promise<T>, ms = 8000): Promise<T> =>
   Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 
 export function useContracts(filterKind: string = 'contrato') {
@@ -61,7 +61,7 @@ export function useContracts(filterKind: string = 'contrato') {
           .eq('kind', filterKind)
           .order('updated_at', { ascending: false });
 
-        const res = await withTimeout(queryPromise as any, 2000).catch(() => ({ data: null, error: true }));
+        const res = await withTimeout(queryPromise as any, 8000).catch(() => ({ data: null, error: true }));
         const { data, error } = res as any;
 
         if (error || !data) {
@@ -82,8 +82,17 @@ export function useContracts(filterKind: string = 'contrato') {
           lead: d.lead || null,
         }));
 
-        localStorage.setItem(CACHE_KEY, JSON.stringify(rows));
-        return rows;
+        const cached = localStorage.getItem(CACHE_KEY);
+        let localUnsynced: ContractRow[] = [];
+        if (cached) {
+          try {
+            const list: ContractRow[] = JSON.parse(cached);
+            localUnsynced = list.filter((c) => c.id.startsWith('doc_') && !rows.some((r) => r.id === c.id));
+          } catch (_) {}
+        }
+        const merged = [...localUnsynced, ...rows];
+        localStorage.setItem(CACHE_KEY, JSON.stringify(merged));
+        return merged;
       } catch (e) {
         console.warn('[useContracts] Falha ao consultar Supabase, usando cache local:', e);
         const cached = localStorage.getItem(CACHE_KEY);
@@ -119,9 +128,11 @@ export function useCreateContract() {
           kind: 'contrato',
           title: payload.title,
           lead_id: payload.lead_id || null,
+          opportunity_id: payload.lead_id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(payload.lead_id) ? payload.lead_id : null,
           data: payload.data,
           status: 'enviado',
           created_by: userAuth?.user?.id || null,
+          user_id: userAuth?.user?.id || '7dacc88f-9ebd-4710-a1be-0647841db24a',
         };
 
         const insertRes = await withTimeout(

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabaseClient';
 
-const withTimeout = <T,>(p: PromiseLike<T> | Promise<T>, ms = 1200): Promise<T> =>
+const withTimeout = <T,>(p: PromiseLike<T> | Promise<T>, ms = 8000): Promise<T> =>
   Promise.race([
     Promise.resolve(p),
     new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms)),
@@ -119,7 +119,7 @@ export function useQuarkPoints(clientId?: string | null) {
           clientQuery = clientQuery.eq('id', clientId);
         }
 
-        const clientRes: any = await withTimeout(Promise.resolve(clientQuery.maybeSingle()), 1000);
+        const clientRes: any = await withTimeout(Promise.resolve(clientQuery.maybeSingle()), 5000);
         clientUser = clientRes?.data;
         const actualClientId = clientUser?.id || clientId;
 

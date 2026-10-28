@@ -31,7 +31,7 @@ async function loadCrm(): Promise<CrmData> {
 
   try {
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Supabase query timeout")), 3500)
+      setTimeout(() => reject(new Error("Supabase query timeout")), 8000)
     );
 
     const queryPromise = Promise.all([
@@ -50,7 +50,7 @@ async function loadCrm(): Promise<CrmData> {
       if (proposalIds.length > 0) {
         views = await Promise.race([
           fetchProposalViews(proposalIds),
-          new Promise<ProposalView[]>((r) => setTimeout(() => r([]), 1500))
+          new Promise<ProposalView[]>((r) => setTimeout(() => r([]), 2500))
         ]);
       }
     }
@@ -61,7 +61,7 @@ async function loadCrm(): Promise<CrmData> {
   // Fallback seguro: se e apenas se a consulta remota direta não retornou oportunidades
   if (opps.length === 0) {
     try {
-      const res = await fetch("/api/opportunities", { signal: AbortSignal.timeout(2000) });
+      const res = await fetch("/api/opportunities", { signal: AbortSignal.timeout(6000) });
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.opportunities)) {
@@ -343,6 +343,22 @@ const CRM: React.FC = () => {
         const stored = JSON.parse(localStorage.getItem("quark_tasks") || "[]");
         localStorage.setItem("quark_tasks", JSON.stringify([...stored, cadenceTask]));
         window.dispatchEvent(new Event("quark_tasks_updated"));
+
+        supabase.from("tasks").insert([{
+          id: cadenceTask.id,
+          title: cadenceTask.title,
+          assignee: cadenceTask.assignee,
+          deadline: cadenceTask.deadline,
+          priority: cadenceTask.priority,
+          completed: false,
+          data: {
+            copy: cadenceTask.copy,
+            lead_id: cadenceTask.lead_id,
+            lead_name: cadenceTask.lead_name,
+            lead_phone: cadenceTask.lead_phone,
+            action: cadenceTask.action
+          }
+        }]).then(() => {});
       } catch (err) {}
     }
 

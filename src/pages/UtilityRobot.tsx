@@ -5,7 +5,7 @@ import { useClientIntelligence, SAMPLE_UTILITY_INVOICES } from '../hooks/useClie
 import { ClientIntelligenceRecord, UtilityInvoice } from '../types';
 import toast from 'react-hot-toast';
 
-const withTimeout = <T,>(p: Promise<T>, ms = 1200): Promise<T> =>
+const withTimeout = <T,>(p: Promise<T>, ms = 8000): Promise<T> =>
   Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 
 const STORAGE_KEY_INVOICES = 'quark_utility_invoices';
@@ -52,7 +52,7 @@ const UtilityRobot: React.FC = () => {
               .order('captured_at', { ascending: false })
               .limit(50)
           ),
-          1200
+          8000
         );
         if (!isMounted) return;
         if (!error && data && data.length > 0) {

@@ -29,6 +29,8 @@ export default function PriceList() {
   const [editingKit, setEditingKit] = useState<KitPreset | null>(null);
   const [historyKit, setHistoryKit] = useState<KitPreset | null>(null);
 
+  const [deletedKitIds, setDeletedKitIds] = useState<Set<string>>(new Set());
+
   React.useEffect(() => {
     if (settingsLoaded) {
       setLaborPerModule(settings.defaults?.laborPerModule || 110);
@@ -39,7 +41,7 @@ export default function PriceList() {
     }
   }, [settingsLoaded, settings.defaults]);
 
-  const kits = settings.kits || [];
+  const kits = (settings.kits || []).filter(k => !deletedKitIds.has(k.id));
   
   const filteredKits = useMemo(() => {
     let list = kits;
@@ -127,7 +129,7 @@ export default function PriceList() {
         console.warn("[PriceList] Excluído em cache local offline:", upsertErr);
       }
       toast.success("Kit excluído com sucesso!");
-      window.location.reload();
+      setDeletedKitIds(prev => new Set(prev).add(kitId));
     } catch (err: any) {
       toast.error(err.message || "Erro ao excluir kit");
     }

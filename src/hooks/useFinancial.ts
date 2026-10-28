@@ -48,15 +48,18 @@ export function useFinancialDreSummary(params?: { startDate?: string; endDate?: 
       try {
         const sessionPromise = Promise.race([
           supabase.auth.getSession(),
-          new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), 800))
+          new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), 4000))
         ]);
         const { data: { session } } = await sessionPromise;
         if (!session?.user?.id) return null;
 
+        const userEmail = (session.user.email || '').toLowerCase().trim();
+        const userRole = (session.user.user_metadata?.role || '').toLowerCase().trim();
         const isPartnerAdmin = 
-          session.user.email === 'arthurmoraesp12@gmail.com' || 
-          session.user.email === 'ctt.andersonalves@gmail.com' ||
-          session.user.user_metadata?.role === 'Admin';
+          userEmail === 'arthurmoraesp12@gmail.com' || 
+          userEmail === 'ctt.andersonalves@gmail.com' ||
+          userRole === 'admin' ||
+          userEmail.includes('admin');
 
         const rpcPromise = Promise.race([
           Promise.resolve(supabase.rpc('get_financial_dre_summary', {
@@ -64,7 +67,7 @@ export function useFinancialDreSummary(params?: { startDate?: string; endDate?: 
             p_start_date: startDate || null,
             p_end_date: endDate || null
           })),
-          new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), 1200))
+          new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000))
         ]);
         const { data, error } = await rpcPromise;
 

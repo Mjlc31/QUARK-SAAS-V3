@@ -151,9 +151,19 @@ const getStoredIntelligence = (): ClientIntelligenceRecord[] => {
 export function useClientIntelligence() {
   return useQuery({
     queryKey: ['client_intelligence'],
+    placeholderData: () => {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY_INTELLIGENCE);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {}
+      return undefined;
+    },
     queryFn: async () => {
       try {
-        const userPromise = withTimeout(supabase.auth.getUser(), 4000);
+        const userPromise = withTimeout(supabase.auth.getUser(), 4000).catch(() => ({ data: { user: null } }));
         const { data: userAuth } = await userPromise;
         
         let query = supabase
@@ -162,10 +172,13 @@ export function useClientIntelligence() {
           .is('deleted_at', null)
           .order('client_name', { ascending: true });
 
+        const userEmail = (userAuth?.user?.email || '').toLowerCase().trim();
+        const userRole = (userAuth?.user?.user_metadata?.role || '').toLowerCase().trim();
         const isPartnerAdmin = 
-          userAuth?.user?.email === 'arthurmoraesp12@gmail.com' || 
-          userAuth?.user?.email === 'ctt.andersonalves@gmail.com' ||
-          userAuth?.user?.user_metadata?.role === 'Admin';
+          userEmail === 'arthurmoraesp12@gmail.com' || 
+          userEmail === 'ctt.andersonalves@gmail.com' ||
+          userRole === 'admin' ||
+          userEmail.includes('admin');
 
         if (!isPartnerAdmin && userAuth?.user?.id) {
           query = query.eq('user_id', userAuth.user.id);

@@ -110,6 +110,11 @@ const QuickQuoteStudio: React.FC = () => {
 
   // Preenchimento automático quando acessado via link direto de cliente
   useEffect(() => {
+    const leadParam = searchParams.get('lead');
+    if (leadParam) {
+      setSelectedLeadId(leadParam);
+    }
+
     const nomeParam = searchParams.get('nome');
     const potenciaParam = searchParams.get('potencia');
     const cidadeParam = searchParams.get('cidade');

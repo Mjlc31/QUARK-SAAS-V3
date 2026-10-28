@@ -159,6 +159,16 @@ const getStoredMessages = (ticketId: string): TicketMessage[] => {
 export function useTickets() {
   return useQuery({
     queryKey: ['support_tickets'],
+    placeholderData: () => {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY_TICKETS);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {}
+      return undefined;
+    },
     queryFn: async () => {
       try {
         const { data, error } = await withTimeout(
@@ -171,7 +181,7 @@ export function useTickets() {
               `)
               .order('created_at', { ascending: false })
           ),
-          1200
+          8000
         );
 
         if (error) throw error;
@@ -213,7 +223,7 @@ export function useTicketMessages(ticketId: string) {
               .eq('ticket_id', ticketId)
               .order('created_at', { ascending: true })
           ),
-          2000
+          8000
         );
 
         if (error) throw error;

@@ -73,28 +73,40 @@ const getStoredAlerts = (): MaintenanceAlert[] => {
 export function useMaintenanceAlerts() {
   return useQuery({
     queryKey: ['maintenance_alerts'],
+    placeholderData: () => {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY_ALERTS);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {}
+      return undefined;
+    },
     queryFn: async () => {
       try {
-        const userPromise = withTimeout(supabase.auth.getUser(), 800);
-        const { data: userAuth } = await userPromise;
+        const { data: userAuth } = await withTimeout(supabase.auth.getUser(), 4000).catch(() => ({ data: { user: null } }));
 
         let query = supabase
           .from('maintenance_alerts')
           .select('*')
           .order('created_at', { ascending: false });
 
+        const userEmail = (userAuth?.user?.email || '').toLowerCase().trim();
+        const userRole = (userAuth?.user?.user_metadata?.role || '').toLowerCase().trim();
         const isPartnerAdmin = 
-          userAuth?.user?.email === 'arthurmoraesp12@gmail.com' || 
-          userAuth?.user?.email === 'ctt.andersonalves@gmail.com' ||
-          userAuth?.user?.user_metadata?.role === 'Admin';
+          userEmail === 'arthurmoraesp12@gmail.com' || 
+          userEmail === 'ctt.andersonalves@gmail.com' ||
+          userRole === 'admin' ||
+          userEmail.includes('admin');
 
         if (!isPartnerAdmin && userAuth?.user?.id) {
           query = query.eq('user_id', userAuth.user.id);
         }
 
-        const { data, error } = await withTimeout(Promise.resolve(query), 1200);
+        const { data, error } = await withTimeout(Promise.resolve(query), 8000);
         if (error) throw error;
-        if (data && data.length > 0) {
+        if (data && Array.isArray(data)) {
           localStorage.setItem(STORAGE_KEY_ALERTS, JSON.stringify(data));
           return data as MaintenanceAlert[];
         }

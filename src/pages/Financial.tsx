@@ -87,7 +87,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     );
 };
 
-const withTimeout = <T,>(p: Promise<T>, ms = 2500): Promise<T> =>
+const withTimeout = <T,>(p: Promise<T>, ms = 8000): Promise<T> =>
     Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 
 const STORAGE_KEY = 'quark_financial_transactions';

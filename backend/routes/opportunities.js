@@ -154,18 +154,17 @@ router.post('/', async (req, res) => {
       user_id: newOpp.user_id,
     };
 
-    // Tenta salvar no Supabase em background de forma segura
-    Promise.resolve(supabase.from('opportunities').upsert(sbPayload))
-      .then(({ error }) => {
-        if (error) {
-          console.error('[OpportunitiesAPI] Erro ao sincronizar oportunidade com Supabase:', error);
-        } else {
-          console.log(`[OpportunitiesAPI] Oportunidade salva com sucesso no Supabase: ${newOpp.title} (${newOpp.id})`);
-        }
-      })
-      .catch((sbErr) => {
-        console.error('[OpportunitiesAPI] Exceção ao gravar no Supabase:', sbErr);
-      });
+    // Salva no Supabase garantindo consistência no banco
+    try {
+      const { error } = await supabase.from('opportunities').upsert(sbPayload);
+      if (error) {
+        console.error('[OpportunitiesAPI] Erro ao sincronizar oportunidade com Supabase:', error);
+      } else {
+        console.log(`[OpportunitiesAPI] Oportunidade salva com sucesso no Supabase: ${newOpp.title} (${newOpp.id})`);
+      }
+    } catch (sbErr) {
+      console.error('[OpportunitiesAPI] Exceção ao gravar no Supabase:', sbErr);
+    }
 
     console.log(`[OpportunitiesAPI] Nova oportunidade criada: ${newOpp.title} (${newOpp.status})`);
     return res.status(201).json({ success: true, opportunity: newOpp });
@@ -239,9 +238,11 @@ router.put('/:id', async (req, res) => {
       updated_at: new Date().toISOString()
     };
 
-    Promise.resolve(supabase.from('opportunities').update(updatePayload).eq('id', id)).catch((err) => {
-      console.warn('[OpportunitiesAPI] Erro ao sincronizar update no Supabase:', err);
-    });
+    try {
+      await supabase.from('opportunities').update(updatePayload).eq('id', id);
+    } catch (err) {
+      console.warn('[OpportunitiesAPI] Erro ao sincronizar update no Supabase:', err.message);
+    }
 
     return res.json({ success: true, opportunity: updated });
   } catch (err) {
@@ -265,9 +266,10 @@ router.delete('/:id', async (req, res) => {
     list = list.filter(o => o.id !== id);
     writeStore(list);
 
-    // 3. Tenta deletar no Supabase
-    Promise.resolve(supabase.from('opportunities').delete().eq('id', id)).catch(() => {});
-    Promise.resolve(supabase.from('opportunities').update({ deleted_at: new Date().toISOString() }).eq('id', id)).catch(() => {});
+    // 3. Atualiza soft delete no Supabase
+    try {
+      await supabase.from('opportunities').update({ deleted_at: new Date().toISOString() }).eq('id', id);
+    } catch (_) {}
 
     return res.json({ success: true, id });
   } catch (err) {

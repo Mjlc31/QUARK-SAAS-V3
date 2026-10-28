@@ -230,7 +230,7 @@ export function useClients(options?: { includeDeleted?: boolean }) {
           query = query.is('deleted_at', null);
         }
 
-        const { data, error } = await withTimeout(Promise.resolve(query), 2500);
+        const { data, error } = await withTimeout(Promise.resolve(query), 8000);
         if (!error && Array.isArray(data) && data.length > 0) {
           remoteClients = data as ClientData[];
         }
@@ -243,7 +243,7 @@ export function useClients(options?: { includeDeleted?: boolean }) {
         try {
           const res = await withTimeout(
             fetch(`/api/clients${includeDeleted ? '?includeDeleted=true' : ''}`),
-            2000
+            6000
           );
           if (res.ok) {
             const json = await res.json();

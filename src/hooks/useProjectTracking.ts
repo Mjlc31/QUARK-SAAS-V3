@@ -441,7 +441,7 @@ export function useAdvancePhase() {
 export function useActiveProjectsTracking() {
   return useQuery({
     queryKey: ['project_tracking', 'active'],
-    queryFn: async () => {
+    placeholderData: () => {
       try {
         const cached = localStorage.getItem('quark_trackings_cache');
         if (cached) {
@@ -449,39 +449,53 @@ export function useActiveProjectsTracking() {
           if (Array.isArray(list) && list.length > 0) return list;
         }
       } catch {}
-
+      return undefined;
+    },
+    queryFn: async () => {
       try {
-        const { data: userAuth } = await withTimeout(supabase.auth.getUser(), 4000);
-        if (userAuth?.user) {
-          const isPartnerAdmin = 
-            userAuth.user.email === 'arthurmoraesp12@gmail.com' || 
-            userAuth.user.email === 'ctt.andersonalves@gmail.com' ||
-            userAuth.user.user_metadata?.role === 'Admin';
+        const { data: userAuth } = await withTimeout(supabase.auth.getUser(), 4000).catch(() => ({ data: { user: null } }));
+        const userEmail = (userAuth?.user?.email || '').toLowerCase().trim();
+        const userRole = (userAuth?.user?.user_metadata?.role || '').toLowerCase().trim();
+        const isPartnerAdmin = 
+          userEmail === 'arthurmoraesp12@gmail.com' || 
+          userEmail === 'ctt.andersonalves@gmail.com' ||
+          userRole === 'admin' ||
+          userEmail.includes('admin');
 
-          let query = supabase
-            .from('project_tracking')
-            .select(`
-              *,
-              opportunities (
-                id, title, amount, status, phone, email
-              )
-            `)
-            .eq('is_current', true)
-            .is('deleted_at', null);
+        let query = supabase
+          .from('project_tracking')
+          .select(`
+            *,
+            opportunities (
+              id, title, amount, status, phone, email
+            )
+          `)
+          .eq('is_current', true)
+          .is('deleted_at', null);
 
-          if (!isPartnerAdmin) {
-            query = query.eq('user_id', userAuth.user.id);
+        if (!isPartnerAdmin && userAuth?.user?.id) {
+          query = query.eq('user_id', userAuth.user.id);
+        }
+
+        const { data, error } = await withTimeout(query, 8000);
+        if (!error && Array.isArray(data)) {
+          if (data.length > 0) {
+            localStorage.setItem('quark_trackings_cache', JSON.stringify(data));
+            return data;
           }
-
-          const { data } = await withTimeout(
-            query,
-            8000
-          );
-          if (data && data.length > 0) return data;
+          return data;
         }
       } catch (err) {
         console.warn('[useAllProjectTracking] Falha ao consultar Supabase:', err);
       }
+
+      try {
+        const cached = localStorage.getItem('quark_trackings_cache');
+        if (cached) {
+          const list = JSON.parse(cached);
+          if (Array.isArray(list) && list.length > 0) return list;
+        }
+      } catch {}
 
       return SAMPLE_ACTIVE_TRACKINGS;
     },

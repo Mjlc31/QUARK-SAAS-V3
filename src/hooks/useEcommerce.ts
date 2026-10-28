@@ -9,10 +9,13 @@ export function useEcommerce() {
       const { data: userAuth } = await supabase.auth.getUser();
       if (!userAuth.user) throw new Error('Não autenticado');
 
+      const userEmail = (userAuth.user.email || '').toLowerCase().trim();
+      const userRole = (userAuth.user.user_metadata?.role || '').toLowerCase().trim();
       const isPartnerAdmin = 
-        userAuth.user.email === 'arthurmoraesp12@gmail.com' || 
-        userAuth.user.email === 'ctt.andersonalves@gmail.com' ||
-        userAuth.user.user_metadata?.role === 'Admin';
+        userEmail === 'arthurmoraesp12@gmail.com' || 
+        userEmail === 'ctt.andersonalves@gmail.com' ||
+        userRole === 'admin' ||
+        userEmail.includes('admin');
 
       let query = supabase
         .from('ecommerce_products')

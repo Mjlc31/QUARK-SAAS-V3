@@ -61,7 +61,7 @@ async function loadDashboardCrm(): Promise<Opportunity[]> {
 
   try {
     const timeoutPromise = new Promise<{ data: any; error: any }>((_, rej) =>
-      setTimeout(() => rej(new Error('timeout')), 3000)
+      setTimeout(() => rej(new Error('timeout')), 8000)
     );
     const sbPromise = supabase
       .from('opportunities')
@@ -81,7 +81,7 @@ async function loadDashboardCrm(): Promise<Opportunity[]> {
   }
 
   try {
-    const resp = await fetch('/api/opportunities', { signal: AbortSignal.timeout(2000) });
+    const resp = await fetch('/api/opportunities', { signal: AbortSignal.timeout(6000) });
     if (resp.ok) {
       const json = await resp.json();
       if (json.success && Array.isArray(json.opportunities) && json.opportunities.length > 0) {

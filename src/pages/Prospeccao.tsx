@@ -376,13 +376,18 @@ export default function Prospeccao() {
     setSelectedLeads(newSelected);
   };
 
-  const handleImportSelected = () => {
+  const handleImportSelected = async () => {
     if (selectedLeads.size === 0) return;
-    selectedLeads.forEach(index => {
-      handleAddCRM(leads[index], true);
-    });
-    toast.success(`${selectedLeads.size} leads importados com sucesso!`);
-    setSelectedLeads(new Set());
+    const indices = Array.from(selectedLeads);
+    const count = indices.length;
+    toast.loading(`Importando ${count} leads para o CRM...`, { id: 'import-batch' });
+    try {
+      await Promise.all(indices.map(index => handleAddCRM(leads[index], true)));
+      toast.success(`${count} leads importados com sucesso!`, { id: 'import-batch' });
+      setSelectedLeads(new Set());
+    } catch (err) {
+      toast.error('Erro ao importar alguns leads', { id: 'import-batch' });
+    }
   };
 
   return (

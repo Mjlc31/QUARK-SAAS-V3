@@ -40,11 +40,13 @@ export const PIPELINE_CONSTANTS = {
     { id: '00000000-0000-0000-0000-000000000004', name: 'Evento — Ritmo', type: 'Evento', color: '#fb923c' },
   ],
   DEFAULT_TAGS: [
-    { id: 'tag-1', name: 'Anúncios', color: '#f59e0b' },
-    { id: 'tag-2', name: 'Indicação', color: '#10b981' },
-    { id: 'tag-3', name: 'Instagram orgânico', color: '#8b5cf6' },
-    { id: 'tag-4', name: 'Google Ads', color: '#3b82f6' },
-    { id: 'tag-5', name: 'Indicação interna', color: '#ec4899' },
+    { id: 'fd757218-8f7d-48e8-bb1d-a9a4f138a0ac', name: 'Anúncios', color: '#f59e0b' },
+    { id: '124c1b1c-9b45-4821-9001-0246330a6ab7', name: 'Indicação', color: '#10b981' },
+    { id: 'd2ff45bc-7eb9-4b99-a2c7-b564cb290118', name: 'Instagram orgânico', color: '#8b5cf6' },
+    { id: '4b2a163e-51c9-4e7d-a53c-4384cdd4b494', name: 'Google Ads', color: '#3b82f6' },
+    { id: '396ffc01-bab6-4a44-899c-ad23927b0d56', name: 'Indicação interna', color: '#ec4899' },
+    { id: '0abf98b7-b3e3-4595-becd-da982de420b1', name: 'WhatsApp Bot', color: '#06b6d4' },
+    { id: '9fa1385e-3963-4e63-b149-cfde700ea0e3', name: 'Fechado Solar', color: '#10b981' },
   ]
 };
 import type { LeadStatus, Priority, Product, ProposalStatus, Segment, TaskType } from "./types";

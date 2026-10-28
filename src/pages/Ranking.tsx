@@ -10,6 +10,8 @@ import {
   type GamificationStats 
 } from "../lib/gamification";
 import { QUOTES, DEFAULT_IMAGES, pickDaily, imageUrl } from "../lib/inspiration";
+import { supabase } from "../lib/supabaseClient";
+import { useLive } from "../lib/live";
 
 type Period = "hoje" | "semana" | "mes" | "sempre";
 
@@ -28,10 +30,23 @@ interface LeaderboardUser {
   active_days: number;
 }
 
+async function loadRankingOpps(): Promise<any[]> {
+  try {
+    const { data } = await supabase
+      .from('opportunities')
+      .select('id, title, status, amount, created_at, updated_at')
+      .is('deleted_at', null);
+    if (data && data.length > 0) return data;
+  } catch (_) {}
+  return [];
+}
+
 export default function Ranking() {
   const { user, leads, tasks, users } = useApp();
   const [period, setPeriod] = useState<Period>("semana");
   const [activeTab, setActiveTab] = useState<"ranking" | "badges" | "regras">("ranking");
+
+  const { data: remoteOpps } = useLive(loadRankingOpps, [], ['opportunities']);
 
   // Frase e Imagem diária de inspiração
   const quote = useMemo(() => pickDaily(QUOTES, 7) || QUOTES[0], []);
@@ -39,23 +54,27 @@ export default function Ranking() {
 
   // Estatísticas calculadas dinamicamente para o usuário ativo
   const myStats = useMemo<GamificationStats>(() => {
-    const myLeads = leads?.filter(l => l.assignee === user?.id || l.assignee === user?.name || !l.assignee) || [];
-    const myWon = myLeads.filter(l => l.status === 'Fechado' || l.status === 'ganho');
+    const isWon = (s?: string) => ['ganho', 'fechado', 'fechado / ganho', 'won', 'venda fechada'].includes((s || '').toLowerCase().trim());
+    const isProp = (s?: string) => ['proposta', 'proposal', 'proposta enviada'].includes((s || '').toLowerCase().trim());
+
+    const crmOpps = remoteOpps && remoteOpps.length > 0 ? remoteOpps : (leads || []);
+    const leadsCount = Math.max(crmOpps.length, leads?.length || 0);
+    const wonCount = crmOpps.filter(o => isWon(o.status)).length;
+    const propCount = crmOpps.filter(o => isProp(o.status)).length + wonCount;
+
     const myTasks = tasks?.filter(t => t.assignee === user?.id || t.assignee === user?.name) || [];
     const myDoneTasks = myTasks.filter(t => t.completed);
 
-    const leadsCount = myLeads.length;
-    const followupsCount = myDoneTasks.length + (myLeads.length * 2);
-    const proposalsCount = myLeads.filter(l => l.status === 'Proposta' || l.status === 'Fechado').length;
-    const sentCount = proposalsCount;
-    const salesCount = myWon.length;
-    const activeDays = Math.max(1, Math.min(30, myLeads.length > 0 ? 12 : 5));
+    const followupsCount = myDoneTasks.length + (leadsCount * 2);
+    const sentCount = propCount;
+    const salesCount = wonCount;
+    const activeDays = Math.max(1, Math.min(30, leadsCount > 0 ? 14 : 5));
 
     // Cálculo de XP
     const calculatedXp = 
       (leadsCount * 10) + 
       (followupsCount * 5) + 
-      (proposalsCount * 15) + 
+      (propCount * 15) + 
       (sentCount * 10) + 
       (salesCount * 100) + 
       (activeDays * 5);
@@ -64,13 +83,13 @@ export default function Ranking() {
       total_xp: calculatedXp,
       leads: leadsCount,
       followups: followupsCount,
-      proposals: proposalsCount,
+      proposals: propCount,
       sent: sentCount,
       sales: salesCount,
       minutes: activeDays * 45,
       active_days: activeDays,
     };
-  }, [leads, tasks, user]);
+  }, [remoteOpps, leads, tasks, user]);
 
   const myLevel = useMemo(() => levelOf(myStats.total_xp), [myStats.total_xp]);
 
