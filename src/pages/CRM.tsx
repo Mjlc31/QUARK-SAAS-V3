@@ -31,12 +31,12 @@ async function loadCrm(): Promise<CrmData> {
 
   try {
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Supabase query timeout")), 12000)
+      setTimeout(() => reject(new Error("Supabase query timeout")), 3500)
     );
 
     const queryPromise = Promise.all([
       supabase.from("opportunities").select("*").is("deleted_at", null).order("created_at", { ascending: false }),
-      supabase.from("proposals").select("id, number, lead_id, status, final_price, power_kwp, public_token, created_at, product:inputs->>product").order("created_at", { ascending: false }).limit(400),
+      supabase.from("proposals").select("id, number, lead_id, status, final_price, power_kwp, public_token, created_at, product:inputs->>product").order("created_at", { ascending: false }).limit(200),
     ]);
 
     const [oppRes, propRes] = await Promise.race([queryPromise, timeoutPromise]);
@@ -46,7 +46,13 @@ async function loadCrm(): Promise<CrmData> {
     }
     if (propRes.data) {
       proposals = ((propRes.data ?? []) as any[]).map((p) => ({ ...p, inputs: { product: p.product } })) as OppProposal[];
-      views = await fetchProposalViews(proposals.filter((p) => p.status !== "rascunho").map((p) => String(p.id)));
+      const proposalIds = proposals.filter((p) => p.status !== "rascunho").map((p) => String(p.id));
+      if (proposalIds.length > 0) {
+        views = await Promise.race([
+          fetchProposalViews(proposalIds),
+          new Promise<ProposalView[]>((r) => setTimeout(() => r([]), 1500))
+        ]);
+      }
     }
   } catch (e) {
     console.warn("⚠️ CRM: Timeout ou erro ao consultar Supabase, consultando backend:", e);
@@ -55,7 +61,7 @@ async function loadCrm(): Promise<CrmData> {
   // Fallback seguro: se e apenas se a consulta remota direta não retornou oportunidades
   if (opps.length === 0) {
     try {
-      const res = await fetch("/api/opportunities");
+      const res = await fetch("/api/opportunities", { signal: AbortSignal.timeout(2000) });
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.opportunities)) {
@@ -84,15 +90,6 @@ const CRM: React.FC = () => {
   const [lossReason, setLossReason] = useState("");
   const [linksOpen, setLinksOpen] = useState(false);
   const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
-
-  // Limpa qualquer cache poluído do localStorage para manter Supabase como fonte única da verdade
-  React.useEffect(() => {
-    try {
-      localStorage.removeItem("quark_opportunities");
-      localStorage.removeItem("quark_deleted_opportunities");
-      localStorage.removeItem("quark_leads");
-    } catch (_) {}
-  }, []);
 
   const handleToggleSelectLead = (id: string, e?: React.MouseEvent) => {
     e?.stopPropagation();

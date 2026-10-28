@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabaseClient';
 import type { ProjectTrackingPhase, ProjectPhase } from '../types';
 
-export const withTimeout = <T,>(p: PromiseLike<T>, ms = 8000): Promise<T> =>
+export const withTimeout = <T,>(p: PromiseLike<T>, ms = 2500): Promise<T> =>
   Promise.race([Promise.resolve(p), new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 
 export interface PhaseInfo {

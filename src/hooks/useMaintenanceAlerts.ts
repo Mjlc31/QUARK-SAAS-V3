@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabaseClient';
 import type { MaintenanceAlert, AlertStatus } from '../types';
 
-const withTimeout = <T,>(p: Promise<T>, ms = 8000): Promise<T> =>
+const withTimeout = <T,>(p: Promise<T>, ms = 2500): Promise<T> =>
   Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 
 const STORAGE_KEY_ALERTS = 'quark_maintenance_alerts';

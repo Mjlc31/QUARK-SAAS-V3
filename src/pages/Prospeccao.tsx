@@ -223,9 +223,9 @@ export default function Prospeccao() {
 
       let persistedInRemote = false;
 
-      // Tentar Supabase com timeout generoso
+      // Tentar Supabase com timeout otimizado
       try {
-        const withTimeout = <T,>(p: Promise<T>, ms = 8000): Promise<T> =>
+        const withTimeout = <T,>(p: Promise<T>, ms = 2500): Promise<T> =>
           Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 
         if (newOpp.phone && newOpp.phone !== '-') {

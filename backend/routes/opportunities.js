@@ -126,9 +126,9 @@ router.post('/', async (req, res) => {
       saveDeleted(deletedSet);
     }
 
-    // Salva no store local
+    // Salva no store local (atualiza se o ID coincidir ou se o nome for idêntico)
     const list = readStore();
-    const existingIndex = list.findIndex(o => o.id === newOpp.id || o.title.toLowerCase() === title.toLowerCase());
+    const existingIndex = list.findIndex(o => o.id === newOpp.id || (o.title?.toLowerCase().trim() === title.toLowerCase().trim() && o.phone === newOpp.phone));
     if (existingIndex >= 0) {
       list[existingIndex] = { ...list[existingIndex], ...newOpp, updated_at: new Date().toISOString() };
     } else {

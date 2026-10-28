@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useCrm } from '../contexts/CrmContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useCrmLeads } from '../lib/crm-leads';
 import {
   QuickQuoteInput,
   DEFAULT_QUICK,
@@ -57,8 +58,21 @@ const DEFAULT_INCLUDED = [
 ].join('\n');
 
 const QuickQuoteStudio: React.FC = () => {
-  const { leads, addLeadLog } = useCrm();
+  const { addLeadLog } = useCrm();
+  const { data: crmLeads = [] } = useCrmLeads();
   const { user } = useAuth();
+
+  const leads = useMemo(() => {
+    return (crmLeads ?? []).map((l) => ({
+      id: l.id,
+      name: l.name,
+      city: l.city,
+      state: l.state,
+      phone: l.phone,
+      monthlyConsumption: l.consumption_kwh || (l.avg_bill ? Math.round(l.avg_bill / 1.1) : 0),
+      roof: l.roof_type || 'Telhado Cerâmico'
+    }));
+  }, [crmLeads]);
 
   const [selectedLeadId, setSelectedLeadId] = useState<string>('');
   const [client, setClient] = useState({

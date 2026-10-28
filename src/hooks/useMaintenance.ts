@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabaseClient';
 import type { MaintenanceService, MaintenanceStats } from '../types';
 
-const withTimeout = <T,>(p: Promise<T>, ms = 8000): Promise<T> =>
+const withTimeout = <T,>(p: Promise<T>, ms = 2500): Promise<T> =>
   Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 
 export const SAMPLE_MAINTENANCE_SERVICES: MaintenanceService[] = [

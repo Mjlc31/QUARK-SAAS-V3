@@ -87,7 +87,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     );
 };
 
-const withTimeout = <T,>(p: Promise<T>, ms = 8000): Promise<T> =>
+const withTimeout = <T,>(p: Promise<T>, ms = 2500): Promise<T> =>
     Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 
 const STORAGE_KEY = 'quark_financial_transactions';
@@ -147,10 +147,15 @@ const Financial: React.FC = () => {
     useEffect(() => {
         let isMounted = true;
         const fetchMonthly = async () => {
-            setLoading(true);
-            setSavingError(null);
             const firstDay = `${filterYear}-${String(filterMonth).padStart(2, '0')}-01`;
             const lastDay = new Date(filterYear, filterMonth, 0).toISOString().split('T')[0];
+            const local = getStoredTransactions().filter(t => t.date >= firstDay && t.date <= lastDay);
+            if (local.length > 0) {
+                setTransactions(local);
+            } else {
+                setLoading(true);
+            }
+            setSavingError(null);
             try {
                 const res = await withTimeout(
                     Promise.resolve(
@@ -161,29 +166,36 @@ const Financial: React.FC = () => {
                             .gte('date', firstDay).lte('date', lastDay)
                             .order('date', { ascending: false })
                     ),
-                    1200
+                    2500
                 );
                 if (!isMounted) return;
-                const local = getStoredTransactions().filter(t => t.date >= firstDay && t.date <= lastDay);
                 if (!res.error && res.data && res.data.length > 0) {
                     const dbTx = res.data.map(mapRow);
                     const map = new Map<string, Transaction>();
                     local.forEach(t => map.set(t.id, t));
                     dbTx.forEach(t => map.set(t.id, t));
                     setTransactions(Array.from(map.values()).sort((a, b) => b.date.localeCompare(a.date)));
-                } else {
-                    setTransactions(local);
+                } else if (local.length === 0) {
+                    setTransactions([]);
                 }
             } catch {
                 if (!isMounted) return;
-                const local = getStoredTransactions().filter(t => t.date >= firstDay && t.date <= lastDay);
                 setTransactions(local);
             } finally {
                 if (isMounted) setLoading(false);
             }
         };
         fetchMonthly();
-        return () => { isMounted = false; };
+
+        const handleFinUpdated = () => {
+            fetchMonthly();
+        };
+        window.addEventListener('quark_financial_updated', handleFinUpdated);
+
+        return () => { 
+            isMounted = false; 
+            window.removeEventListener('quark_financial_updated', handleFinUpdated);
+        };
     }, [filterMonth, filterYear]);
 
     // ─── Fetch full year for charts ──────────────────────────────────────────
@@ -203,7 +215,7 @@ const Financial: React.FC = () => {
                             .lte('date', lastDay)
                             .order('date', { ascending: true })
                     ),
-                    1200
+                    6000
                 );
                 if (!isMounted) return;
                 const localYear = getStoredTransactions().filter(t => t.date >= firstDay && t.date <= lastDay);

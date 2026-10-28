@@ -322,17 +322,15 @@ const Calculator: React.FC = () => {
       try {
         await supabase.from('opportunities').insert([{
           title: leadName,
-          client_name: clientName || leadName,
           city: selectedCity,
           consumption_kwh: consumption,
           amount: result.totalInvestment,
-          value: result.totalInvestment,
           status: 'Lead',
-          pipeline_stage: 'lead',
           services: ['solar'],
           system_power: result.systemSizeKw,
           source: 'Calculadora Solar',
-          tariff: tariff,
+          temperature: 'morno' as const,
+          avg_bill: consumption * tariff,
           notes: `Simulação de ${result.systemSizeKw} kWp (${result.modulesCount} módulos) | Economia anual: R$ ${result.annualSavings.toLocaleString('pt-BR')}`
         }]);
       } catch (sbErr) {

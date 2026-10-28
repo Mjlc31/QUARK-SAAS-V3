@@ -144,7 +144,7 @@ export async function convertToClient(o: Opportunity) {
     }
 
     // 3. Salva no cache local de clientes para exibição imediata
-    const clientId = createdClient?.id || `cli_opp_${o.id}`;
+    const clientId = createdClient?.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : '00000000-0000-0000-0000-000000000000');
     const fullClient = {
       ...clientPayload,
       id: clientId,
@@ -185,7 +185,7 @@ export async function convertToClient(o: Opportunity) {
       try {
         await supabase.from('project_tracking').insert({
           client_id: fullClient.id,
-          opportunity_id: o.id,
+          opportunity_id: validOppId,
           user_id: currentUserId,
           phase: 'venda_confirmada',
           phase_label: 'Venda Confirmada & Contrato',
@@ -198,21 +198,34 @@ export async function convertToClient(o: Opportunity) {
       }
 
       if (contractAmount > 0) {
+        const txRow = {
+          id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined,
+          description: `Venda Solar — ${fullClient.name}`,
+          type: 'receita',
+          category: (o.system_power && o.system_power > 10) ? 'instalacao_comercial' : 'instalacao_residencial',
+          amount: contractAmount,
+          date: new Date().toISOString().split('T')[0],
+          status: 'pago',
+          opportunity_id: validOppId,
+          user_id: currentUserId,
+          note: `Fechamento no CRM (${o.system_power || 0} kWp). Cidade: ${o.city || 'N/A'}`
+        };
+
         try {
-          await supabase.from('financial_transactions').insert({
-            description: `Venda Solar — ${fullClient.name}`,
-            type: 'receita',
-            category: (o.system_power && o.system_power > 10) ? 'instalacao_comercial' : 'instalacao_residencial',
-            amount: contractAmount,
-            date: new Date().toISOString().split('T')[0],
-            status: 'pago',
-            opportunity_id: o.id,
-            user_id: currentUserId,
-            note: `Fechamento no CRM (${o.system_power || 0} kWp). Cidade: ${o.city || 'N/A'}`
-          });
+          await supabase.from('financial_transactions').insert(txRow);
         } catch (finErr) {
-          console.warn('Erro ao criar receita no financeiro:', finErr);
+          console.warn('Erro ao criar receita no financeiro Supabase:', finErr);
         }
+
+        // Atualiza cache financeiro local para resposta instantânea
+        try {
+          const cachedFinRaw = localStorage.getItem('quark_financial_transactions');
+          let cachedFin = cachedFinRaw ? JSON.parse(cachedFinRaw) : [];
+          if (!Array.isArray(cachedFin)) cachedFin = [];
+          cachedFin.unshift({ ...txRow, created_at: new Date().toISOString() });
+          localStorage.setItem('quark_financial_transactions', JSON.stringify(cachedFin));
+          window.dispatchEvent(new CustomEvent('quark_financial_updated', { detail: txRow }));
+        } catch (_) {}
       }
     }
 

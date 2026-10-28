@@ -17,6 +17,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { useMaintenance, useMaintenanceStats, useCreateMaintenance, useUpdateMaintenance, useDeleteMaintenance } from '../hooks/useMaintenance';
+import { useCrmLeads } from '../lib/crm-leads';
 import { MaintenanceService, MaintenanceServiceStatus, MaintenanceServiceType } from '../types';
 import toast from 'react-hot-toast';
 
@@ -55,8 +56,10 @@ const Maintenance: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<MaintenanceServiceStatus | 'all'>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { data: crmLeads = [] } = useCrmLeads();
   const [formData, setFormData] = useState({
     client_name: '',
+    client_id: '' as string | undefined,
     service_type: 'manutencao' as MaintenanceServiceType,
     scheduled_date: '',
     price: 0,
@@ -104,6 +107,7 @@ const Maintenance: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const matchedLead = (crmLeads ?? []).find(l => l.name.toLowerCase().trim() === formData.client_name.toLowerCase().trim());
     await createService.mutateAsync({
       service_type: formData.service_type,
       status: 'pendente',
@@ -113,12 +117,14 @@ const Maintenance: React.FC = () => {
       technician: formData.technician,
       notes: formData.notes,
       client_name: formData.client_name,
+      client_id: formData.client_id || matchedLead?.id,
       before_photos: [],
       after_photos: []
     } as any);
     setIsModalOpen(false);
     setFormData({
       client_name: '',
+      client_id: undefined,
       service_type: 'manutencao',
       scheduled_date: '',
       price: 0,
@@ -396,14 +402,31 @@ const Maintenance: React.FC = () => {
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Nome do Cliente</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Nome do Cliente (CRM / Base de Clientes)</label>
                 <input 
                   required
                   type="text" 
+                  list="maintenance-clients-datalist"
+                  placeholder="Selecione ou digite o nome do cliente..."
                   value={formData.client_name}
-                  onChange={e => setFormData({...formData, client_name: e.target.value})}
+                  onChange={e => {
+                    const name = e.target.value;
+                    const match = (crmLeads ?? []).find(l => l.name.toLowerCase().trim() === name.toLowerCase().trim());
+                    setFormData({
+                      ...formData, 
+                      client_name: name,
+                      client_id: match ? match.id : formData.client_id
+                    });
+                  }}
                   className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-2.5 text-white outline-none focus:border-lime-500"
                 />
+                <datalist id="maintenance-clients-datalist">
+                  {(crmLeads ?? []).map(l => (
+                    <option key={l.id} value={l.name}>
+                      {l.city ? `${l.name} (${l.city})` : l.name}
+                    </option>
+                  ))}
+                </datalist>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

@@ -117,9 +117,14 @@ export function NewOpportunityModal({ onClose, onSaved }: { onClose: () => void;
           }
         } catch (_) {}
 
-        if (existing) {
+        // Só mescla se for estritamente o mesmo cliente (mesmo nome/título) para não sobrescrever negócios distintos
+        if (existing && existing.title?.toLowerCase().trim() === form.title.toLowerCase().trim()) {
           const patch = Object.fromEntries(Object.entries(row).filter(([k, v]) => v != null && v !== "" && k !== "status" && k !== "amount"));
           patch.services = [...new Set([...(existing.services ?? []), ...services])];
+          // Se estava marcado como Perdido, reabre como Lead para reengajar no funil
+          if (existing.status === "Perdido") {
+            patch.status = "Lead";
+          }
           const resUpdate = await withTimeout(supabase.from("opportunities").update(patch).eq("id", existing.id).select().single() as any, 8000).catch((err) => {
             console.warn("Falha no update da oportunidade:", err);
             return { data: null, error: err };

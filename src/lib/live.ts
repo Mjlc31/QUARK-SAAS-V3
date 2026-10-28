@@ -7,10 +7,42 @@ import { supabase } from "./supabase/client";
 /* ------------------------------------------------------------------ cache */
 
 /**
- * Cache em memória por consulta: ao voltar para uma tela, os dados aparecem na hora
- * e são atualizados em segundo plano (stale-while-revalidate).
+ * Cache de 2 camadas: L1 em memória + L2 persistente (localStorage).
+ * Permite que as telas abram instantaneamente (0ms) com dados prévios
+ * e atualizem silenciosamente em segundo plano (stale-while-revalidate).
  */
 const cache = new Map<string, unknown>();
+
+function hashKey(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(36);
+}
+
+function getStoredCache<T>(key: string): T | undefined {
+  if (cache.has(key)) return cache.get(key) as T;
+  try {
+    const k = `quark_live_${hashKey(key)}`;
+    const raw = localStorage.getItem(k);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      cache.set(key, parsed);
+      return parsed as T;
+    }
+  } catch (_) {}
+  return undefined;
+}
+
+function setStoredCache<T>(key: string, value: T) {
+  cache.set(key, value);
+  try {
+    const k = `quark_live_${hashKey(key)}`;
+    localStorage.setItem(k, JSON.stringify(value));
+  } catch (_) {}
+}
 
 /* --------------------------------------------------------------- realtime */
 
@@ -66,9 +98,10 @@ export function useLive<T>(fetcher: () => Promise<T>, deps: unknown[], tables: s
   // `fresh`: sempre busca do banco antes de mostrar (telas de edição).
   const key = fetcher.toString() + JSON.stringify(deps);
   const fresh = !!opts.fresh;
-  const [data, setDataState] = useState<T | null>(() => (fresh ? null : ((cache.get(key) as T | undefined) ?? null)));
+  const initialCached = fresh ? undefined : getStoredCache<T>(key);
+  const [data, setDataState] = useState<T | null>(() => (initialCached !== undefined ? initialCached : null));
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(() => fresh || !cache.has(key));
+  const [loading, setLoading] = useState(() => fresh || initialCached === undefined);
   const fetchRef = useRef(fetcher);
   fetchRef.current = fetcher;
   const keyRef = useRef(key);
@@ -79,7 +112,7 @@ export function useLive<T>(fetcher: () => Promise<T>, deps: unknown[], tables: s
     try {
       const result = await fetchRef.current();
       if (k !== keyRef.current) return; // parâmetros mudaram enquanto buscava
-      cache.set(k, result);
+      setStoredCache(k, result);
       setDataState(result);
       setError(null);
     } catch (e) {
@@ -92,13 +125,15 @@ export function useLive<T>(fetcher: () => Promise<T>, deps: unknown[], tables: s
   const setData: typeof setDataState = useCallback((v) => {
     setDataState((prev) => {
       const next = typeof v === "function" ? (v as (p: T | null) => T | null)(prev) : v;
-      cache.set(keyRef.current, next);
+      if (next !== null && next !== undefined) {
+        setStoredCache(keyRef.current, next);
+      }
       return next;
     });
   }, []);
 
   useEffect(() => {
-    const cached = fresh ? undefined : (cache.get(key) as T | undefined);
+    const cached = fresh ? undefined : getStoredCache<T>(key);
     if (cached !== undefined) {
       setDataState(cached);
       setLoading(false);

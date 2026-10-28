@@ -46,13 +46,11 @@ router.get('/', async (req, res) => {
     } catch (_) {}
 
     const map = new Map();
-    // Prioriza dados do arquivo local/servidor
+    // Carrega do arquivo local como base
     for (const fp of fileProposals) map.set(fp.id, fp);
-    // Mescla com os do DB caso existam novos
+    // Supabase DB tem precedência sobre dados em disco (fonte de verdade atualizada)
     for (const dp of dbProposals) {
-      if (!map.has(dp.id)) {
-        map.set(dp.id, dp);
-      }
+      map.set(dp.id, { ...(map.get(dp.id) || {}), ...dp });
     }
 
     const list = Array.from(map.values())
