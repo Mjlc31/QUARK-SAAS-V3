@@ -35,8 +35,16 @@ async function loadCrm(): Promise<CrmData> {
     );
 
     const queryPromise = Promise.all([
-      supabase.from("opportunities").select("*").is("deleted_at", null).order("created_at", { ascending: false }),
-      supabase.from("proposals").select("id, number, lead_id, status, final_price, power_kwp, public_token, created_at, product:inputs->>product").order("created_at", { ascending: false }).limit(200),
+      supabase
+        .from("opportunities")
+        .select("id, title, client_name, status, pipeline_stage, amount, value, phone, email, city, cpf_cnpj, segment, source, temperature, notes, loss_reason, created_at, updated_at, services, system_power, consumption_kwh")
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("proposals")
+        .select("id, number, lead_id, status, final_price, power_kwp, public_token, created_at, product:inputs->>product")
+        .order("created_at", { ascending: false })
+        .limit(200),
     ]);
 
     const [oppRes, propRes] = await Promise.race([queryPromise, timeoutPromise]);
@@ -48,26 +56,32 @@ async function loadCrm(): Promise<CrmData> {
       proposals = ((propRes.data ?? []) as any[]).map((p) => ({ ...p, inputs: { product: p.product } })) as OppProposal[];
       const proposalIds = proposals.filter((p) => p.status !== "rascunho").map((p) => String(p.id));
       if (proposalIds.length > 0) {
-        views = await Promise.race([
-          fetchProposalViews(proposalIds),
-          new Promise<ProposalView[]>((r) => setTimeout(() => r([]), 2500))
-        ]);
+        // Busca visualizações em paralelo com limite rápido para não atrasar a renderização da tela
+        fetchProposalViews(proposalIds).then((v) => {
+          if (v && v.length > 0) {
+            views = v;
+          }
+        }).catch(() => {});
       }
     }
   } catch (e) {
-    console.warn("⚠️ CRM: Timeout ou erro ao consultar Supabase, consultando backend:", e);
+    console.warn("⚠️ CRM: Timeout ou erro ao consultar Supabase:", e);
   }
 
-  // Fallback seguro: se e apenas se a consulta remota direta não retornou oportunidades
+  // Fallback seguro de cache local para garantir render imediato (0ms)
   if (opps.length === 0) {
     try {
-      const res = await fetch("/api/opportunities", { signal: AbortSignal.timeout(6000) });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && Array.isArray(json.opportunities)) {
-          opps = (json.opportunities as Opportunity[]).filter(o => !o.deleted_at);
+      const cached = localStorage.getItem("quark_crm_cached_opps");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          opps = parsed;
         }
       }
+    } catch (_) {}
+  } else {
+    try {
+      localStorage.setItem("quark_crm_cached_opps", JSON.stringify(opps));
     } catch (_) {}
   }
 
@@ -76,7 +90,12 @@ async function loadCrm(): Promise<CrmData> {
 
 const CRM: React.FC = () => {
   const queryClient = useQueryClient();
-  const { data, setData, loading, reload } = useLive(loadCrm, [], ["opportunities", "proposals", "proposal_views"]);
+  const { data, setData, loading, reload } = useLive(
+    loadCrm, 
+    [], 
+    ["opportunities", "proposals", "proposal_views"],
+    { cacheKey: "quark_live_crm_kanban" }
+  );
   const opportunities = data?.opps ?? [];
   const [searchTerm, setSearchTerm] = useState("");
   const [serviceFilter, setServiceFilter] = useState<ServiceId | "todos">("todos");

@@ -93,10 +93,10 @@ function subscribe(tables: string[], fn: () => void) {
  * Busca dados e recarrega automaticamente quando qualquer uma das tabelas
  * informadas muda no banco (Supabase Realtime).
  */
-export function useLive<T>(fetcher: () => Promise<T>, deps: unknown[], tables: string[], opts: { fresh?: boolean } = {}) {
-  // A chave identifica a consulta: o código da função + os parâmetros.
+export function useLive<T>(fetcher: () => Promise<T>, deps: unknown[], tables: string[], opts: { fresh?: boolean; cacheKey?: string } = {}) {
+  // A chave identifica a consulta: o código da função + os parâmetros (ou chave fixa persistente).
   // `fresh`: sempre busca do banco antes de mostrar (telas de edição).
-  const key = fetcher.toString() + JSON.stringify(deps);
+  const key = opts.cacheKey ? opts.cacheKey : (fetcher.toString() + JSON.stringify(deps));
   const fresh = !!opts.fresh;
   const initialCached = fresh ? undefined : getStoredCache<T>(key);
   const [data, setDataState] = useState<T | null>(() => (initialCached !== undefined ? initialCached : null));

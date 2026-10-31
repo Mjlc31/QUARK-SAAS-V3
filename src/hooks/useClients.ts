@@ -416,22 +416,20 @@ export function useCreateClient() {
       return savedClient;
     },
     onSuccess: (saved) => {
-      // 1. Sincroniza com CRM no Supabase (coluna Ganho)
+      // 1. Sincroniza com CRM no Supabase apenas se já houver vínculo de oportunidade
       const contractAmount = saved.contract_value || saved.system_cost || (saved.system_size_kw ? Math.round(saved.system_size_kw * 3800) : 0);
       try {
-        if (contractAmount > 0 || saved.name) {
+        if (saved.opportunity_id) {
           Promise.resolve(
-            supabase.from('opportunities').upsert({
+            supabase.from('opportunities').update({
               title: saved.name,
-              status: 'Ganho',
               amount: contractAmount,
               phone: saved.phone || null,
               email: saved.email || null,
               cpf_cnpj: saved.cpf || null,
               city: saved.city || 'Maceió',
-              notes: `Cliente cadastrado no Catálogo (${saved.system_size_kw || 0} kWp). CPF: ${saved.cpf || 'Não informado'}.`,
               updated_at: new Date().toISOString()
-            }, { onConflict: 'id' })
+            }).eq('id', saved.opportunity_id)
           ).catch(() => {});
         }
       } catch (_) {}
@@ -521,31 +519,15 @@ export function useUpdateClient() {
         }
       } catch (_) {}
 
-      // Tenta via backend API
-      try {
-        const res = await withTimeout(
-          fetch(`/api/clients/${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          }),
-          2000
-        );
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && json.client) return json.client as ClientData;
-        }
-      } catch (_) {}
-
-      // Fallback direto Supabase
+      // Atualiza direto no Supabase (Fonte da Verdade)
       try {
         const { data, error } = await withTimeout(
           Promise.resolve(supabase.from('client_portal_users').update(payload).eq('id', id).select().single()),
-          2000
+          8000
         ).catch(() => ({ data: null, error: true }));
         if (!error && data) return data as ClientData;
       } catch (e) {
-        console.warn('[useUpdateClient] Atualizado localmente no cache offline:', e);
+        console.warn('[useUpdateClient] Erro ao sincronizar Supabase:', e);
       }
 
       return { id, ...payload } as ClientData;
@@ -598,29 +580,39 @@ export function useDeleteClient() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
+      const nowIso = new Date().toISOString();
+
+      // 1. Soft-delete direto no Supabase (Fonte da Verdade)
+      try {
+        const { error } = await withTimeout(
+          Promise.resolve(
+            supabase
+              .from('client_portal_users')
+              .update({ deleted_at: nowIso, is_active: false })
+              .eq('id', id)
+          ),
+          8000
+        );
+        if (error) {
+          console.error('[useDeleteClient] Erro ao deletar no Supabase:', error);
+          throw error;
+        }
+      } catch (err) {
+        console.error('[useDeleteClient] Falha ao atualizar Supabase:', err);
+        throw err;
+      }
+
+      // 2. Atualiza cache local
       try {
         const cached = localStorage.getItem('quark_clients_cache');
         const list: ClientData[] = cached ? JSON.parse(cached) : [];
         const idx = list.findIndex(c => c.id === id);
         if (idx !== -1) {
-          list[idx].deleted_at = new Date().toISOString();
+          list[idx].deleted_at = nowIso;
           list[idx].is_active = false;
           localStorage.setItem('quark_clients_cache', JSON.stringify(list));
         }
       } catch (_) {}
-
-      // Tenta via backend API
-      try {
-        await withTimeout(fetch(`/api/clients/${id}`, { method: 'DELETE' }), 5000);
-      } catch (_) {
-        // Fallback Supabase
-        try {
-          await withTimeout(
-            Promise.resolve(supabase.from('client_portal_users').update({ deleted_at: new Date().toISOString(), is_active: false }).eq('id', id)),
-            5000
-          );
-        } catch (_) {}
-      }
 
       return id;
     },
@@ -630,6 +622,7 @@ export function useDeleteClient() {
         return old.filter(c => c.id !== id);
       });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: ['client_intelligence'] });
     },
   });
 }
@@ -638,6 +631,24 @@ export function useRestoreClient() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
+      // 1. Restaura direto no Supabase
+      try {
+        const { error } = await withTimeout(
+          Promise.resolve(
+            supabase
+              .from('client_portal_users')
+              .update({ deleted_at: null, is_active: true })
+              .eq('id', id)
+          ),
+          8000
+        );
+        if (error) throw error;
+      } catch (err) {
+        console.error('[useRestoreClient] Erro ao restaurar no Supabase:', err);
+        throw err;
+      }
+
+      // 2. Atualiza cache local
       try {
         const cached = localStorage.getItem('quark_clients_cache');
         const list: ClientData[] = cached ? JSON.parse(cached) : [];
@@ -649,28 +660,11 @@ export function useRestoreClient() {
         }
       } catch (_) {}
 
-      try {
-        await withTimeout(
-          fetch(`/api/clients/${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ deleted_at: null, is_active: true }),
-          }),
-          5000
-        );
-      } catch (_) {
-        try {
-          await withTimeout(
-            Promise.resolve(supabase.from('client_portal_users').update({ deleted_at: null, is_active: true }).eq('id', id)),
-            5000
-          );
-        } catch (_) {}
-      }
-
       return id;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: ['client_intelligence'] });
     },
   });
 }
@@ -679,23 +673,30 @@ export function useHardDeleteClient() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
+      // 1. Exclui permanente no Supabase
+      try {
+        const { error } = await withTimeout(
+          Promise.resolve(
+            supabase
+              .from('client_portal_users')
+              .delete()
+              .eq('id', id)
+          ),
+          8000
+        );
+        if (error) throw error;
+      } catch (err) {
+        console.error('[useHardDeleteClient] Erro ao excluir do Supabase:', err);
+        throw err;
+      }
+
+      // 2. Atualiza cache local
       try {
         const cached = localStorage.getItem('quark_clients_cache');
         const list: ClientData[] = cached ? JSON.parse(cached) : [];
         const filtered = list.filter(c => c.id !== id);
         localStorage.setItem('quark_clients_cache', JSON.stringify(filtered));
       } catch (_) {}
-
-      try {
-        await withTimeout(fetch(`/api/clients/${id}?hard=true`, { method: 'DELETE' }), 5000);
-      } catch (_) {
-        try {
-          await withTimeout(
-            Promise.resolve(supabase.from('client_portal_users').delete().eq('id', id)),
-            5000
-          );
-        } catch (_) {}
-      }
 
       return id;
     },
