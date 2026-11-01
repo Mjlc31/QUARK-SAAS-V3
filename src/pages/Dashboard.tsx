@@ -50,7 +50,7 @@ async function loadDashboardEngineering(): Promise<EngineeringStats> {
 async function loadDashboardCrm(): Promise<Opportunity[]> {
   const getCachedOpps = (): Opportunity[] => {
     try {
-      const raw = localStorage.getItem('quark_dashboard_crm_cache');
+      const raw = localStorage.getItem('quark_dashboard_crm_v4');
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -61,37 +61,27 @@ async function loadDashboardCrm(): Promise<Opportunity[]> {
 
   try {
     const timeoutPromise = new Promise<{ data: any; error: any }>((_, rej) =>
-      setTimeout(() => rej(new Error('timeout')), 8000)
+      setTimeout(() => rej(new Error('timeout')), 6000)
     );
-    const sbPromise = supabase
-      .from('opportunities')
-      .select('id, title, status, amount, services, temperature, created_at, updated_at, source, loss_reason, city, system_power, consumption_kwh')
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false });
+    const queryPromise = Promise.resolve(
+      supabase
+        .from('opportunities')
+        .select('id, title, status, amount, services, temperature, created_at, updated_at, source, loss_reason, city, system_power, consumption_kwh')
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+    );
 
-    const res = await Promise.race([sbPromise, timeoutPromise]) as any;
+    const res = await Promise.race([queryPromise, timeoutPromise]) as any;
     if (res?.data && Array.isArray(res.data) && res.data.length > 0) {
+      const valid = res.data.filter((o: any) => o && !o.deleted_at);
       try {
-        localStorage.setItem('quark_dashboard_crm_cache', JSON.stringify(res.data));
+        localStorage.setItem('quark_dashboard_crm_v4', JSON.stringify(valid));
       } catch (_) {}
-      return res.data as Opportunity[];
+      return valid as Opportunity[];
     }
   } catch (err) {
-    console.warn('[Dashboard] Supabase timeout, buscando /api/opportunities:', err);
+    console.warn('[Dashboard] Supabase timeout ou erro na busca de oportunidades:', err);
   }
-
-  try {
-    const resp = await fetch('/api/opportunities', { signal: AbortSignal.timeout(6000) });
-    if (resp.ok) {
-      const json = await resp.json();
-      if (json.success && Array.isArray(json.opportunities) && json.opportunities.length > 0) {
-        try {
-          localStorage.setItem('quark_dashboard_crm_cache', JSON.stringify(json.opportunities));
-        } catch (_) {}
-        return json.opportunities as Opportunity[];
-      }
-    }
-  } catch (_) {}
 
   return getCachedOpps();
 }
@@ -191,71 +181,69 @@ const Dashboard: React.FC = () => {
   const { data: remoteOpps, loading: oppsLoading } = useLive(
     loadDashboardCrm,
     [],
-    ['opportunities', 'proposals', 'financial_transactions']
+    ['opportunities', 'proposals', 'financial_transactions'],
+    { cacheKey: 'quark_dashboard_crm_v4' }
   );
 
   const { data: engineeringStats } = useLive(
     loadDashboardEngineering,
     [],
-    ['project_tracking']
+    ['project_tracking'],
+    { cacheKey: 'quark_dashboard_eng_v4' }
   );
 
   const allDeals = useMemo(() => {
-    const list: UnifiedDeal[] = [];
-    const seenNamesOrIds = new Set<string>();
-
-    // 1. Oportunidades oficiais do CRM Quark
+    // 1. Oportunidades oficiais do CRM Quark (fonte primária e definitiva)
     if (remoteOpps && remoteOpps.length > 0) {
-      for (const o of remoteOpps) {
-        if (!o || o.deleted_at) continue;
-        const oppName = (o.title || (o as any).client_name || '').trim();
-        const stage = resolveStage(o.status);
+      return remoteOpps
+        .filter(o => o && !o.deleted_at)
+        .map(o => {
+          const oppName = (o.title || (o as any).client_name || '').trim();
+          const stage = resolveStage(o.status);
 
-        list.push({
-          id: o.id,
-          name: oppName || 'Sem nome',
-          value: Number(o.amount || (o as any).value || (o as any).contract_value || 0),
-          stage,
-          rawStatus: o.status,
-          createdAt: o.created_at || (o as any).updated_at || new Date().toISOString(),
-          updatedAt: (o as any).updated_at || o.created_at || undefined,
-          city: o.city || 'Maceió',
-          source: o.source || 'Indicação',
-          lossReason: o.loss_reason || null,
-          systemPower: Number((o as any).system_power || 0),
-          consumptionKwh: Number((o as any).consumption_kwh || 0)
+          return {
+            id: o.id,
+            name: oppName || 'Sem nome',
+            value: Number(o.amount || (o as any).value || (o as any).contract_value || 0),
+            stage,
+            rawStatus: o.status,
+            createdAt: o.created_at || (o as any).updated_at || new Date().toISOString(),
+            updatedAt: (o as any).updated_at || o.created_at || undefined,
+            city: o.city || 'Maceió',
+            source: o.source || 'Indicação',
+            lossReason: o.loss_reason || null,
+            systemPower: Number((o as any).system_power || 0),
+            consumptionKwh: Number((o as any).consumption_kwh || 0)
+          };
         });
-        if (o.id) seenNamesOrIds.add(o.id);
-        if (oppName) seenNamesOrIds.add(oppName.toLowerCase());
-      }
     }
 
-    // 2. Leads do contexto legado que não estejam duplicados
-    for (const l of leads) {
-      if (!l || (l as any).deletedAt || (l as any).deleted_at) continue;
-      const lName = (l.name || '').trim().toLowerCase();
-      if (seenNamesOrIds.has(l.id) || (lName && seenNamesOrIds.has(lName))) continue;
+    // 2. Fallback de contingência APENAS se remoteOpps for vazio/nulo
+    if (leads && leads.length > 0) {
+      return leads
+        .filter(l => l && !(l as any).deletedAt && !(l as any).deleted_at)
+        .map(l => {
+          const stage = resolveStage(l.status, l.pipelineEntries);
+          const val = Number(l.value || (l as any).amount || (l as any).contract_value || ((l as any).data && ((l as any).data.value || (l as any).data.amount)) || 0);
 
-      const stage = resolveStage(l.status, l.pipelineEntries);
-      const val = Number(l.value || (l as any).amount || (l as any).contract_value || ((l as any).data && ((l as any).data.value || (l as any).data.amount)) || 0);
-
-      list.push({
-        id: l.id,
-        name: l.name || 'Sem nome',
-        value: val,
-        stage,
-        rawStatus: l.status,
-        createdAt: l.createdAt || (l as any).created_at || (l as any).updated_at || new Date().toISOString(),
-        updatedAt: (l as any).updated_at || l.createdAt || undefined,
-        city: l.city || 'Maceió',
-        source: l.source || 'Indicação',
-        lossReason: l.lossReason || null,
-        systemPower: Number((l as any).systemPower || (l as any).system_power || 0),
-        consumptionKwh: Number((l as any).consumptionKwh || (l as any).consumption_kwh || 0)
-      });
+          return {
+            id: l.id,
+            name: l.name || 'Sem nome',
+            value: val,
+            stage,
+            rawStatus: l.status,
+            createdAt: l.createdAt || (l as any).created_at || (l as any).updated_at || new Date().toISOString(),
+            updatedAt: (l as any).updated_at || l.createdAt || undefined,
+            city: l.city || 'Maceió',
+            source: l.source || 'Indicação',
+            lossReason: l.lossReason || null,
+            systemPower: Number((l as any).systemPower || (l as any).system_power || 0),
+            consumptionKwh: Number((l as any).consumptionKwh || (l as any).consumption_kwh || 0)
+          };
+        });
     }
 
-    return list;
+    return [];
   }, [remoteOpps, leads]);
 
   const filteredDeals = useMemo(() => {

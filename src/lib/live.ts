@@ -25,6 +25,12 @@ function hashKey(str: string): string {
 function getStoredCache<T>(key: string): T | undefined {
   if (cache.has(key)) return cache.get(key) as T;
   try {
+    const rawDirect = localStorage.getItem(key);
+    if (rawDirect) {
+      const parsed = JSON.parse(rawDirect);
+      cache.set(key, parsed);
+      return parsed as T;
+    }
     const k = `quark_live_${hashKey(key)}`;
     const raw = localStorage.getItem(k);
     if (raw) {
@@ -39,6 +45,7 @@ function getStoredCache<T>(key: string): T | undefined {
 function setStoredCache<T>(key: string, value: T) {
   cache.set(key, value);
   try {
+    localStorage.setItem(key, JSON.stringify(value));
     const k = `quark_live_${hashKey(key)}`;
     localStorage.setItem(k, JSON.stringify(value));
   } catch (_) {}
@@ -70,9 +77,9 @@ function syncChannel() {
 
 let syncTimer: ReturnType<typeof setTimeout> | undefined;
 function scheduleSync() {
-  // Agrupa montagens/desmontagens de uma mesma navegação numa única troca de canal.
+  // Agrupa montagens/desmontagens de uma mesma navegação numa única troca de canal suave (250ms).
   clearTimeout(syncTimer);
-  syncTimer = setTimeout(syncChannel, 50);
+  syncTimer = setTimeout(syncChannel, 250);
 }
 
 function subscribe(tables: string[], fn: () => void) {

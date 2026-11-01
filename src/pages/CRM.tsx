@@ -25,67 +25,59 @@ interface CrmData {
 }
 
 async function loadCrm(): Promise<CrmData> {
-  let opps: Opportunity[] = [];
-  let proposals: OppProposal[] = [];
-  let views: ProposalView[] = [];
+  let cachedOpps: Opportunity[] = [];
+  let cachedProps: OppProposal[] = [];
+  try {
+    const raw = localStorage.getItem("quark_crm_kanban_v4");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed?.opps && Array.isArray(parsed.opps)) {
+        cachedOpps = parsed.opps;
+        cachedProps = parsed.proposals || [];
+      }
+    }
+  } catch (_) {}
 
   try {
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Supabase query timeout")), 8000)
+      setTimeout(() => reject(new Error("Supabase query timeout")), 6000)
     );
 
     const queryPromise = Promise.all([
-      supabase
-        .from("opportunities")
-        .select("id, title, client_name, status, pipeline_stage, amount, value, phone, email, city, cpf_cnpj, segment, source, temperature, notes, loss_reason, created_at, updated_at, services, system_power, consumption_kwh")
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("proposals")
-        .select("id, number, lead_id, status, final_price, power_kwp, public_token, created_at, product:inputs->>product")
-        .order("created_at", { ascending: false })
-        .limit(200),
+      Promise.resolve(
+        supabase
+          .from("opportunities")
+          .select("id, title, client_name, status, pipeline_stage, amount, value, phone, email, city, cpf_cnpj, segment, source, temperature, notes, loss_reason, created_at, updated_at, services, system_power, consumption_kwh")
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false })
+      ),
+      Promise.resolve(
+        supabase
+          .from("proposals")
+          .select("id, number, lead_id, status, final_price, power_kwp, public_token, created_at")
+          .order("created_at", { ascending: false })
+          .limit(100)
+      ),
     ]);
 
     const [oppRes, propRes] = await Promise.race([queryPromise, timeoutPromise]);
 
-    if (oppRes.data && oppRes.data.length > 0) {
-      opps = (oppRes.data as Opportunity[]).filter(o => !o.deleted_at);
-    }
-    if (propRes.data) {
-      proposals = ((propRes.data ?? []) as any[]).map((p) => ({ ...p, inputs: { product: p.product } })) as OppProposal[];
-      const proposalIds = proposals.filter((p) => p.status !== "rascunho").map((p) => String(p.id));
-      if (proposalIds.length > 0) {
-        // Busca visualizações em paralelo com limite rápido para não atrasar a renderização da tela
-        fetchProposalViews(proposalIds).then((v) => {
-          if (v && v.length > 0) {
-            views = v;
-          }
-        }).catch(() => {});
-      }
-    }
+    const opps = ((oppRes.data as Opportunity[]) || []).filter((o) => o && !o.deleted_at);
+    const proposals = ((propRes.data ?? []) as any[]) as OppProposal[];
+
+    const result: CrmData = { opps, proposals, views: [] };
+    try {
+      localStorage.setItem("quark_crm_kanban_v4", JSON.stringify(result));
+    } catch (_) {}
+
+    return result;
   } catch (e) {
-    console.warn("⚠️ CRM: Timeout ou erro ao consultar Supabase:", e);
+    console.warn("⚠️ CRM: Timeout ou erro ao consultar Supabase, usando cache:", e);
+    if (cachedOpps.length > 0) {
+      return { opps: cachedOpps, proposals: cachedProps, views: [] };
+    }
+    return { opps: [], proposals: [], views: [] };
   }
-
-  // Fallback seguro de cache local para garantir render imediato (0ms)
-  if (opps.length === 0) {
-    try {
-      const cached = localStorage.getItem("quark_crm_cached_opps");
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          opps = parsed;
-        }
-      }
-    } catch (_) {}
-  } else {
-    try {
-      localStorage.setItem("quark_crm_cached_opps", JSON.stringify(opps));
-    } catch (_) {}
-  }
-
-  return { opps, proposals, views };
 }
 
 const CRM: React.FC = () => {
@@ -93,8 +85,8 @@ const CRM: React.FC = () => {
   const { data, setData, loading, reload } = useLive(
     loadCrm, 
     [], 
-    ["opportunities", "proposals", "proposal_views"],
-    { cacheKey: "quark_live_crm_kanban" }
+    ["opportunities", "proposals"],
+    { cacheKey: "quark_crm_kanban_v4" }
   );
   const opportunities = data?.opps ?? [];
   const [searchTerm, setSearchTerm] = useState("");
@@ -532,8 +524,19 @@ const CRM: React.FC = () => {
         </div>
       </div>
 
-      {loading && !data ? (
-        <div className="grid flex-1 place-items-center text-sm text-zinc-500">Carregando oportunidades…</div>
+      {loading && (!data || !data.opps || data.opps.length === 0) ? (
+        <div className="grid flex-1 grid-cols-1 md:grid-cols-5 gap-4 overflow-hidden py-2">
+          {OPPORTUNITY_STAGES.map((col) => (
+            <div key={col.id} className="h-[520px] rounded-2xl bg-zinc-950/40 border border-white/5 p-4 space-y-3 animate-pulse">
+              <div className="flex items-center justify-between">
+                <div className="h-4 w-20 bg-zinc-800/80 rounded" />
+                <div className="h-4 w-6 bg-zinc-800/80 rounded-full" />
+              </div>
+              <div className="h-28 rounded-xl bg-zinc-900/60 border border-white/5" />
+              <div className="h-28 rounded-xl bg-zinc-900/60 border border-white/5" />
+            </div>
+          ))}
+        </div>
       ) : viewMode === "board" ? (
         <div className="custom-scrollbar -mx-4 flex-1 overflow-x-auto overflow-y-hidden px-4 pb-4 lg:mx-0 lg:px-0">
           <div className="flex h-full min-w-max flex-row items-start gap-4">

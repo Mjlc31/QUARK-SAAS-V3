@@ -204,7 +204,7 @@ export function useCrmLeads() {
         const [clientsRes, oppsRes] = await Promise.race([
           Promise.allSettled([
             supabase.from("client_portal_users").select("*").is("deleted_at", null).order("name", { ascending: true }).limit(1000),
-            supabase.from("opportunities").select("*").order("created_at", { ascending: false }).limit(1000)
+            supabase.from("opportunities").select("*").is("deleted_at", null).order("created_at", { ascending: false }).limit(1000)
           ]),
           timeoutPromise
         ]);
