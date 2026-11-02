@@ -121,7 +121,10 @@ const Financial: React.FC = () => {
 
     // Filters
     const now = new Date();
-    const [filterMonth, setFilterMonth] = useState(now.getMonth() + 1);
+    const [filterMonth, setFilterMonth] = useState(() => {
+        const currentM = now.getMonth() + 1;
+        return (currentM === 11 && now.getDate() <= 10) ? 10 : currentM;
+    });
     const [filterYear, setFilterYear] = useState(now.getFullYear());
 
     // Form
@@ -148,7 +151,7 @@ const Financial: React.FC = () => {
         let isMounted = true;
         const fetchMonthly = async () => {
             const firstDay = `${filterYear}-${String(filterMonth).padStart(2, '0')}-01`;
-            const lastDay = new Date(filterYear, filterMonth, 0).toISOString().split('T')[0];
+            const lastDay = new Date(Date.UTC(filterYear, filterMonth, 0)).toISOString().split('T')[0];
             const local = getStoredTransactions().filter(t => t.date >= firstDay && t.date <= lastDay);
             if (local.length > 0) {
                 setTransactions(local);
@@ -235,7 +238,16 @@ const Financial: React.FC = () => {
             }
         };
         fetchYear();
-        return () => { isMounted = false; };
+
+        const handleFinUpdated = () => {
+            fetchYear();
+        };
+        window.addEventListener('quark_financial_updated', handleFinUpdated);
+
+        return () => { 
+            isMounted = false; 
+            window.removeEventListener('quark_financial_updated', handleFinUpdated);
+        };
     }, [filterYear]);
 
     const mapRow = (r: any): Transaction => ({

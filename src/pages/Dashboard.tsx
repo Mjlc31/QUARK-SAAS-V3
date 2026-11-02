@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend, RadialBarChart, RadialBar } from 'recharts';
 import { DollarSign, Zap, Activity, TrendingUp, Download, BarChart3, Clock, ArrowUpRight, Plus, Calculator, CheckSquare, FileText, User, Sun, Leaf, HardHat, ShieldCheck } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
@@ -178,12 +178,34 @@ const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [periodFilter, setPeriodFilter] = useState('all');
 
-  const { data: remoteOpps, loading: oppsLoading } = useLive(
+  const { data: remoteOpps, loading: oppsLoading, setData: setRemoteOpps } = useLive(
     loadDashboardCrm,
     [],
     ['opportunities', 'proposals', 'financial_transactions'],
     { cacheKey: 'quark_dashboard_crm_v4' }
   );
+
+  useEffect(() => {
+    const handleCrmUpdated = (e: CustomEvent) => {
+      const opp = e.detail;
+      if (!opp || !opp.id) return;
+      setRemoteOpps(prev => {
+        if (!prev) return [opp];
+        const idx = prev.findIndex(o => o.id === opp.id);
+        if (idx >= 0) {
+          const updated = [...prev];
+          updated[idx] = { ...updated[idx], ...opp };
+          return updated;
+        }
+        return [opp, ...prev];
+      });
+    };
+
+    window.addEventListener('quark_crm_updated', handleCrmUpdated as EventListener);
+    return () => {
+      window.removeEventListener('quark_crm_updated', handleCrmUpdated as EventListener);
+    };
+  }, [setRemoteOpps]);
 
   const { data: engineeringStats } = useLive(
     loadDashboardEngineering,

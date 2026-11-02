@@ -265,15 +265,74 @@ const CRM: React.FC = () => {
 
   const executeStatusChange = async (opp: Opportunity, status: string, reason?: string) => {
     if (opp.status === status) return;
-    const nextOpps = opportunities.map((o) => (o.id === opp.id ? { ...o, status, loss_reason: reason || o.loss_reason } : o));
-    setOpps(() => nextOpps);
 
-    if (status === "Ganho") {
-      await convertToClient(opp).catch(() => {});
-      queryClient.invalidateQueries({ queryKey: ['clients'] });
+    let resolvedAmount = Number(opp.amount || (opp as any).value || 0);
+    let resolvedPower = Number(opp.system_power || 0);
+
+    // Se o negócio estiver sendo ganho e não tiver valor, busca o valor na proposta anexada
+    if (status === "Ganho" && (!resolvedAmount || resolvedAmount <= 0)) {
+      const linkedProp = byLead.get(opp.id)?.proposal || data?.proposals?.find((p) => p.lead_id === opp.id || (p as any).opportunity_id === opp.id);
+      if (linkedProp && linkedProp.final_price) {
+        resolvedAmount = Number(linkedProp.final_price);
+        if (linkedProp.power_kwp && !resolvedPower) resolvedPower = Number(linkedProp.power_kwp);
+      } else {
+        try {
+          const { data: propRow } = await supabase
+            .from("proposals")
+            .select("final_price, power_kwp")
+            .or(`opportunity_id.eq.${opp.id},lead_id.eq.${opp.id}`)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (propRow?.final_price) {
+            resolvedAmount = Number(propRow.final_price);
+            if (propRow.power_kwp && !resolvedPower) resolvedPower = Number(propRow.power_kwp);
+          }
+        } catch (_) {}
+      }
     }
 
-    const updatePayload: Partial<Opportunity> = { status };
+    const updatedOpp: Opportunity = {
+      ...opp,
+      status,
+      amount: resolvedAmount > 0 ? resolvedAmount : opp.amount,
+      system_power: resolvedPower > 0 ? resolvedPower : opp.system_power,
+      loss_reason: reason || opp.loss_reason,
+    };
+
+    const nextOpps = opportunities.map((o) => (o.id === opp.id ? updatedOpp : o));
+    setOpps(() => nextOpps);
+
+    // Atualiza imediatamente o cache L2 do Dashboard para resposta em 0ms
+    try {
+      const cachedDashboardRaw = localStorage.getItem('quark_dashboard_crm_v4');
+      if (cachedDashboardRaw) {
+        const cachedDashboard = JSON.parse(cachedDashboardRaw);
+        if (Array.isArray(cachedDashboard)) {
+          const idx = cachedDashboard.findIndex((o: any) => o.id === opp.id);
+          if (idx >= 0) cachedDashboard[idx] = { ...cachedDashboard[idx], ...updatedOpp };
+          else cachedDashboard.unshift(updatedOpp);
+          localStorage.setItem('quark_dashboard_crm_v4', JSON.stringify(cachedDashboard));
+        }
+      }
+    } catch (_) {}
+
+    // Notifica instantaneamente o Dashboard e outras abas
+    window.dispatchEvent(new CustomEvent('quark_crm_updated', { detail: updatedOpp }));
+
+    if (status === "Ganho") {
+      await convertToClient(updatedOpp).catch(() => {});
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      window.dispatchEvent(new CustomEvent('quark_financial_updated'));
+      window.dispatchEvent(new CustomEvent('quark_clients_updated'));
+      window.dispatchEvent(new CustomEvent('quark_prolabore_updated'));
+    }
+
+    const updatePayload: Partial<Opportunity> = {
+      status,
+      ...(resolvedAmount > 0 ? { amount: resolvedAmount } : {}),
+      ...(resolvedPower > 0 ? { system_power: resolvedPower } : {})
+    };
     if (reason) updatePayload.loss_reason = reason;
     fetch(`/api/opportunities/${opp.id}`, {
       method: "PUT",

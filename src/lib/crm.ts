@@ -89,7 +89,8 @@ export async function convertToClient(o: Opportunity) {
       if (auth?.user?.id) currentUserId = auth.user.id;
     } catch {}
 
-    const contractAmount = Number(o.amount || (o as any).value || 0);
+    let contractAmount = Number(o.amount || (o as any).value || 0);
+    let systemPower = Number(o.system_power || 0);
     const cleanPhone = o.phone ? o.phone.trim() : null;
     const cleanEmail = o.email ? o.email.trim().toLowerCase() : null;
     const cleanCpf = o.cpf_cnpj ? o.cpf_cnpj.trim() : null;
@@ -98,8 +99,25 @@ export async function convertToClient(o: Opportunity) {
       typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
     const validOppId = o.id && isUuid(o.id) ? o.id : null;
 
+    // Se o valor estiver zerado, tenta recuperar o valor da proposta vinculada
+    if (contractAmount <= 0 && validOppId) {
+      try {
+        const { data: prop } = await supabase
+          .from('proposals')
+          .select('final_price, power_kwp')
+          .or(`opportunity_id.eq.${validOppId},lead_id.eq.${validOppId}`)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (prop?.final_price) {
+          contractAmount = Number(prop.final_price);
+          if (prop.power_kwp && !systemPower) systemPower = Number(prop.power_kwp);
+        }
+      } catch (_) {}
+    }
+
     const clientPayload: Record<string, any> = {
-      name: o.title || "Cliente sem nome",
+      name: o.title || (o as any).client_name || "Cliente sem nome",
       email: cleanEmail,
       phone: cleanPhone,
       cpf: cleanCpf,
@@ -107,27 +125,50 @@ export async function convertToClient(o: Opportunity) {
       city: o.city || "Maceió",
       state: "AL",
       address: o.address || null,
-      system_size_kw: o.system_power || 0,
+      system_size_kw: systemPower,
       contract_value: contractAmount,
       system_cost: contractAmount,
-      notes: o.notes || `Cliente originado do CRM (Venda Fechada - ${o.system_power || 0} kWp).`,
+      notes: o.notes || `Cliente originado do CRM (Venda Fechada - ${systemPower} kWp).`,
       opportunity_id: validOppId,
       is_active: true,
       user_id: currentUserId,
     };
 
-    // 1. Tenta persistência direta no Supabase Cloud (garante persistência imediata)
+    // 1. Tenta persistência direta no Supabase Cloud (garante idempotência e atualização)
     let createdClient: any = null;
     try {
-      const { data: client, error } = await supabase
-        .from("client_portal_users")
-        .insert({
-          ...clientPayload,
-          created_at: new Date().toISOString()
-        })
-        .select()
-        .maybeSingle();
-      if (!error && client) createdClient = client;
+      let existingId: string | null = null;
+      if (validOppId) {
+        const { data: ex } = await supabase.from('client_portal_users').select('id').eq('opportunity_id', validOppId).maybeSingle();
+        if (ex?.id) existingId = ex.id;
+      }
+      if (!existingId && cleanPhone) {
+        const { data: exPhone } = await supabase.from('client_portal_users').select('id').eq('phone', cleanPhone).maybeSingle();
+        if (exPhone?.id) existingId = exPhone.id;
+      }
+
+      if (existingId) {
+        const { data: client, error } = await supabase
+          .from("client_portal_users")
+          .update({
+            ...clientPayload,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingId)
+          .select()
+          .maybeSingle();
+        if (!error && client) createdClient = client;
+      } else {
+        const { data: client, error } = await supabase
+          .from("client_portal_users")
+          .insert({
+            ...clientPayload,
+            created_at: new Date().toISOString()
+          })
+          .select()
+          .maybeSingle();
+        if (!error && client) createdClient = client;
+      }
     } catch (sbErr) {
       console.warn('[convertToClient] Supabase direto aviso:', sbErr);
     }
@@ -198,34 +239,43 @@ export async function convertToClient(o: Opportunity) {
       }
 
       if (contractAmount > 0) {
-        const txRow = {
-          id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined,
-          description: `Venda Solar — ${fullClient.name}`,
-          type: 'receita',
-          category: (o.system_power && o.system_power > 10) ? 'instalacao_comercial' : 'instalacao_residencial',
-          amount: contractAmount,
-          date: new Date().toISOString().split('T')[0],
-          status: 'pago',
-          opportunity_id: validOppId,
-          user_id: currentUserId,
-          note: `Fechamento no CRM (${o.system_power || 0} kWp). Cidade: ${o.city || 'N/A'}`
-        };
-
-        try {
-          await supabase.from('financial_transactions').insert(txRow);
-        } catch (finErr) {
-          console.warn('Erro ao criar receita no financeiro Supabase:', finErr);
+        // Verifica se já não existe uma receita cadastrada para esta oportunidade
+        let existingTx = false;
+        if (validOppId) {
+          const { data: exTx } = await supabase.from('financial_transactions').select('id').eq('opportunity_id', validOppId).eq('type', 'receita').maybeSingle();
+          if (exTx?.id) existingTx = true;
         }
 
-        // Atualiza cache financeiro local para resposta instantânea
-        try {
-          const cachedFinRaw = localStorage.getItem('quark_financial_transactions');
-          let cachedFin = cachedFinRaw ? JSON.parse(cachedFinRaw) : [];
-          if (!Array.isArray(cachedFin)) cachedFin = [];
-          cachedFin.unshift({ ...txRow, created_at: new Date().toISOString() });
-          localStorage.setItem('quark_financial_transactions', JSON.stringify(cachedFin));
-          window.dispatchEvent(new CustomEvent('quark_financial_updated', { detail: txRow }));
-        } catch (_) {}
+        if (!existingTx) {
+          const txRow = {
+            id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined,
+            description: `Venda Solar — ${fullClient.name}`,
+            type: 'receita',
+            category: (systemPower && systemPower > 10) ? 'instalacao_comercial' : 'instalacao_residencial',
+            amount: contractAmount,
+            date: new Date().toISOString().split('T')[0],
+            status: 'pago',
+            opportunity_id: validOppId,
+            user_id: currentUserId,
+            note: `Fechamento no CRM (${systemPower || 0} kWp). Cidade: ${o.city || 'N/A'}`
+          };
+
+          try {
+            await supabase.from('financial_transactions').insert(txRow);
+          } catch (finErr) {
+            console.warn('Erro ao criar receita no financeiro Supabase:', finErr);
+          }
+
+          // Atualiza cache financeiro local para resposta instantânea
+          try {
+            const cachedFinRaw = localStorage.getItem('quark_financial_transactions');
+            let cachedFin = cachedFinRaw ? JSON.parse(cachedFinRaw) : [];
+            if (!Array.isArray(cachedFin)) cachedFin = [];
+            cachedFin.unshift({ ...txRow, created_at: new Date().toISOString() });
+            localStorage.setItem('quark_financial_transactions', JSON.stringify(cachedFin));
+            window.dispatchEvent(new CustomEvent('quark_financial_updated', { detail: txRow }));
+          } catch (_) {}
+        }
       }
     }
 
