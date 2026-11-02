@@ -139,12 +139,12 @@ export async function convertToClient(o: Opportunity) {
     try {
       let existingId: string | null = null;
       if (validOppId) {
-        const { data: ex } = await supabase.from('client_portal_users').select('id').eq('opportunity_id', validOppId).maybeSingle();
-        if (ex?.id) existingId = ex.id;
+        const { data: ex } = await supabase.from('client_portal_users').select('id').eq('opportunity_id', validOppId).is('deleted_at', null).limit(1);
+        if (ex && ex.length > 0) existingId = ex[0].id;
       }
       if (!existingId && cleanPhone) {
-        const { data: exPhone } = await supabase.from('client_portal_users').select('id').eq('phone', cleanPhone).maybeSingle();
-        if (exPhone?.id) existingId = exPhone.id;
+        const { data: exPhone } = await supabase.from('client_portal_users').select('id').eq('phone', cleanPhone).is('deleted_at', null).limit(1);
+        if (exPhone && exPhone.length > 0) existingId = exPhone[0].id;
       }
 
       if (existingId) {
@@ -155,9 +155,8 @@ export async function convertToClient(o: Opportunity) {
             updated_at: new Date().toISOString()
           })
           .eq('id', existingId)
-          .select()
-          .maybeSingle();
-        if (!error && client) createdClient = client;
+          .select();
+        if (!error && client && client.length > 0) createdClient = client[0];
       } else {
         const { data: client, error } = await supabase
           .from("client_portal_users")
@@ -165,9 +164,8 @@ export async function convertToClient(o: Opportunity) {
             ...clientPayload,
             created_at: new Date().toISOString()
           })
-          .select()
-          .maybeSingle();
-        if (!error && client) createdClient = client;
+          .select();
+        if (!error && client && client.length > 0) createdClient = client[0];
       }
     } catch (sbErr) {
       console.warn('[convertToClient] Supabase direto aviso:', sbErr);
@@ -223,30 +221,59 @@ export async function convertToClient(o: Opportunity) {
         } catch (_) {}
       }
 
+      // Garante idempotência no tracking de engenharia (não insere duplicata da fase inicial)
       try {
-        await supabase.from('project_tracking').insert({
-          client_id: fullClient.id,
-          opportunity_id: validOppId,
-          user_id: currentUserId,
-          phase: 'venda_confirmada',
-          phase_label: 'Venda Confirmada & Contrato',
-          started_at: new Date().toISOString(),
-          is_current: true,
-          notes: `Venda concluída no CRM (${o.system_power || 0} kWp). Início do processo de engenharia.`
-        });
+        if (validOppId) {
+          const { data: exTrk } = await supabase
+            .from('project_tracking')
+            .select('id')
+            .eq('opportunity_id', validOppId)
+            .eq('phase', 'venda_confirmada')
+            .is('deleted_at', null)
+            .limit(1);
+
+          if (!exTrk || exTrk.length === 0) {
+            await supabase.from('project_tracking').insert({
+              client_id: fullClient.id,
+              opportunity_id: validOppId,
+              user_id: currentUserId,
+              phase: 'venda_confirmada',
+              phase_label: 'Venda Confirmada & Contrato',
+              started_at: new Date().toISOString(),
+              is_current: true,
+              notes: `Venda concluída no CRM (${systemPower || 0} kWp). Início do processo de engenharia.`
+            });
+          }
+        }
       } catch (trkErr) {
         console.warn('Erro ao criar tracking de engenharia:', trkErr);
       }
 
       if (contractAmount > 0) {
         // Verifica se já não existe uma receita cadastrada para esta oportunidade
-        let existingTx = false;
+        let existingTx: any = null;
         if (validOppId) {
-          const { data: exTx } = await supabase.from('financial_transactions').select('id').eq('opportunity_id', validOppId).eq('type', 'receita').maybeSingle();
-          if (exTx?.id) existingTx = true;
+          const { data: exTx } = await supabase
+            .from('financial_transactions')
+            .select('id, amount')
+            .eq('opportunity_id', validOppId)
+            .eq('type', 'receita')
+            .is('deleted_at', null)
+            .limit(1);
+          if (exTx && exTx.length > 0) existingTx = exTx[0];
         }
 
-        if (!existingTx) {
+        if (existingTx) {
+          // Atualiza se o valor do contrato foi renegociado no CRM
+          if (Number(existingTx.amount) !== contractAmount) {
+            await supabase.from('financial_transactions').update({
+              amount: contractAmount,
+              description: `Venda Solar — ${fullClient.name}`,
+              updated_at: new Date().toISOString()
+            }).eq('id', existingTx.id);
+            window.dispatchEvent(new CustomEvent('quark_financial_updated'));
+          }
+        } else {
           const txRow = {
             id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined,
             description: `Venda Solar — ${fullClient.name}`,

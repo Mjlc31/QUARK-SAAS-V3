@@ -269,24 +269,27 @@ const CRM: React.FC = () => {
     let resolvedAmount = Number(opp.amount || (opp as any).value || 0);
     let resolvedPower = Number(opp.system_power || 0);
 
-    // Se o negócio estiver sendo ganho e não tiver valor, busca o valor na proposta anexada
+    // Se o negócio estiver sendo ganho e não tiver valor, busca o valor na proposta anexada (priorizando propostas aceitas)
     if (status === "Ganho" && (!resolvedAmount || resolvedAmount <= 0)) {
-      const linkedProp = byLead.get(opp.id)?.proposal || data?.proposals?.find((p) => p.lead_id === opp.id || (p as any).opportunity_id === opp.id);
+      const linkedProps = data?.proposals?.filter((p) => p.lead_id === opp.id || (p as any).opportunity_id === opp.id) || [];
+      const acceptedProp = linkedProps.find(p => p.status === 'aceita');
+      const linkedProp = acceptedProp || byLead.get(opp.id)?.proposal || linkedProps[0];
+
       if (linkedProp && linkedProp.final_price) {
         resolvedAmount = Number(linkedProp.final_price);
         if (linkedProp.power_kwp && !resolvedPower) resolvedPower = Number(linkedProp.power_kwp);
       } else {
         try {
-          const { data: propRow } = await supabase
+          const { data: propRows } = await supabase
             .from("proposals")
-            .select("final_price, power_kwp")
+            .select("final_price, power_kwp, status")
             .or(`opportunity_id.eq.${opp.id},lead_id.eq.${opp.id}`)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          if (propRow?.final_price) {
-            resolvedAmount = Number(propRow.final_price);
-            if (propRow.power_kwp && !resolvedPower) resolvedPower = Number(propRow.power_kwp);
+            .order("created_at", { ascending: false });
+
+          if (propRows && propRows.length > 0) {
+            const best = propRows.find(p => p.status === 'aceita') || propRows[0];
+            resolvedAmount = Number(best.final_price);
+            if (best.power_kwp && !resolvedPower) resolvedPower = Number(best.power_kwp);
           }
         } catch (_) {}
       }

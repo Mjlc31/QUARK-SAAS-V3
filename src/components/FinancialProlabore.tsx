@@ -51,7 +51,45 @@ export const FinancialProlabore: React.FC = () => {
             setLoading(true);
             const savedFinances = getStoredFinances();
 
-            // 1. Busca oportunidades ganhas (fonte primária oficial do CRM)
+            // 1. Tenta buscar da tabela oficial de Pró-labore (prolabore_settlements)
+            const { data: dbSettlements, error: settErr } = await supabase
+                .from('prolabore_settlements')
+                .select('*')
+                .is('deleted_at', null)
+                .order('contract_revenue', { ascending: false });
+
+            if (!settErr && dbSettlements && dbSettlements.length > 0) {
+                const list: ProlaboreProject[] = dbSettlements.map((s: any) => ({
+                    id: s.id,
+                    clientId: s.opportunity_id,
+                    clientName: s.client_name,
+                    clientPhone: '',
+                    city: s.city || 'Maceió',
+                    systemSizeKw: Number(s.system_size_kw || 0),
+                    status: 'Venda Fechada',
+                    updatedAt: s.updated_at || s.created_at || new Date().toISOString(),
+                    finance: {
+                        revenue: Number(s.contract_revenue || 0),
+                        kitCost: Number(s.kit_cost || 0),
+                        installationCost: Number(s.installation_cost || 0),
+                        materialCost: Number(s.material_cost || 0),
+                        signatureCost: Number(s.signature_cost || 0),
+                        commissionCost: Number(s.commission_cost || 0),
+                        taxRate: Number(s.tax_rate !== undefined ? s.tax_rate : 5),
+                        modulePowerW: Number(s.module_power_w || 550),
+                        moduleCount: Number(s.module_count || 0)
+                    }
+                }));
+
+                setProjects(list);
+                if (list.length > 0 && !selectedId) {
+                    setSelectedId(list[0].id);
+                    setEditingFinance(list[0].finance);
+                }
+                return;
+            }
+
+            // Fallback: Busca oportunidades ganhas (fonte primária oficial do CRM)
             const oppsPromise = supabase
                 .from('opportunities')
                 .select('id, title, client_name, amount, system_power, city, phone, created_at, updated_at')
@@ -188,7 +226,26 @@ export const FinancialProlabore: React.FC = () => {
             // 2. Atualiza estado em memória
             setProjects(prev => prev.map(p => p.id === selectedId ? { ...p, finance: editingFinance } : p));
 
-            // 3. Tenta salvar no Supabase na tabela projects
+            // 3. Tenta salvar no Supabase na tabela dedicada prolabore_settlements
+            const oppId = selectedProject?.clientId || selectedId;
+            await Promise.resolve(supabase.from('prolabore_settlements').upsert({
+                opportunity_id: oppId,
+                client_name: selectedProject?.clientName || 'Cliente',
+                city: selectedProject?.city || 'Maceió',
+                system_size_kw: selectedProject?.systemSizeKw || 0,
+                module_power_w: editingFinance.modulePowerW || 550,
+                module_count: editingFinance.moduleCount || 0,
+                contract_revenue: editingFinance.revenue || 0,
+                kit_cost: editingFinance.kitCost || 0,
+                installation_cost: editingFinance.installationCost || 0,
+                material_cost: editingFinance.materialCost || 0,
+                signature_cost: editingFinance.signatureCost || 0,
+                commission_cost: editingFinance.commissionCost || 0,
+                tax_rate: editingFinance.taxRate !== undefined ? editingFinance.taxRate : 5,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'opportunity_id' })).catch(() => {});
+
+            // Mantém compatibilidade com tabela projects
             const projToSave = {
                 id: selectedId,
                 clientName: selectedProject?.clientName,
