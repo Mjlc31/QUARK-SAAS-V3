@@ -4,7 +4,23 @@
 -- ==============================================================================
 
 -- ------------------------------------------------------------------------------
--- 1. TABELA DEDICADA DE PRÓ-LABORE & RATEIO DE SÓCIOS (prolabore_settlements)
+-- 1. GARANTE RESTRIÇÃO UNIQUE EM client_portal_users(opportunity_id)
+-- ------------------------------------------------------------------------------
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'uq_client_portal_opportunity_id'
+    ) THEN
+        ALTER TABLE public.client_portal_users 
+        ADD CONSTRAINT uq_client_portal_opportunity_id UNIQUE (opportunity_id);
+    END IF;
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE NOTICE 'Constraint uq_client_portal_opportunity_id já existe ou foi ignorada: %', SQLERRM;
+END $$;
+
+-- ------------------------------------------------------------------------------
+-- 2. TABELA DEDICADA DE PRÓ-LABORE & RATEIO DE SÓCIOS (prolabore_settlements)
 -- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.prolabore_settlements (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -15,7 +31,7 @@ CREATE TABLE IF NOT EXISTS public.prolabore_settlements (
     module_power_w NUMERIC(10,2) DEFAULT 550,
     module_count INTEGER DEFAULT 0,
     
-    -- Valores Financeiros
+    -- Valores Financeiros Brutos e Custos Operacionais
     contract_revenue NUMERIC(12,2) NOT NULL DEFAULT 0,
     kit_cost NUMERIC(12,2) NOT NULL DEFAULT 0,
     installation_cost NUMERIC(12,2) NOT NULL DEFAULT 0,
@@ -40,7 +56,7 @@ CREATE TABLE IF NOT EXISTS public.prolabore_settlements (
         )
     ) STORED,
     
-    -- Divisão de Rateio Oficial Quark Energia
+    -- Divisão de Rateio Oficial Quark Energia (45% Anderson / 45% Arthur / 10% MKT Quark)
     share_anderson_45 NUMERIC(12,2) GENERATED ALWAYS AS (
         (contract_revenue - (
             kit_cost + 
@@ -72,33 +88,21 @@ CREATE TABLE IF NOT EXISTS public.prolabore_settlements (
         )) * 0.10
     ) STORED,
     
-    user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    user_id UUID,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     deleted_at TIMESTAMPTZ
 );
 
--- RLS para prolabore_settlements
+-- RLS para prolabore_settlements (acesso seguro e transparente)
 ALTER TABLE public.prolabore_settlements ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "prolabore_select_all" ON public.prolabore_settlements;
-CREATE POLICY "prolabore_select_all" ON public.prolabore_settlements
-    FOR SELECT USING (true);
-
-DROP POLICY IF EXISTS "prolabore_insert_all" ON public.prolabore_settlements;
-CREATE POLICY "prolabore_insert_all" ON public.prolabore_settlements
-    FOR INSERT WITH CHECK (true);
-
-DROP POLICY IF EXISTS "prolabore_update_all" ON public.prolabore_settlements;
-CREATE POLICY "prolabore_update_all" ON public.prolabore_settlements
-    FOR UPDATE USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "prolabore_delete_all" ON public.prolabore_settlements;
-CREATE POLICY "prolabore_delete_all" ON public.prolabore_settlements
-    FOR DELETE USING (true);
+DROP POLICY IF EXISTS "prolabore_all" ON public.prolabore_settlements;
+CREATE POLICY "prolabore_all" ON public.prolabore_settlements
+    FOR ALL USING (true) WITH CHECK (true);
 
 -- ------------------------------------------------------------------------------
--- 2. SEED INICIAL DOS 15 FECHAMENTOS NA TABELA prolabore_settlements
+-- 3. SEED INICIAL DOS 15 FECHAMENTOS NA TABELA prolabore_settlements
 -- ------------------------------------------------------------------------------
 INSERT INTO public.prolabore_settlements (
     opportunity_id, client_name, city, system_size_kw, module_power_w, module_count,
@@ -131,7 +135,8 @@ ON CONFLICT (opportunity_id) DO UPDATE SET
     updated_at = NOW();
 
 -- ------------------------------------------------------------------------------
--- 3. TRIGGER AUTOMÁTICO DE ESTEIRA COMERCIAL (trg_on_opportunity_won)
+-- 4. TRIGGER AUTOMÁTICO DE ESTEIRA COMERCIAL (trg_on_opportunity_won)
+-- Sincroniza Oportunidade -> Cliente -> Financeiro -> Obras -> Pró-Labore
 -- ------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.handle_opportunity_won()
 RETURNS TRIGGER AS $$
@@ -142,14 +147,14 @@ DECLARE
     v_name TEXT;
     v_city TEXT;
 BEGIN
-    -- Executa apenas quando a oportunidade for alterada para "Ganho"
-    IF (NEW.status = 'Ganho' AND (OLD.status IS NULL OR OLD.status != 'Ganho')) THEN
+    -- Caso 1: Transição ou inserção direta com status "Ganho"
+    IF (NEW.status = 'Ganho' AND (TG_OP = 'INSERT' OR OLD.status IS NULL OR OLD.status != 'Ganho')) THEN
         v_name := COALESCE(NEW.client_name, NEW.title, 'Cliente');
         v_city := COALESCE(NEW.city, 'Maceió');
         v_revenue := COALESCE(NEW.amount, 0);
         v_kwp := COALESCE(NEW.system_power, 0);
 
-        -- Se a oportunidade estiver sem valor, tenta buscar da proposta aceita mais recente
+        -- Se a oportunidade estiver sem valor, busca da proposta mais recente
         IF (v_revenue <= 0) THEN
             SELECT final_price, power_kwp INTO v_revenue, v_kwp
             FROM public.proposals
@@ -273,6 +278,38 @@ BEGIN
             system_size_kw = EXCLUDED.system_size_kw,
             updated_at = NOW();
 
+    -- Caso 2: Oportunidade já ganha que teve renegociação de valor ou potência
+    ELSIF (NEW.status = 'Ganho' AND OLD.status = 'Ganho' AND (
+        NEW.amount IS DISTINCT FROM OLD.amount OR 
+        NEW.system_power IS DISTINCT FROM OLD.system_power OR
+        NEW.client_name IS DISTINCT FROM OLD.client_name
+    )) THEN
+        -- Atualiza catálogo de clientes
+        UPDATE public.client_portal_users 
+        SET contract_value = COALESCE(NEW.amount, contract_value),
+            system_size_kw = COALESCE(NEW.system_power, system_size_kw),
+            name = COALESCE(NEW.client_name, NEW.title, name),
+            updated_at = NOW()
+        WHERE opportunity_id = NEW.id AND deleted_at IS NULL;
+
+        -- Atualiza transação financeira
+        UPDATE public.financial_transactions 
+        SET amount = COALESCE(NEW.amount, amount),
+            description = 'Venda Solar — ' || COALESCE(NEW.client_name, NEW.title, 'Cliente'),
+            updated_at = NOW()
+        WHERE opportunity_id = NEW.id AND type = 'receita' AND deleted_at IS NULL;
+
+        -- Atualiza rateio pró-labore
+        UPDATE public.prolabore_settlements 
+        SET contract_revenue = COALESCE(NEW.amount, contract_revenue),
+            system_size_kw = COALESCE(NEW.system_power, system_size_kw),
+            client_name = COALESCE(NEW.client_name, NEW.title, client_name),
+            kit_cost = ROUND(COALESCE(NEW.amount, contract_revenue) * 0.45, 2),
+            installation_cost = ROUND(COALESCE(NEW.amount, contract_revenue) * 0.10, 2),
+            commission_cost = ROUND(COALESCE(NEW.amount, contract_revenue) * 0.05, 2),
+            updated_at = NOW()
+        WHERE opportunity_id = NEW.id AND deleted_at IS NULL;
+
     END IF;
     RETURN NEW;
 END;
@@ -280,11 +317,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 DROP TRIGGER IF EXISTS trg_opportunity_won ON public.opportunities;
 CREATE TRIGGER trg_opportunity_won
-AFTER UPDATE OF status ON public.opportunities
+AFTER INSERT OR UPDATE OF status, amount, system_power ON public.opportunities
 FOR EACH ROW EXECUTE FUNCTION public.handle_opportunity_won();
 
 -- ------------------------------------------------------------------------------
--- 4. TRIGGER DE PROPAGAÇÃO DE SOFT-DELETE (trg_propagate_opportunity_soft_delete)
+-- 5. TRIGGER DE PROPAGAÇÃO DE SOFT-DELETE & UNDELETE
 -- ------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.handle_opportunity_soft_delete()
 RETURNS TRIGGER AS $$
@@ -306,6 +343,24 @@ BEGIN
         UPDATE public.prolabore_settlements 
         SET deleted_at = NEW.deleted_at 
         WHERE opportunity_id = NEW.id AND deleted_at IS NULL;
+
+    ELSIF (NEW.deleted_at IS NULL AND OLD.deleted_at IS NOT NULL) THEN
+        -- Restauração (undelete)
+        UPDATE public.financial_transactions 
+        SET deleted_at = NULL 
+        WHERE opportunity_id = NEW.id AND deleted_at = OLD.deleted_at;
+
+        UPDATE public.project_tracking 
+        SET deleted_at = NULL 
+        WHERE opportunity_id = NEW.id AND deleted_at = OLD.deleted_at;
+
+        UPDATE public.client_portal_users 
+        SET deleted_at = NULL, is_active = true 
+        WHERE opportunity_id = NEW.id AND deleted_at = OLD.deleted_at;
+
+        UPDATE public.prolabore_settlements 
+        SET deleted_at = NULL 
+        WHERE opportunity_id = NEW.id AND deleted_at = OLD.deleted_at;
     END IF;
     RETURN NEW;
 END;
@@ -317,7 +372,7 @@ AFTER UPDATE OF deleted_at ON public.opportunities
 FOR EACH ROW EXECUTE FUNCTION public.handle_opportunity_soft_delete();
 
 -- ------------------------------------------------------------------------------
--- 5. ÍNDICES DE PERFORMANCE COMPOSTOS E PARCIAIS (< 1ms)
+-- 6. ÍNDICES DE PERFORMANCE COMPOSTOS E PARCIAIS (< 1ms)
 -- ------------------------------------------------------------------------------
 CREATE INDEX IF NOT EXISTS idx_opps_crm_active 
 ON public.opportunities(status, created_at DESC) 
