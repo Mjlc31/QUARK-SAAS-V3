@@ -257,8 +257,8 @@ export const PortalProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     try {
       let dbQuery = supabase.from('client_portal_users').select('*').is('deleted_at', null);
-      if (cleanDigits && cleanDigits.length >= 11) {
-        dbQuery = dbQuery.or(`cpf.eq.${cleanDigits},cpf.eq.${identifier.trim()}`);
+      if (cleanDigits && cleanDigits.length >= 6) {
+        dbQuery = dbQuery.or(`cpf.eq.${cleanDigits},cpf.ilike.${cleanDigits}%,cpf.eq.${identifier.trim()}`);
       } else if (cleanLower) {
         dbQuery = dbQuery.or(`email.ilike.${cleanLower},name.ilike.%${cleanLower}%`);
       }
@@ -280,7 +280,8 @@ export const PortalProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             if (/teste/i.test(c.name || '')) return false;
             const cDigits = (c.cpf || '').replace(/\D/g, '');
             const cEmail = (c.email || '').toLowerCase().trim();
-            return (cleanDigits && cDigits === cleanDigits) || (cleanLower && cEmail === cleanLower);
+            const matchCpf = cleanDigits && (cDigits === cleanDigits || (cleanDigits.length >= 6 && cDigits.startsWith(cleanDigits)));
+            return matchCpf || (cleanLower && cEmail === cleanLower);
           });
           if (found) matchedClient = found;
         }
@@ -292,7 +293,8 @@ export const PortalProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       matchedClient = PORTAL_FALLBACK_CLIENTS.find((c) => {
         const cDigits = (c.cpf || '').replace(/\D/g, '');
         const cEmail = (c.email || '').toLowerCase().trim();
-        return (cleanDigits && cDigits === cleanDigits) || (cleanLower && cEmail === cleanLower);
+        const matchCpf = cleanDigits && (cDigits === cleanDigits || (cleanDigits.length >= 6 && cDigits.startsWith(cleanDigits)));
+        return matchCpf || (cleanLower && cEmail === cleanLower);
       }) || null;
     }
 

@@ -53,15 +53,23 @@ const ClientLoginScreen = () => {
       return;
     }
 
-    if (!password.trim()) {
-      setErrorMessage('Por favor, digite sua senha de acesso.');
+    const cleanIdDigits = identifier.replace(/\D/g, '');
+    let passToUse = password.trim();
+
+    // Se o usuário não digitou senha, mas informou ao menos 6 dígitos do CPF, usa os 6 primeiros dígitos como senha padrão
+    if (!passToUse && cleanIdDigits.length >= 6) {
+      passToUse = cleanIdDigits.slice(0, 6);
+    }
+
+    if (!passToUse) {
+      setErrorMessage('Por favor, digite sua senha de acesso ou informe ao menos 6 dígitos do CPF.');
       return;
     }
 
     setLoading(true);
 
     try {
-      await login(identifier, password);
+      await login(identifier, passToUse);
       navigate('/portal');
     } catch (err: any) {
       console.error(err);
@@ -121,7 +129,7 @@ const ClientLoginScreen = () => {
                   setErrorMessage('');
                 }}
                 className="w-full bg-black/50 border border-white/10 rounded-xl p-3.5 pl-11 text-white font-mono text-sm focus:ring-2 focus:ring-lime-500 focus:outline-none focus:border-transparent transition-all placeholder:text-zinc-600"
-                placeholder="000.000.000-00"
+                placeholder="000.000.000-00 ou 6 primeiros dígitos"
                 autoComplete="username"
                 required
               />
@@ -152,9 +160,8 @@ const ClientLoginScreen = () => {
                   setErrorMessage('');
                 }}
                 className="w-full bg-black/50 border border-white/10 rounded-xl p-3.5 pl-11 pr-11 text-white text-sm focus:ring-2 focus:ring-lime-500 focus:outline-none focus:border-transparent transition-all placeholder:text-zinc-600"
-                placeholder="••••••••"
+                placeholder="Senha ou 6 primeiros dígitos do CPF"
                 autoComplete="current-password"
-                required
               />
               <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
               <button
