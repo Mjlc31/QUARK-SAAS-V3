@@ -288,6 +288,11 @@ const Dashboard: React.FC = () => {
   // --- Real-time Data Calculation ---
   const kpis = useMemo(() => {
     const isDealClosed = (d: UnifiedDeal) => d.stage === 'Fechado' || isStatusWon(d.rawStatus);
+    const isDealQualOrProp = (d: UnifiedDeal) => 
+      d.stage === 'Qualificacao' || 
+      d.stage === 'Proposta' || 
+      isStatusQual(d.rawStatus) || 
+      isStatusProposal(d.rawStatus);
 
     const totalPipeline = filteredDeals.reduce((acc, curr) => acc + (!isDealClosed(curr) && curr.stage !== 'Perdido' ? curr.value : 0), 0);
     const totalRevenue = filteredDeals.filter(isDealClosed).reduce((acc, curr) => acc + curr.value, 0);
@@ -295,7 +300,11 @@ const Dashboard: React.FC = () => {
     const closedCount = filteredDeals.filter(isDealClosed).length;
     const totalCount = filteredDeals.length;
     const avgTicket = closedCount > 0 ? totalRevenue / closedCount : 0;
-    const conversionRate = totalCount > 0 ? ((closedCount / totalCount) * 100).toFixed(1) : '0.0';
+
+    // Oportunidades qualificadas (Qualificado + Proposta -> Ganho como venda fechada)
+    const openOpportunitiesCount = filteredDeals.filter(d => isDealQualOrProp(d) && !isDealClosed(d) && d.stage !== 'Perdido').length;
+    const opportunityCount = openOpportunitiesCount + closedCount;
+    const conversionRate = opportunityCount > 0 ? ((closedCount / opportunityCount) * 100).toFixed(1) : '0.0';
 
     // Cálculo da Potência Total Vendida (kWp Fechado)
     const totalKwpWon = filteredDeals.filter(isDealClosed).reduce((acc, curr) => {
@@ -343,6 +352,8 @@ const Dashboard: React.FC = () => {
       closedCount, 
       conversionRate, 
       totalLeadsCount: totalCount, 
+      opportunityCount,
+      openOpportunitiesCount,
       projectedRevenue,
       totalKwpWon,
       monthlyGenKwh,
@@ -497,7 +508,7 @@ const Dashboard: React.FC = () => {
     y += 6;
     doc.text(`Ticket Médio por Contrato: R$ ${kpis.avgTicket.toLocaleString()}`, 14, y);
     y += 6;
-    doc.text(`Taxa de Conversão: ${kpis.conversionRate}% (${kpis.closedCount} contratos de ${kpis.totalLeadsCount} negócios)`, 14, y);
+    doc.text(`Taxa de Conversão: ${kpis.conversionRate}% (${kpis.closedCount} contratos de ${kpis.opportunityCount} oportunidades)`, 14, y);
     y += 12;
 
     doc.setFontSize(12);
@@ -633,7 +644,7 @@ const Dashboard: React.FC = () => {
           value={`${kpis.conversionRate}%`} 
           icon={TrendingUp} 
           trend="+1.2%" 
-          subtext={`${kpis.closedCount} de ${kpis.totalLeadsCount} negócios`} 
+          subtext={`${kpis.closedCount} de ${kpis.opportunityCount} oportunidades`} 
           color="orange" 
           sparkData={conversionSparkData}
         />

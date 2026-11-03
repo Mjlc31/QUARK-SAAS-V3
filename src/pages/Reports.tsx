@@ -37,10 +37,21 @@ const Reports: React.FC = () => {
     // Unifica opportunities com leads legados
     const activeOpps = opportunities.length > 0 ? opportunities : leads;
     const totalLeads = activeOpps.length;
-    const closedLeads = activeOpps.filter(
-      (l: any) => l.status === 'Ganho' || l.status === 'ganho' || l.pipeline_stage === 'Ganho' || l.status === 'Fechado'
-    ).length;
-    const conversionRate = totalLeads > 0 ? ((closedLeads / totalLeads) * 100).toFixed(1) : '0.0';
+
+    const isWon = (l: any) => {
+      const s = ((l.status || l.pipeline_stage) || '').toLowerCase().trim();
+      return s === 'ganho' || s === 'fechado' || s === 'fechado / ganho' || s === 'venda fechada' || s === 'won' || s === 'closed';
+    };
+    const isQualOrProp = (l: any) => {
+      const s = ((l.status || l.pipeline_stage) || '').toLowerCase().trim();
+      return s.includes('qualific') || s.includes('propost');
+    };
+
+    const closedLeads = activeOpps.filter(isWon).length;
+    // Oportunidades qualificadas (Qualificado + Proposta -> Ganho como venda fechada)
+    const openOpps = activeOpps.filter((l: any) => isQualOrProp(l) && !isWon(l) && (l.status || '').toLowerCase() !== 'perdido').length;
+    const opportunityCount = openOpps + closedLeads;
+    const conversionRate = opportunityCount > 0 ? ((closedLeads / opportunityCount) * 100).toFixed(1) : '0.0';
     
     // Receita e Custos
     let totalRevenue = 0;
@@ -54,7 +65,7 @@ const Reports: React.FC = () => {
 
     // Soma valor das propostas/oportunidades ganhas
     const wonOppsRevenue = activeOpps
-      .filter((l: any) => l.status === 'Ganho' || l.status === 'ganho' || l.pipeline_stage === 'Ganho' || l.status === 'Fechado')
+      .filter(isWon)
       .reduce((acc: number, l: any) => acc + Number(l.amount || l.value || 0), 0);
 
     const finalRevenue = totalRevenue > 0 ? (totalRevenue + wonOppsRevenue) : (wonOppsRevenue > 0 ? wonOppsRevenue : 185000);
@@ -68,6 +79,8 @@ const Reports: React.FC = () => {
       cac,
       totalRevenue: finalRevenue,
       closedLeads,
+      opportunityCount,
+      openOpps,
       totalLeads
     };
   }, [leads, opportunities, transactions]);
@@ -172,7 +185,7 @@ const Reports: React.FC = () => {
     lines.push('--- MÉTRICAS GERAIS ---');
     lines.push(`Total de Oportunidades;${metrics.totalLeads}`);
     lines.push(`Vendas Fechadas;${metrics.closedLeads}`);
-    lines.push(`Taxa de Conversão;${metrics.conversionRate}%`);
+    lines.push(`Taxa de Conversão;${metrics.conversionRate}% (${metrics.closedLeads} de ${metrics.opportunityCount} oportunidades)`);
     lines.push(`Receita Total Realizada;${metrics.totalRevenue.toFixed(2)}`);
     lines.push(`LTV Médio (R$);${metrics.ltv.toFixed(2)}`);
     lines.push(`CAC Médio (R$);${metrics.cac.toFixed(2)}`);
@@ -250,7 +263,7 @@ const Reports: React.FC = () => {
            </div>
            <p className="text-slate-500 text-xs font-bold uppercase mb-1">Taxa de Conversão</p>
            <p className="text-3xl font-bold text-white">{metrics.conversionRate}%</p>
-           <p className="text-xs text-slate-500 mt-2">Leads para Venda</p>
+           <p className="text-xs text-slate-400 mt-2">{metrics.closedLeads} de {metrics.opportunityCount} oportunidades</p>
         </div>
       </div>
 

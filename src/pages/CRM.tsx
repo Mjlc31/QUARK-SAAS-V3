@@ -239,15 +239,32 @@ const CRM: React.FC = () => {
       const s = (status || "").toLowerCase().trim();
       return s === "perdido" || s === "cancelado" || s === "lost";
     };
+    const isProposal = (status: string) => {
+      const s = (status || "").toLowerCase().trim();
+      return s === "proposta" || s === "proposta enviada" || s === "proposal";
+    };
+    const isQual = (status: string) => {
+      const s = (status || "").toLowerCase().trim();
+      return s === "qualificado" || s === "qualificacao" || s === "qualificação" || s === "em qualificacao";
+    };
 
     const won = opportunities.filter((o) => isWon(o.status));
     const lost = opportunities.filter((o) => isLost(o.status));
+    const proposals = opportunities.filter((o) => isProposal(o.status));
+    const qual = opportunities.filter((o) => isQual(o.status));
+
+    // Oportunidades no funil comercial qualificado (Qualificado + Proposta + Ganho)
+    const openOpportunitiesCount = qual.length + proposals.length;
+    const opportunityCount = openOpportunitiesCount + won.length;
+
     const closed = won.length + lost.length;
     const open = opportunities.filter((o) => !isWon(o.status) && !isLost(o.status));
     const weighted = open.reduce((acc, o) => acc + (o.amount || 0) * (OPPORTUNITY_STAGES.find((s) => s.id === o.status)?.weight ?? 0.1), 0);
     const viewedNotClosed = open.filter((o) => (byLead.get(o.id)?.views.length ?? 0) > 0).length;
     const totalCount = opportunities.length;
-    const conversionRate = totalCount ? Number(((won.length / totalCount) * 100).toFixed(1)) : 0;
+
+    // Taxa de conversão considerando oportunidades qualificadas (Qualificado + Proposta -> Ganho como venda fechada)
+    const conversionRate = opportunityCount ? Number(((won.length / opportunityCount) * 100).toFixed(1)) : 0;
     const winRate = closed ? Math.round((won.length / closed) * 100) : 0;
 
     return {
@@ -256,6 +273,10 @@ const CRM: React.FC = () => {
       winRate,
       wonCount: won.length,
       closedCount: closed,
+      opportunityCount,
+      openOpportunitiesCount,
+      proposalsCount: proposals.length,
+      qualCount: qual.length,
       totalCount,
       wonValue: won.reduce((a, o) => a + (o.amount || 0), 0),
       open: open.length,
@@ -530,7 +551,8 @@ const CRM: React.FC = () => {
         <Metric 
           label="Taxa de conversão" 
           value={`${metrics.conversionRate}%`} 
-          sub={`${metrics.wonCount} de ${metrics.totalCount} leads • ${metrics.winRate}% win rate`} 
+          sub={`${metrics.wonCount} de ${metrics.opportunityCount} oportunidades • ${metrics.winRate}% win rate`} 
+          title={`${metrics.wonCount} fechamentos sobre ${metrics.opportunityCount} oportunidades qualificadas (${metrics.openOpportunitiesCount} ativas: ${metrics.proposalsCount} propostas + ${metrics.qualCount} qualificados)`}
           accent 
         />
         <Metric label="Receita ganha" value={formatCurrencyShort(metrics.wonValue)} sub="negócios na etapa Ganho" />
@@ -812,9 +834,9 @@ export default CRM;
 
 /* ------------------------------------------------------------------ peças */
 
-function Metric({ label, value, sub, accent, icon }: { label: string; value: string; sub: string; accent?: boolean; icon?: React.ReactNode }) {
+function Metric({ label, value, sub, accent, icon, title }: { label: string; value: string; sub: string; accent?: boolean; icon?: React.ReactNode; title?: string }) {
   return (
-    <div className="rounded-2xl bg-zinc-900/50 p-4 ring-1 ring-white/5 backdrop-blur-sm">
+    <div title={title} className="rounded-2xl bg-zinc-900/50 p-4 ring-1 ring-white/5 backdrop-blur-sm">
       <p className="flex items-center gap-1.5 text-[10px] font-bold tracking-wider text-zinc-500 uppercase">
         {icon}
         {label}
