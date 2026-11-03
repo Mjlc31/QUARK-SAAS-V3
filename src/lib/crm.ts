@@ -16,8 +16,11 @@ export const LOSS_REASONS = ["Preço muito alto", "Fechou com a concorrência", 
 export interface Opportunity {
   id: string;
   title: string;
+  client_name?: string | null;
   status: string;
   amount: number;
+  value?: number | null;
+  user_id?: string | null;
   city?: string | null;
   phone?: string | null;
   email?: string | null;

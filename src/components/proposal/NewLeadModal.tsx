@@ -26,8 +26,8 @@ export function NewLeadModal({
     if (!form.title.trim()) return toast.error("Informe o nome do cliente");
     if (!phoneOk) return toast.error("WhatsApp incompleto — use DDD + número");
     setLoading(true);
-    const { data: userAuth } = await supabase().auth.getUser().catch(() => ({ data: { user: null } }));
-    const userId = userAuth?.user?.id || "7dacc88f-9ebd-4710-a1be-0647841db24a";
+    const { data: sessionData } = await supabase().auth.getSession().catch(() => ({ data: { session: null } }));
+    const userId = sessionData?.session?.user?.id || "7dacc88f-9ebd-4710-a1be-0647841db24a";
     const base = { title: form.title.trim(), phone: form.phone, city: form.city, status: "Lead", amount: 0, user_id: userId };
     const full = { ...base, segment, services: [segment], avg_bill: form.avg_bill || null, source: "Orçamento" };
     let res = await supabase().from("opportunities").insert([full]).select("id").single();

@@ -699,11 +699,11 @@ const CRM: React.FC = () => {
 
       {isFormOpen && (
         <NewOpportunityModal
+          existingOpps={opportunities}
           onClose={() => setIsFormOpen(false)}
           onSaved={(o, merged) => {
             setOpps((prev) => (merged ? prev.map((x) => (x.id === o.id ? o : x)) : [o, ...prev]));
             setSelectedId(o.id);
-            reload();
           }}
         />
       )}

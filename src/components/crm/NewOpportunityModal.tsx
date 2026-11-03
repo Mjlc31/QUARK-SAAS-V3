@@ -32,7 +32,15 @@ const EMPTY = {
  * Cadastro de oportunidade com o que importa para a venda: serviço(s), origem,
  * temperatura e — para solar — conta de luz, consumo e telhado.
  */
-export function NewOpportunityModal({ onClose, onSaved }: { onClose: () => void; onSaved: (o: Opportunity, merged: boolean) => void }) {
+export function NewOpportunityModal({ 
+  onClose, 
+  onSaved,
+  existingOpps,
+}: { 
+  onClose: () => void; 
+  onSaved: (o: Opportunity, merged: boolean) => void;
+  existingOpps?: Opportunity[];
+}) {
   const [form, setForm] = useState(EMPTY);
   const [services, setServices] = useState<ServiceId[]>(["solar"]);
   const [saving, setSaving] = useState(false);
@@ -51,11 +59,13 @@ export function NewOpportunityModal({ onClose, onSaved }: { onClose: () => void;
     if (!services.length) return toast.error("Escolha ao menos um serviço");
     setSaving(true);
 
-    const { data: userAuth } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
-    const currentUserId = userAuth?.user?.id || "7dacc88f-9ebd-4710-a1be-0647841db24a";
+    // 1. Resolução ultrarrápida de usuário a partir da sessão local (0ms de rede)
+    const { data: sessionData } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+    const currentUserId = sessionData?.session?.user?.id || "7dacc88f-9ebd-4710-a1be-0647841db24a";
 
     const row: Partial<Opportunity> & Record<string, unknown> = {
       title: form.title.trim(),
+      client_name: form.title.trim(),
       phone: form.phone || null,
       email: form.email || null,
       city: form.city || null,
@@ -63,6 +73,7 @@ export function NewOpportunityModal({ onClose, onSaved }: { onClose: () => void;
       cpf_cnpj: form.cpf_cnpj || null,
       status: "Lead",
       amount: form.amount || 0,
+      value: form.amount || 0,
       segment: services[0],
       services,
       source: form.source || null,
@@ -76,103 +87,130 @@ export function NewOpportunityModal({ onClose, onSaved }: { onClose: () => void;
       user_id: currentUserId,
     };
 
-    let savedOpp: Opportunity | null = null;
-    let isMerged = false;
+    // 2. Verificação instantânea de duplicatas na memória / cache local (0ms de rede)
+    const oppList = existingOpps && existingOpps.length > 0 ? existingOpps : (() => {
+      try {
+        const raw = localStorage.getItem("quark_crm_kanban_v4");
+        return raw ? JSON.parse(raw)?.opps || [] : [];
+      } catch { return []; }
+    })();
+
+    const cleanDigitsInput = phoneDigits;
+    const cleanEmailInput = form.email ? form.email.trim().toLowerCase() : "";
+    const cleanTitleInput = form.title.trim().toLowerCase();
+
+    const existing = oppList.find((opp: Opportunity) => {
+      if (!opp || opp.deleted_at) return false;
+      const oppTitle = (opp.title || "").trim().toLowerCase();
+      // Só mescla se for o mesmo cliente/nome para não sobrescrever negócios distintos
+      if (oppTitle !== cleanTitleInput) return false;
+
+      const oppDigits = onlyDigits(opp.phone || "");
+      const phoneMatch = cleanDigitsInput.length >= 8 && oppDigits.length >= 8 &&
+        (cleanDigitsInput.endsWith(oppDigits.slice(-8)) || oppDigits.endsWith(cleanDigitsInput.slice(-8)));
+
+      const oppEmail = (opp.email || "").trim().toLowerCase();
+      const emailMatch = Boolean(cleanEmailInput && oppEmail && cleanEmailInput === oppEmail);
+
+      return phoneMatch || emailMatch;
+    });
+
+    if (existing) {
+      // Caso 1: Mescla com oportunidade existente
+      const updatedOpp: Opportunity = {
+        ...existing,
+        ...row,
+        services: [...new Set([...(existing.services ?? []), ...services])],
+        status: existing.status === "Perdido" ? "Lead" : existing.status,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Resposta instantânea na interface (Optimistic UI - 0ms de espera)
+      setSaving(false);
+      onSaved(updatedOpp, true);
+      onClose();
+      toast(`Cliente já existia (“${updatedOpp.title}”, etapa ${updatedOpp.status}) — dados mesclados.`, { icon: "🔗" });
+
+      // Persistência assíncrona no Supabase
+      (async () => {
+        try {
+          const patch = Object.fromEntries(
+            Object.entries(row).filter(([k, v]) => v != null && v !== "" && k !== "status" && k !== "amount")
+          );
+          patch.services = updatedOpp.services;
+          if (existing.status === "Perdido") patch.status = "Lead";
+          patch.updated_at = new Date().toISOString();
+
+          const { error } = await supabase.from("opportunities").update(patch).eq("id", existing.id);
+          if (error) console.warn("Falha no update da oportunidade:", error.message);
+        } catch (err: any) {
+          console.warn("Supabase update error:", err?.message || err);
+        }
+      })();
+
+      return;
+    }
+
+    // Caso 2: Nova oportunidade
+    const newId = crypto.randomUUID();
+    const savedOpp: Opportunity = {
+      ...row,
+      id: newId,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    } as Opportunity;
+
+    // Resposta instantânea na interface (Optimistic UI - 0ms de espera)
+    setSaving(false);
+    onSaved(savedOpp, false);
+    onClose();
+    toast.success("Oportunidade criada");
+
+    // Atualiza imediatamente os caches L2 para resposta instantânea em todo o app
+    try {
+      const cachedDashboardRaw = localStorage.getItem("quark_dashboard_crm_v4");
+      if (cachedDashboardRaw) {
+        const cachedDashboard = JSON.parse(cachedDashboardRaw);
+        if (Array.isArray(cachedDashboard)) {
+          cachedDashboard.unshift(savedOpp);
+          localStorage.setItem("quark_dashboard_crm_v4", JSON.stringify(cachedDashboard));
+        }
+      }
+    } catch (_) {}
 
     try {
-      const withTimeout = <T,>(promise: Promise<T>, ms = 10000): Promise<T> =>
-        Promise.race([
-          promise,
-          new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Supabase timeout")), ms)),
-        ]);
+      const cachedRaw = localStorage.getItem("quark_opportunities");
+      const list: Opportunity[] = cachedRaw ? JSON.parse(cachedRaw) : [];
+      localStorage.setItem("quark_opportunities", JSON.stringify([savedOpp, ...list]));
+    } catch (_) {}
 
-      // Mesmo telefone ou e-mail já no CRM: busca pontual direta no banco sem baixar a tabela toda
-      if ((phoneDigits && phoneDigits.length >= 8) || form.email) {
-        let existing: any = null;
-        try {
-          if (phoneDigits && phoneDigits.length >= 8) {
-            const lastDigits = phoneDigits.slice(-8);
-            const resPhone: any = await withTimeout(
-              supabase.from("opportunities")
-                .select("id, title, status, phone, email, services")
-                .is("deleted_at", null)
-                .ilike("phone", `%${lastDigits}%`)
-                .limit(1)
-                .maybeSingle() as any,
-              4000
-            );
-            if (resPhone?.data) existing = resPhone.data;
-          }
-          if (!existing && form.email && form.email.trim()) {
-            const resEmail: any = await withTimeout(
-              supabase.from("opportunities")
-                .select("id, title, status, phone, email, services")
-                .is("deleted_at", null)
-                .ilike("email", form.email.trim().toLowerCase())
-                .limit(1)
-                .maybeSingle() as any,
-              4000
-            );
-            if (resEmail?.data) existing = resEmail.data;
-          }
-        } catch (_) {}
+    // Notifica instantaneamente Dashboard e outras telas via evento
+    window.dispatchEvent(new CustomEvent("quark_crm_updated", { detail: savedOpp }));
 
-        // Só mescla se for estritamente o mesmo cliente (mesmo nome/título) para não sobrescrever negócios distintos
-        if (existing && existing.title?.toLowerCase().trim() === form.title.toLowerCase().trim()) {
-          const patch = Object.fromEntries(Object.entries(row).filter(([k, v]) => v != null && v !== "" && k !== "status" && k !== "amount"));
-          patch.services = [...new Set([...(existing.services ?? []), ...services])];
-          // Se estava marcado como Perdido, reabre como Lead para reengajar no funil
-          if (existing.status === "Perdido") {
-            patch.status = "Lead";
-          }
-          const resUpdate = await withTimeout(supabase.from("opportunities").update(patch).eq("id", existing.id).select().single() as any, 8000).catch((err) => {
-            console.warn("Falha no update da oportunidade:", err);
-            return { data: null, error: err };
-          });
-          const { data, error } = resUpdate as any;
-          if (!error && data) {
-            savedOpp = data as Opportunity;
-            isMerged = true;
-          }
-        }
-      }
-
-      if (!savedOpp) {
-        const resInsert = await withTimeout(supabase.from("opportunities").insert([row]).select().single() as any, 10000).catch((err) => {
-          console.error("Erro no insert da oportunidade:", err);
-          return { data: null, error: err };
-        });
-        const { data, error } = resInsert as any;
-        if (!error && data) {
-          savedOpp = data as Opportunity;
-        } else if (error) {
-          console.error("Supabase insert error:", error);
-          toast.error(friendly(error.message || "Erro ao salvar no banco"));
-        }
-      }
-    } catch (err) {
-      console.warn("Supabase erro/offline:", err);
-    }
-
-    // Fallback offline resiliente: se Supabase falhou ou não retornou dados
-    if (!savedOpp) {
-      const fallbackId = crypto.randomUUID();
-      savedOpp = {
-        ...row,
-        id: fallbackId,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      } as Opportunity;
-
+    // Persiste no Supabase em segundo plano de forma resiliente
+    (async () => {
       try {
-        const cachedRaw = localStorage.getItem("quark_opportunities");
-        const list: Opportunity[] = cachedRaw ? JSON.parse(cachedRaw) : [];
-        const nextList = [savedOpp, ...list];
-        localStorage.setItem("quark_opportunities", JSON.stringify(nextList));
-      } catch (_) {}
-    }
+        const { error } = await supabase.from("opportunities").insert([savedOpp]);
+        if (error) {
+          console.warn("Aviso ao salvar no Supabase, tentando insert com campos essenciais:", error.message);
+          const coreRow = {
+            id: newId,
+            title: savedOpp.title,
+            phone: savedOpp.phone,
+            email: savedOpp.email,
+            city: savedOpp.city,
+            status: savedOpp.status,
+            amount: savedOpp.amount,
+            user_id: currentUserId,
+          };
+          await supabase.from("opportunities").insert([coreRow]);
+        }
+      } catch (err: any) {
+        console.warn("Supabase insert erro:", err?.message || err);
+      }
+    })();
 
-    // Persiste no backend de oportunidades
+    // Sincroniza fire-and-forget com endpoint de oportunidades se disponível
     try {
       fetch("/api/opportunities", {
         method: "POST",
@@ -180,16 +218,6 @@ export function NewOpportunityModal({ onClose, onSaved }: { onClose: () => void;
         body: JSON.stringify(savedOpp),
       }).catch(() => {});
     } catch (_) {}
-
-
-    setSaving(false);
-    if (isMerged) {
-      toast(`Cliente já existia (“${savedOpp.title}”, etapa ${savedOpp.status}) — dados mesclados.`, { icon: "🔗" });
-    } else {
-      toast.success("Oportunidade criada");
-    }
-    onSaved(savedOpp, isMerged);
-    onClose();
   }
 
   return (
