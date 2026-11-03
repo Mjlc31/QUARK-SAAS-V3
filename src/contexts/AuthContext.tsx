@@ -157,7 +157,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
         const isAuthError = error.message.includes('Invalid login credentials') || error.message.includes('not found') || error.status === 400 || error.status === 422;
         if (isAuthError) return { error: { message: error.message, status: error.status } };
@@ -181,7 +181,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const signUp = async (name: string, email: string, password: string) => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { name } } });
+      const { error } = await supabase.auth.signUp({ email, password, options: { data: { name } } });
       if (error) {
         if (error.message.includes('already registered') || error.status === 422) return { error: { message: error.message } };
         setIsSupabaseConnected(false);

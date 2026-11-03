@@ -611,7 +611,6 @@ export function contratoBlocks(d: ContratoData): Block[] {
   const utility = d.utility.trim() || "Equatorial AL";
   const eq = d.equipment.filter((e) => e.qty > 0);
   const supplier = d.supplier.name.trim() ? d.supplier.name.trim().toUpperCase() : blank("", 20);
-  const supplierQ = `a empresa FORNECEDORA, ${supplier}${digits(d.supplier.doc) ? `, inscrita no CNPJ sob o nº ${formatDoc(d.supplier.doc)}` : ""}`;
   const items = [...eq.map(equipmentPhrase), d.structure.trim() && `estrutura de fixação para ${d.structure.trim().toLowerCase()}`].filter(Boolean) as string[];
   const itemsText = items.length > 1 ? `${items.slice(0, -1).join(", ")} e ${items[items.length - 1]}` : items[0] ?? blank("", 30);
   const where = d.installAddress.trim() ? `, a ser instalado no imóvel situado em ${d.installAddress.trim().replace(/\.$/, "")}` : "";

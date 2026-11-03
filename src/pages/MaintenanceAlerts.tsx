@@ -6,12 +6,10 @@ import {
   MessageCircle, 
   Mail, 
   Smartphone,
-  Plus,
   X,
-  AlertTriangle,
-  Users
+  AlertTriangle
 } from 'lucide-react';
-import { useMaintenanceAlerts, useCreateAlert, useUpdateAlertStatus } from '../hooks/useMaintenanceAlerts';
+import { useMaintenanceAlerts, useCreateAlert } from '../hooks/useMaintenanceAlerts';
 import { useClients } from '../hooks/useClients';
 import { AlertChannel, AlertType, AlertStatus } from '../types';
 
@@ -19,7 +17,6 @@ const MaintenanceAlerts: React.FC = () => {
   const { data: alerts, isLoading } = useMaintenanceAlerts();
   const { data: clients = [] } = useClients();
   const createAlerts = useCreateAlert();
-  const updateAlert = useUpdateAlertStatus();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<string>('all');

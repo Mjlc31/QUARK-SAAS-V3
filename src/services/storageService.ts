@@ -578,7 +578,7 @@ export const storageService = {
   // --- STORAGE (Arquivos) ---
   uploadFile: async (bucket: string, path: string, fileBlob: Blob): Promise<string | null> => {
     try {
-      const { data, error } = await supabase.storage.from(bucket).upload(path, fileBlob, { upsert: true });
+      const { error } = await supabase.storage.from(bucket).upload(path, fileBlob, { upsert: true });
       if (error) throw error;
       const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(path);
       return publicUrl;

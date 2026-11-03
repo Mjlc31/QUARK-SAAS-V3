@@ -6,13 +6,11 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "react-hot-toast";
 import { useApp } from "@/components/app/app-context";
 import { useReward } from "@/components/app/rewards";
-import { useQuick } from "@/components/app/shell";
 import { StepNav } from "@/components/proposal/checkout";
 import { LeadPicker, PriceComp, Stepper } from "@/components/proposal/editor";
 import { Badge, Button, Card, CardHeader, Field, ImageField, Input, MoneyInput, NumberInput, Segmented, Switch, Textarea, cx } from "@/components/ui";
 import { PROPOSAL_STATUS } from "@/lib/constants";
 import { addDays, whatsappUrl } from "@/lib/format";
-import { must, useLive } from "@/lib/live";
 import { brl, fmtNum, pct } from "@/lib/pricing";
 import { CHARGER_OPTIONS, calcSave, mergeSave, type SaveCostItem, type SaveInputs } from "@/lib/save";
 import { duplicateProposal } from "@/lib/proposal-actions";
@@ -20,7 +18,7 @@ import { supabase } from "@/lib/supabase/client";
 import { logCrmNote, useCrmLeads } from "@/lib/crm-leads";
 import { NewLeadModal } from "@/components/proposal/NewLeadModal";
 import { ViewsPill } from "@/components/ProposalViews";
-import type { Lead, Proposal } from "@/lib/types";
+import type { Proposal } from "@/lib/types";
 
 export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; initialLeadId?: string | null }) {
   const navigate = useNavigate();

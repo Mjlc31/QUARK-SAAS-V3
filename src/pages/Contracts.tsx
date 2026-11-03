@@ -11,21 +11,15 @@ import {
   Trash2,
   CheckCircle2,
   Clock,
-  Building2,
   Zap,
   DollarSign,
-  FileText,
   User,
   X,
   Loader2,
   ExternalLink,
   Eye,
   Sparkles,
-  Layers,
-  FileCheck2,
   Check,
-  RefreshCw,
-  SlidersHorizontal,
   Download
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -107,20 +101,20 @@ export default function ContractsPage() {
 
   // Equipamentos
   const [moduleBrand, setModuleBrand] = useState('Canadian Solar');
-  const [moduleModel, setModuleModel] = useState('HiKu6 550W');
+  const [moduleModel] = useState('HiKu6 550W');
   const [modulePower, setModulePower] = useState(550);
   const [moduleQty, setModuleQty] = useState(14);
 
   const [inverterBrand, setInverterBrand] = useState('Deye');
-  const [inverterModel, setInverterModel] = useState('SUN-8K-G');
+  const [inverterModel] = useState('SUN-8K-G');
   const [inverterPower, setInverterPower] = useState(8);
-  const [inverterQty, setInverterQty] = useState(1);
+  const [inverterQty] = useState(1);
 
   const [structureType, setStructureType] = useState('Telhado Cerâmico');
   const [supplierName, setSupplierName] = useState('Fortlev Solar');
   const [utilityName, setUtilityName] = useState('Equatorial AL');
   const [forumCity, setForumCity] = useState('Maceió');
-  const [forumState, setForumState] = useState('Alagoas');
+  const [forumState] = useState('Alagoas');
 
   // Financeiro e Pagamento
   const [totalPrice, setTotalPrice] = useState(28900);
@@ -130,9 +124,8 @@ export default function ContractsPage() {
   const [entryPrice, setEntryPrice] = useState(0);
   const [customPaymentText, setCustomPaymentText] = useState('');
 
-  // Separação de Leads fechados vs todos
+  // Separação de Leads fechados
   const closedLeads = useMemo(() => leads.filter(isClosedDeal), [leads]);
-  const otherLeads = useMemo(() => leads.filter((l) => !isClosedDeal(l)), [leads]);
 
   // Combobox pesquisável de clientes com digitação e ordenação alfabética (A-Z)
   const [leadSearchText, setLeadSearchText] = useState('');

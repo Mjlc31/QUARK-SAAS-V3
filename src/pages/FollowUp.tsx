@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { Project, ProjectStatus } from '../types';
-import { Plus, Search, MapPin, HardHat, Send, CheckCircle2, Clock, X, Trash2, User as UserIcon, Phone } from 'lucide-react';
+import { Plus, Search, MapPin, HardHat, Send, CheckCircle2, Clock, X, Trash2, Phone } from 'lucide-react';
 
 const COLUMN_CONFIG: { id: ProjectStatus; label: string; color: string }[] = [
     { id: 'Vistoria', label: 'Vistoria Técnica', color: 'border-blue-500' },
@@ -132,7 +132,7 @@ const FollowUp: React.FC = () => {
 
             {/* Mobile Tabs */}
             <div className="md:hidden flex gap-2 overflow-x-auto pb-4 custom-scrollbar mb-2 px-1 snap-x">
-                {COLUMN_CONFIG.map((column, index) => (
+                {COLUMN_CONFIG.map((column) => (
                     <button
                         key={column.id}
                         onClick={() => {

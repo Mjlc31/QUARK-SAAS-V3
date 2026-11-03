@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Headphones, Plus, MessageSquare, X, Send, LogOut, ArrowLeft, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { Headphones, Plus, MessageSquare, X, Send, ArrowLeft, Clock, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
@@ -7,7 +7,7 @@ import { usePortal } from '../../contexts/PortalContext';
 
 const PortalTickets: React.FC = () => {
   const navigate = useNavigate();
-  const { client, logout } = usePortal();
+  const { client } = usePortal();
   const [filter, setFilter] = useState('Todos');
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);

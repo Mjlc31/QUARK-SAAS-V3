@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { 
-  ShoppingBag, Zap, Truck, Shield, MessageCircle, X, LogOut, CheckCircle2, 
+  ShoppingBag, Zap, Truck, Shield, MessageCircle, X, CheckCircle2, 
   Loader2, Gift, Users, Send, Copy, Check, Droplets, Tag, ShieldCheck, 
   Wrench, ArrowUpRight, ArrowDownLeft, Clock, AlertTriangle, Sparkles, Award, ArrowLeft
 } from 'lucide-react';
@@ -37,7 +37,7 @@ const rewardIconMap: Record<string, React.ElementType> = {
 
 const PortalEcommerce: React.FC = () => {
   const navigate = useNavigate();
-  const { client, logout } = usePortal();
+  const { client } = usePortal();
   const clientId = client?.id;
 
   // React Query Hooks
@@ -121,11 +121,6 @@ const PortalEcommerce: React.FC = () => {
       `Oi! Instalei energia solar com a Quark Energia e estou tendo uma excelente experiência. Eles estão com condições especiais para quem eu indicar! Fale com o time de especialistas pelo WhatsApp usando meu código *${referralCode}*: https://wa.me/5582994241835`
     );
     window.open(`https://wa.me/?text=${text}`, '_blank');
-  };
-
-  const handleLogout = async () => {
-    await logout();
-    navigate('/portal/login');
   };
 
   const handleSendReferral = async (e: React.FormEvent) => {

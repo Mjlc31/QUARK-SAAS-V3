@@ -6,7 +6,6 @@ import {
   Calendar, 
   LayoutGrid, 
   List as ListIcon, 
-  Filter, 
   DollarSign,
   TrendingUp,
   Percent,

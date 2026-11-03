@@ -1,5 +1,4 @@
 import { BlockCatalogItem, ProposalBlock, ProposalData, ProposalTheme } from './types';
-import { nanoid } from './utils';
 import { calcSolar, calcFinancingOptions } from './solarCalc';
 
 export const BLOCK_CATALOG: BlockCatalogItem[] = [
@@ -155,8 +154,6 @@ export function buildInitialBlocks(data: ProposalData, theme?: ProposalTheme): P
   const consumptionBase = Math.round(data.consumption || 800);
   const tariffOverride = data.kwhPriceRegion || 1.17;
   const monthlyBill = data.billValue || (consumptionBase * tariffOverride);
-  const newBill = data.newMonthlyBill || 100;
-  const monthlySavings = data.monthlySavings || (monthlyBill - newBill);
   const generationMonthly = Math.round(data.monthlyGenerationKwh || systemSizeKw * 125);
   const seasonalMultipliers = [1.05, 0.98, 0.95, 0.90, 0.85, 0.82, 0.85, 0.95, 1.05, 1.12, 1.15, 1.10]; // Exemplo de sazonalidade BR
 

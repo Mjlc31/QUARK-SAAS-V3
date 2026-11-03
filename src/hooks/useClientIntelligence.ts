@@ -6,7 +6,6 @@ const withTimeout = <T,>(p: Promise<T>, ms = 1200): Promise<T> =>
   Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 
 const STORAGE_KEY_INTELLIGENCE = 'quark_intelligence_records';
-const STORAGE_KEY_INVOICES = 'quark_utility_invoices';
 
 export const SAMPLE_INTELLIGENCE_RECORDS: ClientIntelligenceRecord[] = [
   {

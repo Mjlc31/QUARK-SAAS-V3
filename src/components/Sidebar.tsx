@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Users, Calculator, CheckSquare, Package, LogOut, PieChart, X, HardHat, MessageSquare, DollarSign, FileText, Kanban, Instagram, MapPin, Headphones, Brain, Wrench, Bell, Bot, ShoppingCart, Table, FolderCog, Trophy, Sparkles, UserCheck, ScrollText, Receipt } from 'lucide-react';
+import { LayoutDashboard, Users, Calculator, CheckSquare, LogOut, PieChart, X, HardHat, MessageSquare, DollarSign, FileText, Instagram, MapPin, Headphones, Brain, Wrench, Bell, Bot, ShoppingCart, Table, FolderCog, Trophy, Sparkles, UserCheck, ScrollText, Receipt } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';

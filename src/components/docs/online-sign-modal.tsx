@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, Copy, ExternalLink, FileSignature, Loader2, MessageCircle, RefreshCw, ShieldCheck } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { Button, Modal } from "@/components/ui";

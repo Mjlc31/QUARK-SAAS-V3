@@ -1,4 +1,4 @@
-import React, { forwardRef } from 'react';
+import { forwardRef } from 'react';
 import type { QuickQuote } from '../../lib/quick-quote';
 import { brl, fmtNum } from '../../lib/quick-quote';
 

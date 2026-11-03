@@ -73,7 +73,7 @@ export const PortalProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const fetchClientProfile = async (userId: string) => {
     try {
       // 1. Busca por auth_user_id
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('client_portal_users')
         .select('*')
         .eq('auth_user_id', userId)

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
-  CreditCard, ShieldCheck, Zap, Droplets, PenTool as Tool, LogOut, 
-  CheckCircle2, ChevronDown, Loader2, Calendar, Clock, AlertCircle, Wrench, ArrowLeft
+  CreditCard, ShieldCheck, Zap, Droplets, PenTool as Tool, 
+  CheckCircle2, ChevronDown, Loader2, Wrench, ArrowLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -63,7 +63,7 @@ const mockServices = [
 const PortalPayments: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { client, logout } = usePortal();
+  const { client } = usePortal();
 
   const [selectedService, setSelectedService] = useState<any>(null);
   const [showToast, setShowToast] = useState(false);
@@ -130,11 +130,6 @@ const PortalPayments: React.FC = () => {
     },
     enabled: true,
   });
-
-  const handleLogout = async () => {
-    await logout();
-    navigate('/portal/login');
-  };
 
   const handleHire = (service: any) => {
     setSelectedService(service);

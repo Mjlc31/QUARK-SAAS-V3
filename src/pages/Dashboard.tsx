@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend, RadialBarChart, RadialBar } from 'recharts';
-import { DollarSign, Zap, Activity, TrendingUp, Download, BarChart3, Clock, ArrowUpRight, Plus, Calculator, CheckSquare, FileText, User, Sun, Leaf, HardHat, ShieldCheck } from 'lucide-react';
+import { DollarSign, Zap, Activity, TrendingUp, Download, BarChart3, Clock, ArrowUpRight, Plus, Calculator, CheckSquare, FileText, Sun, Leaf, HardHat } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { useNavigate } from 'react-router-dom';
 import { SkeletonPage } from '../components/SkeletonLoader';
@@ -461,12 +461,6 @@ const Dashboard: React.FC = () => {
   const conversionSparkData = chartData.map((_, i) => [10, 14, 12, 17, 15, 18][i] || 10);
   const ticketSparkData = chartData.map(d => d.revenue > 0 ? d.revenue / Math.max(1, Math.ceil(d.revenue / 15000)) : 0);
 
-  const topPerformer = {
-    name: user?.name || 'Vendedor',
-    role: 'Sales Executive',
-    value: kpis.totalRevenue
-  };
-
   const handleGenerateReport = async () => {
     const { jsPDF } = await import('jspdf');
     const doc = new jsPDF();
@@ -791,7 +785,7 @@ const Dashboard: React.FC = () => {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie data={sourceData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value">
-                    {sourceData.map((entry, index) => (
+                    {sourceData.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
@@ -813,7 +807,7 @@ const Dashboard: React.FC = () => {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie data={lossReasonData} cx="50%" cy="50%" outerRadius={70} dataKey="value">
-                    {lossReasonData.map((entry, index) => (
+                    {lossReasonData.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={['#ef4444', '#f97316', '#eab308', '#64748b'][index % 4]} />
                     ))}
                   </Pie>

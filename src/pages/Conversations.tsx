@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import { Smartphone, RefreshCw, MessageSquare, Search, Paperclip, Send, User as UserIcon, Zap, Clock, ShieldCheck, PauseCircle, PlayCircle, PowerOff, Bot, MapPin, TrendingUp, ArrowLeft, X, QrCode, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { RefreshCw, MessageSquare, Search, Paperclip, Send, User as UserIcon, Zap, ShieldCheck, PauseCircle, PlayCircle, PowerOff, Bot, MapPin, TrendingUp, ArrowLeft, X, QrCode, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { supabase } from '../lib/supabaseClient';
 
@@ -27,8 +26,6 @@ export interface ChatItem {
 }
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
-const EVO_URL = import.meta.env.VITE_EVOLUTION_API_URL || 'http://localhost:8082';
-const EVO_API_KEY = import.meta.env.VITE_EVOLUTION_API_KEY || 'quark_senha_secreta_123';
 
 const Conversations: React.FC = () => {
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -265,7 +262,6 @@ const Conversations: React.FC = () => {
     const [qrLoading, setQrLoading] = useState(false);
     const [qrError, setQrError] = useState<string | null>(null);
     const [connectionState, setConnectionState] = useState<'connected' | 'disconnected' | 'connecting' | 'unknown'>('unknown');
-    const [evoInstance, setEvoInstance] = useState<any>(null);
 
     const checkConnectionState = async () => {
         try {
@@ -278,7 +274,6 @@ const Conversations: React.FC = () => {
             const state = data.instance?.state || data.evolutionState;
             if (state === 'open') {
                 setConnectionState('connected');
-                setEvoInstance(data.instance || { state: 'open' });
                 setShowQrModal(false);
             } else if (state === 'connecting') {
                 setConnectionState('connecting');
@@ -433,6 +428,12 @@ const Conversations: React.FC = () => {
 
     const handlePauseContact = async (contactId: string) => {
         const isPaused = pausedContacts.has(contactId);
+        setPausedContacts(prev => {
+            const next = new Set(prev);
+            if (isPaused) next.delete(contactId);
+            else next.add(contactId);
+            return next;
+        });
         try {
             const endpoint = isPaused ? 'resume' : 'pause';
             await fetch(`${BACKEND_URL}/agent/${endpoint}/${encodeURIComponent(contactId)}`, { method: 'POST', headers: { 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` } });
@@ -441,6 +442,12 @@ const Conversations: React.FC = () => {
 
     const handleActivateContact = async (contactId: string) => {
         const isActive = activeContacts.has(contactId);
+        setActiveContacts(prev => {
+            const next = new Set(prev);
+            if (isActive) next.delete(contactId);
+            else next.add(contactId);
+            return next;
+        });
         const endpoint = isActive ? 'deactivate' : 'activate';
         try { await fetch(`${BACKEND_URL}/agent/${endpoint}/${encodeURIComponent(contactId)}`, { method: 'POST', headers: { 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` } }); } catch {}
     };
@@ -450,6 +457,20 @@ const Conversations: React.FC = () => {
         setAiSuggestion(null);
         setChats(prev => prev.map(c => c.id === chatId ? { ...c, unread: 0 } : c));
         setMobileShowChat(true);
+        setIsContextLoading(true);
+        const chat = chats.find(c => c.id === chatId);
+        if (chat) {
+            setLeadContext({
+                phase: chat.tag === 'Qualificado' ? 'qualify' : 'greeting',
+                visitScheduled: false,
+                disqualified: false,
+                billValue: null,
+                city: 'Maceió - AL'
+            });
+        } else {
+            setLeadContext(null);
+        }
+        setIsContextLoading(false);
     };
 
     const handleBackToList = () => {

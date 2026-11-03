@@ -1,6 +1,6 @@
 export const ai = {
   models: {
-    generateContent: async ({ contents }: any) => {
+    generateContent: async (_opts: any) => {
       return { text: 'Olá! Simulação da API' };
     }
   }

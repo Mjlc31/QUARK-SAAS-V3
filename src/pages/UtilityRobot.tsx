@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bot, Play, Search, Download, FileText, AlertTriangle, Settings, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Bot, Play, Download, FileText, AlertTriangle, Settings, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useClientIntelligence, SAMPLE_UTILITY_INVOICES } from '../hooks/useClientIntelligence';
 import { ClientIntelligenceRecord, UtilityInvoice } from '../types';
@@ -30,7 +30,6 @@ const UtilityRobot: React.FC = () => {
   const [loadingInvoices, setLoadingInvoices] = useState(false);
 
   // Status Mock
-  const robotStatus = 'Online';
   const [lastRun, setLastRun] = useState<Date>(() => {
     const d = new Date();
     d.setHours(d.getHours() - 2);

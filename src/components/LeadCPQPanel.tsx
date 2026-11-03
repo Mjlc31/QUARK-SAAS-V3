@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { FileText, Download, Calculator, Sparkles, Loader2, Zap, Settings2 } from 'lucide-react';
+import { Download, Calculator, Loader2, Settings2 } from 'lucide-react';
 import { Lead } from '../types';
-import { calcRecommendedPower, calcSolar, calcFinancingOptions } from './proposal/solarCalc';
+import { calcRecommendedPower, calcSolar } from './proposal/solarCalc';
 import { pdf } from '@react-pdf/renderer';
 import ProposalPDF from './proposal/ProposalPDF';
 import { buildInitialBlocks } from './proposal/catalog';

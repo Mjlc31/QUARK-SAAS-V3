@@ -11,7 +11,6 @@ import {
   KeyRound,
   ChevronRight,
   MessageCircle,
-  CheckCircle2,
   X,
   Sparkles
 } from 'lucide-react';

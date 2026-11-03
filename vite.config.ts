@@ -14,21 +14,22 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
+      host: '0.0.0.0',
       port: 5173,
       watch: {
         ignored: ['**/backend/**', '**/backend/data/**', '**/supabase/**'],
       },
       proxy: {
         '/api': {
-          target: 'http://localhost:3001',
+          target: process.env.VITE_BACKEND_URL || 'http://localhost:3005',
           changeOrigin: true,
         },
         '/agent': {
-          target: 'http://localhost:3001',
+          target: process.env.VITE_BACKEND_URL || 'http://localhost:3005',
           changeOrigin: true,
         },
         '/socket.io': {
-          target: 'http://localhost:3001',
+          target: process.env.VITE_BACKEND_URL || 'http://localhost:3005',
           ws: true,
         },
       },

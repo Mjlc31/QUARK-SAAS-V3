@@ -1,9 +1,8 @@
-import React from 'react';
 import {
   Document, Page, View, Text, Image, StyleSheet, Font
 } from '@react-pdf/renderer';
 import {
-  ProposalBlock, ProposalTheme, FontFamily,
+  ProposalBlock, ProposalTheme,
   CoverContent, ClientInfoContent, HowItWorksContent, TechSpecsContent,
   GenerationChartContent, EconomyContent, ROIContent, SocialProofContent, ContactContent,
   ROOF_TYPE_LABELS

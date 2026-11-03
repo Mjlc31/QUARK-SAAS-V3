@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { 
   Headphones, Clock, CheckCircle, Search, Filter, 
-  X, Send, User, ChevronRight, AlertCircle, AlertTriangle, Loader2
+  X, Send, User, AlertCircle, AlertTriangle, Loader2
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTickets, useTicketMessages, useUpdateTicketStatus, useAddTicketMessage } from '../hooks/useTickets';

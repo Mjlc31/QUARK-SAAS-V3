@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo, forwardRef } from 'react';
+import { useState, useRef, useEffect, useMemo, forwardRef } from 'react';
 import {
   Receipt,
   Plus,
@@ -14,8 +14,6 @@ import {
   CheckCircle2,
   Calendar,
   DollarSign,
-  Building2,
-  CreditCard,
   Scissors
 } from 'lucide-react';
 import { toast } from 'sonner';

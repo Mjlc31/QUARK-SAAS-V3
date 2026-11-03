@@ -29,7 +29,6 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "react-hot-toast";
 import { useApp } from "@/components/app/app-context";
 import { useReward } from "@/components/app/rewards";
-import { useQuick } from "@/components/app/shell";
 import { Badge, Button, Card, CardHeader, Field, ImageField, Input, MoneyInput, NumberInput, Segmented, Select, Textarea, cx } from "@/components/ui";
 import { PROPOSAL_STATUS, ROOF_TYPES } from "@/lib/constants";
 import { useCrmLeads, logCrmNote, saveQuickLead, getLocalLeadById, type CrmLead } from "@/lib/crm-leads";
@@ -37,16 +36,10 @@ import { servicesOf } from "@/lib/services";
 import { ViewsPill } from "@/components/ProposalViews";
 import { MACEIO_TARIFF, effectiveTariff, mergeInputs, toStoredSettings, type KitPreset } from "@/lib/defaults";
 import { addDays, formatPhone, whatsappUrl } from "@/lib/format";
-import { must, useLive } from "@/lib/live";
-import { brl, calcEnergy, calcPricing, fmtNum, type AmountMode, type PriceComponent, type ProposalInputs, type PricingResult, type EnergyResult } from "@/lib/pricing";
+import { brl, calcEnergy, calcPricing, fmtNum, type AmountMode, type PriceComponent, type ProposalInputs } from "@/lib/pricing";
 import { duplicateProposal } from "@/lib/proposal-actions";
 import { supabase } from "@/lib/supabase/client";
-import type { Lead, Proposal } from "@/lib/types";
-import { pdf } from '@react-pdf/renderer';
-import ProposalPDF from './ProposalPDF';
-import { buildInitialBlocks } from './catalog';
-import { DEFAULT_THEME } from './types';
-import type { ProposalData } from './types';
+import type { Proposal } from "@/lib/types";
 import { BillPreview, Checkout, StepNav } from "./checkout";
 import { NewLeadModal } from "./NewLeadModal";
 
@@ -62,53 +55,10 @@ const SIMULTANEITY = [
   { value: 60, emoji: "🏪", label: "Comércio / empresa" },
 ];
 
-
-function mapToProposalData(inputs: ProposalInputs, pricing: PricingResult, energy: EnergyResult, lead: any): ProposalData {
-  return {
-    clientName: lead?.name || "Cliente",
-    cpfCnpj: lead?.document,
-    phone: lead?.phone,
-    email: lead?.email,
-    city: lead?.city || "Sua Cidade",
-    state: lead?.state,
-    address: lead?.address,
-    concessionaria: lead?.concessionaria || "Concessionária",
-    connectionType: inputs.connectionType,
-    roofType: inputs.structureType as any,
-    consumption: inputs.consumptionKwh,
-    billValue: inputs.consumptionKwh * inputs.tariff,
-    tariffRate: inputs.tariff,
-    fiobRate: inputs.fioBTariff,
-    publicLighting: inputs.publicLighting,
-    simultaneityFactor: inputs.selfConsumption / 100,
-    generationFactor: (inputs as any).generationFactor || 125,
-    systemSizeKw: pricing.powerKwp,
-    finalPrice: pricing.finalPrice,
-    monthlyGenerationKwh: energy.monthlyGeneration,
-    financingRate: inputs.financingRate,
-    financingInstallments: inputs.financingTerms[0] || 0,
-    creditCardRate: inputs.cardRate,
-    moduleBrand: inputs.moduleBrand,
-    modulePower: inputs.modulePowerW,
-    modulesCount: inputs.moduleQty,
-    inverterBrand: inputs.inverterBrand,
-    inverterPower: inputs.inverterPowerKw,
-    inverterCount: inputs.inverterQty,
-    priceKit: inputs.kitPrice,
-    priceCA: inputs.laborPerModule * inputs.moduleQty,
-    moduleImageUrl: inputs.moduleImage,
-    inverterImageUrl: inputs.inverterImage,
-    additionalCosts: inputs.extraCosts.reduce((s, c) => s + c.value, 0),
-    taxPercentage: inputs.tax.mode === 'percent' ? inputs.tax.value : 0,
-    profitPercentage: inputs.profit.mode === 'percent' ? inputs.profit.value : 0,
-  };
-}
-
 export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposal; initialLeadId?: string | null }) {
   const navigate = useNavigate();
   const { settings, settingsLoaded, user } = useApp();
   const { data: leads } = useCrmLeads();
-  const { openLead } = useQuick();
   const { reward } = useReward();
 
   const [inputs, setInputs] = useState<ProposalInputs | null>(() => {
@@ -209,15 +159,20 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
   
 
   async function exportPdf() {
-    const win = window.open("about:blank", "_blank");
-    const draft = !current.current || current.current.status === "rascunho";
-    const saved = await save({ silent: true, extra: draft ? { status: "enviada", sent_at: new Date().toISOString(), valid_until: addDays(inputs!.validityDays) } : {} });
-    if (!saved) {
-      win?.close();
-      return;
+    setExporting(true);
+    try {
+      const win = window.open("about:blank", "_blank");
+      const draft = !current.current || current.current.status === "rascunho";
+      const saved = await save({ silent: true, extra: draft ? { status: "enviada", sent_at: new Date().toISOString(), valid_until: addDays(inputs!.validityDays) } : {} });
+      if (!saved) {
+        win?.close();
+        return;
+      }
+      const url = `${window.location.origin}/p/${saved.public_token}?print=1`;
+      if (win) win.location.href = url;
+    } finally {
+      setExporting(false);
     }
-    const url = `${window.location.origin}/p/${saved.public_token}?print=1`;
-    if (win) win.location.href = url;
   }
 
   async function save(opts: { silent?: boolean; extra?: Partial<Proposal> } = {}): Promise<Proposal | null> {

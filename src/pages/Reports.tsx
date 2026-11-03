@@ -9,7 +9,7 @@ import { supabase } from '../lib/supabaseClient';
 const COLORS = ['#84cc16', '#3b82f6', '#eab308', '#ef4444', '#8b5cf6', '#ec4899'];
 
 const Reports: React.FC = () => {
-  const { leads, projects, tags } = useApp();
+  const { leads } = useApp();
   const [transactions, setTransactions] = useState<FinancialTransaction[]>([]);
   const [opportunities, setOpportunities] = useState<any[]>([]);
   const [loadingFinancial, setLoadingFinancial] = useState(true);
@@ -295,7 +295,7 @@ const Reports: React.FC = () => {
                   paddingAngle={5}
                   dataKey="value"
                 >
-                  {dataSource.map((entry, index) => (
+                  {dataSource.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>

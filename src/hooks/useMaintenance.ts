@@ -149,9 +149,6 @@ export function useMaintenanceStats() {
         services = SAMPLE_MAINTENANCE_SERVICES;
       }
 
-      const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
       let totalServices = services.length;
       let completedThisMonth = 0;
       let revenueThisMonth = 0;

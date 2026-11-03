@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
-  MapPin, CheckCircle2, Clock, Calendar, Navigation, LogOut, 
-  Headphones, Zap, ArrowLeft, ShieldCheck, Sparkles, FileText, Download, MessageSquare, ExternalLink
+  MapPin, CheckCircle2, Clock, Navigation, LogOut, 
+  Headphones, Zap, ArrowLeft, ShieldCheck, FileText, Download, MessageSquare
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -13,7 +13,7 @@ const PortalTracking: React.FC = () => {
   const { client, logout } = usePortal();
 
   // Busca dados reais de tracking do Supabase vinculados ao ID do cliente
-  const { data: trackingRecords, isLoading } = useClientProjectTracking(client?.id);
+  const { data: trackingRecords } = useClientProjectTracking(client?.id);
 
   // Mapeia as 9 fases solares oficiais com os registros reais do banco
   const phases = React.useMemo(() => {

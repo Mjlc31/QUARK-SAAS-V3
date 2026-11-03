@@ -4,8 +4,8 @@ import {
   Calendar, User, Edit2, Trash2, RotateCcw, MessageCircle, 
   Building2, Activity, Check, Copy, Shield, 
   Sparkles, ExternalLink, FileText, ChevronLeft, ChevronRight,
-  LayoutGrid, List, ArrowUpDown, Filter, ChevronDown,
-  Clock, ArrowRight, HardHat, CheckCircle2, Key, RefreshCw, DollarSign
+  LayoutGrid, List, ArrowUpDown, Filter,
+  Clock, ArrowRight, HardHat, Key, RefreshCw, DollarSign
 } from 'lucide-react';
 import { 
   useClients, 
@@ -252,7 +252,7 @@ const ClientTrackingSection: React.FC<{
   copiedField: string | null;
   onClientUpdate?: (updated: ClientData) => void;
 }> = ({ client, onCopy, copiedField, onClientUpdate }) => {
-  const { data: trackingRecords, isLoading } = useClientProjectTracking(client.id);
+  const { data: trackingRecords } = useClientProjectTracking(client.id);
   const setPhaseMutation = useSetClientPhase();
 
   const currentTracking = useMemo(() => {

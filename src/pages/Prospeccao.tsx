@@ -100,7 +100,7 @@ const LOCALIZACOES_SUGERIDAS = [
 ];
 
 export default function Prospeccao() {
-  const { addLead, user } = useApp();
+  const { user } = useApp();
   
   const [segmento, setSegmento] = useState('');
   const [showSegmentoDropdown, setShowSegmentoDropdown] = useState(false);
@@ -221,8 +221,6 @@ export default function Prospeccao() {
         updated_at: new Date().toISOString()
       };
 
-      let persistedInRemote = false;
-
       // Tentar Supabase com timeout otimizado
       try {
         const withTimeout = <T,>(p: Promise<T>, ms = 2500): Promise<T> =>
@@ -251,7 +249,6 @@ export default function Prospeccao() {
         const insertRes = await withTimeout(supabase.from('opportunities').insert([newOpp]).select() as any).catch(() => ({ data: null, error: true }));
         const { data, error } = insertRes as any;
         if (!error && data && data.length > 0) {
-          persistedInRemote = true;
           await Promise.resolve(supabase.from('agent_notes').insert([{
             entity_type: 'opportunity',
             entity_id: data[0].id,

@@ -4,21 +4,11 @@ import {
   Download,
   Share2,
   FileText,
-  RotateCcw,
   Smartphone,
   LayoutGrid,
-  Check,
-  Zap,
-  Building,
   User,
-  Phone,
-  ArrowRight,
   Loader2,
-  Sun,
-  ShieldCheck,
-  TrendingUp,
-  CreditCard,
-  Building2
+  Sun
 } from 'lucide-react';
 import { useCrm } from '../contexts/CrmContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -27,10 +17,7 @@ import {
   QuickQuoteInput,
   DEFAULT_QUICK,
   quickQuote,
-  modulesFor,
-  inverterFor,
-  brl,
-  fmtNum
+  brl
 } from '../lib/quick-quote';
 import { OfferCard, STORY_W, STORY_H, OfferData, Highlight } from '../components/quick-quote/offer-card';
 import { QuoteCard, CARD_W, CARD_H, QuoteCardData } from '../components/quick-quote/quote-card';
@@ -84,20 +71,20 @@ const QuickQuoteStudio: React.FC = () => {
 
   const [q, setQ] = useState<QuickQuoteInput>(DEFAULT_QUICK);
   const [template, setTemplate] = useState<'story' | 'feed'>('story');
-  const [validityDays, setValidityDays] = useState(7);
-  const [brands, setBrands] = useState({ module: 'Canadian Solar', inverter: 'Growatt' });
+  const [validityDays] = useState(7);
+  const [brands] = useState({ module: 'Canadian Solar', inverter: 'Growatt' });
 
   // Customização de copy e oferta
   const [headlineIdx, setHeadlineIdx] = useState(0);
   const [customHeadline, setCustomHeadline] = useState({ h1: '', h2: '' });
   const [campaign, setCampaign] = useState('');
   const [highlight, setHighlight] = useState<Highlight>('cartao');
-  const [moduleWarranty, setModuleWarranty] = useState(15);
-  const [inverterWarranty, setInverterWarranty] = useState(10);
-  const [efficiency, setEfficiency] = useState(22.5);
+  const [moduleWarranty] = useState(15);
+  const [inverterWarranty] = useState(10);
+  const [efficiency] = useState(22.5);
   const [includedText, setIncludedText] = useState(DEFAULT_INCLUDED);
-  const [footer1, setFooter1] = useState('Parcelado em até 18x no cartão de crédito');
-  const [footer2, setFooter2] = useState('Financiamento em até 72x sem entrada, 1ª parcela em 120 dias');
+  const [footer1] = useState('Parcelado em até 18x no cartão de crédito');
+  const [footer2] = useState('Financiamento em até 72x sem entrada, 1ª parcela em 120 dias');
 
   const [busy, setBusy] = useState<'png' | 'pdf' | 'share' | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -105,7 +92,7 @@ const QuickQuoteStudio: React.FC = () => {
   const [previewScale, setPreviewScale] = useState(1);
 
   // Número identificador da proposta dinâmico e sequencial
-  const [proposalNumber, setProposalNumber] = useState(() => `QK-${Math.floor(100000 + Math.random() * 900000)}`);
+  const [proposalNumber] = useState(() => `QK-${Math.floor(100000 + Math.random() * 900000)}`);
   const [searchParams] = useSearchParams();
 
   // Preenchimento automático quando acessado via link direto de cliente

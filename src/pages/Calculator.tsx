@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calculator as CalcIcon, Sun, Zap, FileText, MapPin, AlertTriangle, TrendingUp, Leaf, Trees, DollarSign, Settings2, Package, Check, UserPlus, ArrowRight, PiggyBank, Loader2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Line, Area, Cell, AreaChart } from 'recharts';
 import { CityData, SolarSystemResult } from '../types';
@@ -33,9 +33,6 @@ const CITIES: CityData[] = [
 const DEFAULT_MODULE_POWER = 550;
 const MODULE_AREA = 2.27;
 const BASE_PERFORMANCE_RATIO = 0.78;
-
-const MONTHLY_YIELD_FACTOR = [1.05, 1.02, 1.0, 0.95, 0.90, 0.85, 0.88, 0.95, 1.0, 1.05, 1.08, 1.06];
-const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
 const Calculator: React.FC = () => {
   const { products } = useApp();
@@ -76,7 +73,6 @@ const Calculator: React.FC = () => {
 
   const [result, setResult] = useState<SolarSystemResult | null>(null);
   const [cashFlowData, setCashFlowData] = useState<any[]>([]);
-  const [generationData, setGenerationData] = useState<any[]>([]);
   const [comparisonData, setComparisonData] = useState<any[]>([]);
 
   const [isSavingToCRM, setIsSavingToCRM] = useState(false);
@@ -212,13 +208,6 @@ const Calculator: React.FC = () => {
     const co2SavedTons = (annualGen * 25 * 0.4) / 1000;
     const treesPlanted = Math.floor((annualGen * 25 * 0.4) / 150);
 
-    const genData = MONTHS.map((month, idx) => ({
-      name: month,
-      consumption: consumption,
-      generation: Math.floor(currentGenerationMonthlyAvg * MONTHLY_YIELD_FACTOR[idx])
-    }));
-    setGenerationData(genData);
-
     const roi25 = (cumulativeBalance / totalInvestment) * 100;
 
     // --- Data for Bill Comparison Chart ---
@@ -253,13 +242,6 @@ const Calculator: React.FC = () => {
     });
 
     setCashFlowData(cashFlow);
-  };
-
-  // Credit card installment calculation
-  const calcCardInstallment = (investment: number, installments: number, monthlyRate: number) => {
-    if (installments <= 1 || monthlyRate === 0) return investment / installments;
-    const rate = monthlyRate / 100;
-    return investment * (rate * Math.pow(1 + rate, installments)) / (Math.pow(1 + rate, installments) - 1);
   };
 
   const generatePDF = async () => {

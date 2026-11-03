@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, Building2, Save, Image as ImageIcon, Plus, Trash2, Sun } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Building2, Save, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { mergeSettings } from '@/lib/defaults';
 import { Button, Input, Field, ImageField } from '@/components/ui';

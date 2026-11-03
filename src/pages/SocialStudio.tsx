@@ -1,30 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import {
   Instagram,
-  Video,
   Calendar,
   Clock,
   Sparkles,
   Plus,
   UploadCloud,
   CheckCircle2,
-  AlertCircle,
   Trash2,
   Play,
   RefreshCw,
   Layers,
   Send,
   Eye,
-  Settings,
-  Share2,
-  Globe,
   Check,
   ChevronRight,
   ChevronLeft,
   HelpCircle,
   ExternalLink,
   Sliders,
-  Filter,
   Film,
   X,
   Volume2,
@@ -32,12 +26,9 @@ import {
   Heart,
   MessageCircle,
   Bookmark,
-  TrendingUp,
   Flame,
   BarChart3,
   Edit3,
-  CheckSquare,
-  ShieldCheck,
   Radio,
   Tv,
   Smartphone
@@ -91,7 +82,6 @@ export const SocialStudio: React.FC = () => {
   const [accounts, setAccounts] = useState<SocialAccount[]>([]);
   const [posts, setPosts] = useState<SocialPost[]>([]);
   const [analytics, setAnalytics] = useState<SocialAnalytics | null>(null);
-  const [loading, setLoading] = useState(true);
   const [syncingFeed, setSyncingFeed] = useState(false);
 
   // Contagem regressiva ao vivo para o próximo post
@@ -176,7 +166,6 @@ export const SocialStudio: React.FC = () => {
   }, [posts]);
 
   const loadData = async () => {
-    setLoading(true);
     try {
       const [accs, pts, anlt] = await Promise.all([
         socialService.getAccounts(),
@@ -189,8 +178,6 @@ export const SocialStudio: React.FC = () => {
     } catch (err) {
       console.error(err);
       toast.error('Erro ao carregar dados do Social Studio');
-    } finally {
-      setLoading(false);
     }
   };
 

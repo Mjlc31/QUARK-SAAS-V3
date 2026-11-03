@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CheckCircle, Clock, Plus, User, AlertCircle, Trash2, X, Calendar as CalendarIcon, Flag, MessageCircle, Mail, Bell, BellOff, List as ListIcon, ChevronLeft, ChevronRight, FileSignature, Zap, Copy, Sparkles } from 'lucide-react';
+import { CheckCircle, Clock, Plus, User, AlertCircle, Trash2, X, Calendar as CalendarIcon, Flag, MessageCircle, Mail, Bell, BellOff, List as ListIcon, ChevronLeft, ChevronRight, FileSignature, Zap, Sparkles } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { whatsappUrl } from '../lib/format';
 import toast from 'react-hot-toast';
@@ -125,9 +125,7 @@ const Tasks: React.FC = () => {
         })
       });
     } catch (err) {
-      console.error(err);
-      // Fails silently for user UX or we can alert
-      console.log("Notificação no backend falhou (servidor indisponível?)");
+      console.error("Notificação no backend falhou:", err);
     }
 
     if (newTaskData.notifyEmail) {

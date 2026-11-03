@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { 
   Sun, TrendingUp, Wrench, HardHat, Headphones, MapPin, CreditCard, 
-  ShoppingBag, LogOut, CheckCircle2, AlertTriangle, Activity, ChevronRight,
-  ShieldCheck, ArrowUpRight, FileText, Download, Check, Sparkles
+  ShoppingBag, LogOut, CheckCircle2, Activity, ChevronRight,
+  ArrowUpRight, FileText, Check, Sparkles
 } from 'lucide-react';
 import { 
   ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, 
-  Line, Legend 
+  Line 
 } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -39,7 +39,7 @@ const PortalDashboard: React.FC = () => {
   }, [client, logout, navigate]);
 
   // Telemetria Solar
-  const { data: telemetry, isLoading: loadingTelemetry } = useClientTelemetry(clientId);
+  const { data: telemetry } = useClientTelemetry(clientId);
 
   // Status da Obra / Projeto em tempo real via Supabase + fallback API
   const { data: clientTracking } = useClientProjectTracking(clientId);

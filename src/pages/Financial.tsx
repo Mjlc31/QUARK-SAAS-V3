@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import {
     AreaChart, Area, BarChart, Bar, PieChart as RechartsPie, Pie, Cell,
-    XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+    XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import { FinancialProlabore } from '../components/FinancialProlabore';
 import { useApp } from '../contexts/AppContext';
@@ -91,8 +91,6 @@ const withTimeout = <T,>(p: Promise<T>, ms = 8000): Promise<T> =>
     Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 
 const STORAGE_KEY = 'quark_financial_transactions';
-
-const DEFAULT_FINANCIAL_TRANSACTIONS: Transaction[] = [];
 
 const getStoredTransactions = (): Transaction[] => {
     try {
@@ -696,6 +694,9 @@ const Financial: React.FC = () => {
                             {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y} className="bg-zinc-900">{y}</option>)}
                         </select>
                     </div>
+                    <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-white/10 text-slate-300 rounded-xl text-sm hover:border-white/20 transition-colors min-w-[44px] min-h-[44px]">
+                        <Download size={14} /> Exportar CSV
+                    </button>
                     <button onClick={generatePDFReport} className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-white/10 text-slate-300 rounded-xl text-sm hover:border-white/20 transition-colors min-w-[44px] min-h-[44px]">
                         <FileText size={14} /> Relatório PDF
                     </button>

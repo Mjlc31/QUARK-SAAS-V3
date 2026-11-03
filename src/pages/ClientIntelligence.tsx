@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { 
-  Users, Zap, Calendar, TrendingUp, Search, Plus, 
+  Users, Zap, TrendingUp, Search, Plus, 
   Settings, X, ShieldAlert, CheckCircle, Save
 } from 'lucide-react';
 import { useClientIntelligence, useCreateIntelligence } from '../hooks/useClientIntelligence';

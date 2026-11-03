@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Upload, Loader2, Sparkles } from 'lucide-react';
+import { Loader2, Sparkles } from 'lucide-react';
 import { extractInvoiceData, ExtractedInvoice } from '../services/aiOcrService';
 import toast from 'react-hot-toast';
 

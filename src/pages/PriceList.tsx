@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Table, Search, Settings2, Package, Check, ArrowRight, TrendingUp, SunMedium, Zap, Calculator, Plus, Share2, FileText, ChevronDown, ChevronUp, X, Save, Edit, History, Trash2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Search, Settings2, Package, ArrowRight, SunMedium, Zap, Calculator, Plus, Share2, ChevronDown, ChevronUp, X, Save, Edit, History, Trash2 } from "lucide-react";
 import { useApp } from "@/components/app/app-context";
-import { Badge, Button, Card, CardHeader, Input, MoneyInput, NumberInput, Segmented, cx, Field } from "@/components/ui";
+import { Badge, Button, Card, Input, MoneyInput, NumberInput, Field } from "@/components/ui";
 import { brl, calcPricing, calcFinancing, type ProposalInputs } from "@/lib/pricing";
 import { mergeInputs, toStoredSettings, type KitPreset } from "@/lib/defaults";
 import { whatsappUrl } from "@/lib/format";
@@ -11,7 +11,6 @@ import { toast } from "react-hot-toast";
 
 export default function PriceList() {
   const { settings, settingsLoaded } = useApp();
-  const navigate = useNavigate();
 
   // Settings Simulation Variables
   const [q, setQ] = useState("");

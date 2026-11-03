@@ -81,10 +81,10 @@ export const SignaturePad = forwardRef<SignaturePadHandle, { name: string; scrip
       if (!c || !g || !text) return;
       const { width, height } = c.getBoundingClientRect();
       let size = 56;
-      g.font = `italic ${size}px 'Caveat', cursive, serif`;
+      g.font = `italic ${size}px ${scriptFont}, serif`;
       while (g.measureText(text).width > width - 32 && size > 20) {
         size -= 2;
-        g.font = `italic ${size}px 'Caveat', cursive, serif`;
+        g.font = `italic ${size}px ${scriptFont}, serif`;
       }
       g.textAlign = "center";
       g.textBaseline = "middle";

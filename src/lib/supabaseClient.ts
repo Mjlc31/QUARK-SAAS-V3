@@ -1,4 +1,3 @@
-import type { Database } from "../types/database.types";
 import { createClient } from '@supabase/supabase-js';
 
 // --- CONFIGURAÇÃO DO SUPABASE ---

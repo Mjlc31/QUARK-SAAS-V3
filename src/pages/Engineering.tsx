@@ -1,22 +1,19 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { 
   HardHat, Loader2, Calendar, User, ArrowRight, X, Zap, 
-  MapPin, Phone, MessageCircle, CheckCircle2, Clock 
+  MessageCircle, Clock 
 } from 'lucide-react';
 import { 
   useActiveProjectsTracking, 
   useAdvancePhase, 
-  useSetClientPhase, 
   SOLAR_PROJECT_PHASES 
 } from '../hooks/useProjectTracking';
-import type { ProjectPhase } from '../types';
 import toast from 'react-hot-toast';
 import { whatsappUrl, formatPhone } from '../lib/format';
 
 export default function EngineeringNew() {
   const { data: activeTrackings, isLoading } = useActiveProjectsTracking();
   const advancePhase = useAdvancePhase();
-  const setClientPhase = useSetClientPhase();
   const [selectedTracking, setSelectedTracking] = useState<any>(null);
 
   if (isLoading) {

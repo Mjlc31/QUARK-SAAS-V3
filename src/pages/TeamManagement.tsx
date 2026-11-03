@@ -8,17 +8,7 @@ import {
   Zap,
   TrendingUp,
   Calendar,
-  Filter,
-  DollarSign,
-  ChevronRight,
-  UserCheck,
-  Check,
-  Clock,
-  AlertTriangle,
-  ArrowUpRight,
-  Shield,
-  FileText,
-  MessageSquare
+  ChevronRight
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCrm } from '../contexts/CrmContext';
@@ -38,7 +28,7 @@ type DetailTab = 'timeline' | 'tarefas' | 'leads';
 
 const TeamManagement: React.FC = () => {
   const { user } = useAuth();
-  const { leads, pipelines } = useCrm();
+  const { leads } = useCrm();
   const { tasks, users: directoryUsers } = useApp();
 
   const isAdmin = user?.role === 'Admin' || user?.email?.includes('admin');
@@ -222,7 +212,6 @@ const TeamManagement: React.FC = () => {
 
   // Membro atualmente inspecionado
   const activeMember = teamMembers.find((m) => m.id === selectedUserId);
-  const activeMemberStats = memberStatsList.find((m) => m.userId === selectedUserId);
 
   return (
     <div className="space-y-6 pb-12 animate-fade-in font-sans">
