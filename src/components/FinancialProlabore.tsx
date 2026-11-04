@@ -15,8 +15,16 @@ export interface ProlaboreProject {
     systemSizeKw: number;
     status: string;
     updatedAt: string;
+    settlementDate?: string;
     finance: ProjectFinance;
 }
+
+interface FinancialProlaboreProps {
+    filterMonth?: number;
+    filterYear?: number;
+}
+
+const MONTHS_NAMES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 const STORAGE_FINANCE_KEY = 'quark_prolabore_finances_v4';
 
@@ -37,7 +45,7 @@ function saveStoredFinance(id: string, finance: ProjectFinance) {
     } catch (_) {}
 }
 
-export const FinancialProlabore: React.FC = () => {
+export const FinancialProlabore: React.FC<FinancialProlaboreProps> = ({ filterMonth, filterYear }) => {
     const [projects, setProjects] = useState<ProlaboreProject[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -45,6 +53,7 @@ export const FinancialProlabore: React.FC = () => {
     const [saving, setSaving] = useState(false);
     const [savedSuccess, setSavedSuccess] = useState(false);
     const [search, setSearch] = useState('');
+    const [periodScope, setPeriodScope] = useState<'month' | 'all'>('month');
 
     const loadClosedProjects = useCallback(async () => {
         try {
@@ -68,6 +77,7 @@ export const FinancialProlabore: React.FC = () => {
                     systemSizeKw: Number(s.system_size_kw || 0),
                     status: 'Venda Fechada',
                     updatedAt: s.updated_at || s.created_at || new Date().toISOString(),
+                    settlementDate: s.settlement_date || (s.updated_at ? s.updated_at.split('T')[0] : s.created_at ? s.created_at.split('T')[0] : new Date().toISOString().split('T')[0]),
                     finance: {
                         revenue: Number(s.contract_revenue || 0),
                         kitCost: Number(s.kit_cost || 0),
@@ -165,6 +175,7 @@ export const FinancialProlabore: React.FC = () => {
                     systemSizeKw: kwp,
                     status: 'Venda Fechada',
                     updatedAt: o.updated_at || o.created_at || new Date().toISOString(),
+                    settlementDate: o.created_at ? o.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
                     finance
                 };
             });
@@ -193,15 +204,34 @@ export const FinancialProlabore: React.FC = () => {
         };
     }, [loadClosedProjects]);
 
+    const scopedProjects = useMemo(() => {
+        if (periodScope === 'all' || !filterMonth || !filterYear) return projects;
+        const targetPrefix = `${filterYear}-${String(filterMonth).padStart(2, '0')}`;
+        return projects.filter(p => p.settlementDate && p.settlementDate.startsWith(targetPrefix));
+    }, [projects, periodScope, filterMonth, filterYear]);
+
+    useEffect(() => {
+        if (scopedProjects.length > 0) {
+            const exists = scopedProjects.some(p => p.id === selectedId);
+            if (!exists) {
+                setSelectedId(scopedProjects[0].id);
+                setEditingFinance(scopedProjects[0].finance);
+            }
+        } else {
+            setSelectedId(null);
+            setEditingFinance(null);
+        }
+    }, [scopedProjects, selectedId]);
+
     const filteredProjects = useMemo(() => {
-        if (!search.trim()) return projects;
+        if (!search.trim()) return scopedProjects;
         const q = search.toLowerCase();
-        return projects.filter(p => p.clientName.toLowerCase().includes(q) || p.city.toLowerCase().includes(q));
-    }, [projects, search]);
+        return scopedProjects.filter(p => p.clientName.toLowerCase().includes(q) || p.city.toLowerCase().includes(q));
+    }, [scopedProjects, search]);
 
     const selectedProject = useMemo(() => {
-        return projects.find(p => p.id === selectedId);
-    }, [projects, selectedId]);
+        return scopedProjects.find(p => p.id === selectedId) || projects.find(p => p.id === selectedId);
+    }, [scopedProjects, projects, selectedId]);
 
     const handleSelect = (p: ProlaboreProject) => {
         setSelectedId(p.id);
@@ -290,11 +320,11 @@ export const FinancialProlabore: React.FC = () => {
         { name: 'MKT Quark (10%)', value: Math.max(0, netProfit * 0.10), color: '#a855f7' },
     ];
 
-    // Totais Consolidados de todos os projetos fechados
+    // Totais Consolidados (Filtrado pelo escopo selecionado)
     const globalTotals = useMemo(() => {
         let totalRev = 0;
         let totalNet = 0;
-        projects.forEach(p => {
+        scopedProjects.forEach(p => {
             const f = p.finance;
             const nQK = f.revenue - f.kitCost;
             const imp = Math.max(0, nQK * ((f.taxRate || 5) / 100));
@@ -310,9 +340,9 @@ export const FinancialProlabore: React.FC = () => {
             andersonTotal: totalNet * 0.45,
             arthurTotal: totalNet * 0.45,
             mktTotal: totalNet * 0.10,
-            count: projects.length
+            count: scopedProjects.length
         };
-    }, [projects]);
+    }, [scopedProjects]);
 
     const CustomTooltip = ({ active, payload }: any) => {
         if (active && payload && payload.length) {
@@ -327,8 +357,43 @@ export const FinancialProlabore: React.FC = () => {
         return null;
     };
 
+    const monthlyCount = useMemo(() => {
+        if (!filterMonth || !filterYear) return 0;
+        const targetPrefix = `${filterYear}-${String(filterMonth).padStart(2, '0')}`;
+        return projects.filter(p => p.settlementDate && p.settlementDate.startsWith(targetPrefix)).length;
+    }, [projects, filterMonth, filterYear]);
+
     return (
         <div className="space-y-6 animate-enter">
+            {/* Scope Filter Header */}
+            <div className="flex items-center justify-between flex-wrap gap-3 pb-1">
+                <div>
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                        <Calculator size={16} className="text-lime-400" />
+                        Pró-labore & Rateio de Sócios
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                        {periodScope === 'month' && filterMonth ? `Fechamentos de ${MONTHS_NAMES[filterMonth - 1]} de ${filterYear}` : 'Todos os contratos fechados no sistema'}
+                    </p>
+                </div>
+                {filterMonth && filterYear && (
+                    <div className="flex items-center gap-1.5 p-1 bg-white/5 border border-white/10 rounded-xl text-xs">
+                        <button
+                            onClick={() => setPeriodScope('month')}
+                            className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${periodScope === 'month' ? 'bg-lime-500 text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'}`}
+                        >
+                            {MONTHS_NAMES[filterMonth - 1]} {filterYear} ({monthlyCount})
+                        </button>
+                        <button
+                            onClick={() => setPeriodScope('all')}
+                            className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${periodScope === 'all' ? 'bg-lime-500 text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'}`}
+                        >
+                            Acumulado Geral ({projects.length})
+                        </button>
+                    </div>
+                )}
+            </div>
+
             {/* Top Global KPI Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                 <div className="bg-[#0d1117] border border-white/5 rounded-2xl p-4 flex flex-col justify-between">

@@ -170,12 +170,13 @@ const Financial: React.FC = () => {
                     2500
                 );
                 if (!isMounted) return;
-                if (!res.error && res.data && res.data.length > 0) {
+                if (!res.error && res.data) {
                     const dbTx = res.data.map(mapRow);
-                    const map = new Map<string, Transaction>();
-                    local.forEach(t => map.set(t.id, t));
-                    dbTx.forEach(t => map.set(t.id, t));
-                    setTransactions(Array.from(map.values()).sort((a, b) => b.date.localeCompare(a.date)));
+                    setTransactions(dbTx);
+                    try {
+                        const stored = getStoredTransactions().filter(t => t.date < firstDay || t.date > lastDay);
+                        localStorage.setItem(STORAGE_KEY, JSON.stringify([...stored, ...dbTx]));
+                    } catch (_) {}
                 } else if (local.length === 0) {
                     setTransactions([]);
                 }
@@ -219,14 +220,11 @@ const Financial: React.FC = () => {
                     6000
                 );
                 if (!isMounted) return;
-                const localYear = getStoredTransactions().filter(t => t.date >= firstDay && t.date <= lastDay);
-                if (!res.error && res.data && res.data.length > 0) {
+                if (!res.error && res.data) {
                     const dbTx = res.data.map(mapRow);
-                    const map = new Map<string, Transaction>();
-                    localYear.forEach(t => map.set(t.id, t));
-                    dbTx.forEach(t => map.set(t.id, t));
-                    setAllYearTx(Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date)));
+                    setAllYearTx(dbTx);
                 } else {
+                    const localYear = getStoredTransactions().filter(t => t.date >= firstDay && t.date <= lastDay);
                     setAllYearTx(localYear);
                 }
             } catch {
@@ -1020,7 +1018,7 @@ const Financial: React.FC = () => {
 
                     {/* ─── Prolabore Tab ──────────────────────────────────────────────── */}
                     {activeTab === 'prolabore' && (
-                        <FinancialProlabore />
+                        <FinancialProlabore filterMonth={filterMonth} filterYear={filterYear} />
                     )}
 
                 </>
