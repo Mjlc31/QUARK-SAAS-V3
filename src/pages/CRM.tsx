@@ -495,7 +495,8 @@ const CRM: React.FC = () => {
       body: JSON.stringify(updates),
     }).catch(() => {});
     try {
-      const { error } = await supabase.from("opportunities").update(updates).eq("id", id);
+      const { value, client_name, pipeline_stage, ...safeUpdates } = updates as any;
+      const { error } = await supabase.from("opportunities").update(safeUpdates).eq("id", id);
       if (error) console.warn("Supabase update error:", error.message);
     } catch (e) {
       console.warn("Supabase offline:", e);
