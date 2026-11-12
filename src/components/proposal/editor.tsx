@@ -37,7 +37,7 @@ import { ViewsPill } from "@/components/ProposalViews";
 import { MACEIO_TARIFF, effectiveTariff, mergeInputs, toStoredSettings, type KitPreset } from "@/lib/defaults";
 import { addDays, formatPhone, whatsappUrl } from "@/lib/format";
 import { brl, calcEnergy, calcPricing, fmtNum, type AmountMode, type PriceComponent, type ProposalInputs } from "@/lib/pricing";
-import { duplicateProposal } from "@/lib/proposal-actions";
+import { duplicateProposal, syncOpportunityAmount } from "@/lib/proposal-actions";
 import { supabase } from "@/lib/supabase/client";
 import type { Proposal } from "@/lib/types";
 import { BillPreview, Checkout, StepNav } from "./checkout";
@@ -131,6 +131,23 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
     setDirty(true);
   };
 
+
+  // O editor recalcula com a tabela de preços atual. Se o resultado difere do que está gravado
+  // (preço, potência ou geração), salva sozinho: senão a tela mostra um valor e a lista/CRM outro.
+  const staleChecked = useRef(false);
+  useEffect(() => {
+    if (staleChecked.current || !proposal || !pricing?.valid || !energy) return;
+    staleChecked.current = true;
+    if (proposal.status === "aceita") return; // preço aceito pelo cliente não muda sozinho
+    const differs = (a: unknown, b: number, tol: number) => Math.abs(Number(a || 0) - b) > tol;
+    if (
+      differs(proposal.final_price, pricing.finalPrice, 0.5) ||
+      differs(proposal.power_kwp, pricing.powerKwp, 0.005) ||
+      differs(proposal.monthly_generation, Math.round(energy.monthlyGeneration), 0.5)
+    ) {
+      setDirty(true);
+    }
+  }, [proposal, pricing, energy]);
 
   // Autosave para orçamentos já existentes.
   useEffect(() => {
@@ -233,7 +250,9 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
       setDirty(false);
       const saved = res.data as Proposal;
       const wasNew = !current.current;
+      const priceChanged = wasNew || Number(current.current?.final_price) !== Number(saved.final_price);
       current.current = saved;
+      if (priceChanged) syncOpportunityAmount(saved).catch(() => {});
 
       if (wasNew) {
         // Dispara efeitos secundários de histórico em background com timeout, sem travar o usuário
@@ -255,14 +274,6 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
               logCrmNote(leadId, `📝 Orçamento solar #${saved.number} criado — ${fmtNum(saved.power_kwp, 2)} kWp · ${brl(saved.final_price)}`),
               new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 1200))
             ]);
-          } catch (_) {}
-          try {
-            if (lead && !lead.amount && lead.id && lead.id.length === 36) {
-              await Promise.race([
-                sb.from("opportunities").update({ amount: saved.final_price }).eq("id", lead.id),
-                new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 1200))
-              ]);
-            }
           } catch (_) {}
         });
 

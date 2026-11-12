@@ -1,6 +1,25 @@
 "use client";
 
 import { supabase } from "./supabase/client";
+import type { Proposal } from "./types";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Leva o valor do orçamento salvo para a oportunidade no CRM.
+ * Se outro orçamento da mesma oportunidade já foi aceito, ele manda no valor e este não sobrescreve.
+ */
+export async function syncOpportunityAmount(p: Pick<Proposal, "id" | "lead_id" | "status" | "final_price"> & { opportunity_id?: string | null }) {
+  const oppId = p.opportunity_id || p.lead_id;
+  if (!oppId || !UUID_RE.test(oppId) || !(Number(p.final_price) > 0)) return;
+  const sb = supabase();
+  if (p.status !== "aceita") {
+    const { data: accepted } = await sb.from("proposals").select("*").eq("lead_id", oppId).eq("status", "aceita").limit(1);
+    if (accepted?.some((a: any) => a.id !== p.id && !a.deleted_at)) return;
+  }
+  const { error } = await sb.from("opportunities").update({ amount: Number(p.final_price), updated_at: new Date().toISOString() }).eq("id", oppId);
+  if (error) console.warn("[syncOpportunityAmount] CRM não atualizado:", error.message);
+}
 
 /** Cria uma cópia da proposta como rascunho (novo número e novo link público). */
 export async function duplicateProposal(id: string, userId: string): Promise<{ id: string; number: number }> {

@@ -8,7 +8,7 @@ import { toast } from "react-hot-toast";
 import { Badge, Button, Card, Empty, Input, PageHeader, Segmented, Skeleton, cx } from "@/components/ui";
 import { PRODUCTS, PROPOSAL_STATUS, productOf } from "@/lib/constants";
 import { proposalSummary } from "@/lib/proposal-summary";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { must, useLive } from "@/lib/live";
 import { brl, fmtNum } from "@/lib/pricing";
 import { downloadCsv, today } from "@/lib/csv";
@@ -53,7 +53,7 @@ function Proposals() {
         if (clean.length !== list.length) {
           localStorage.setItem("quark_proposals_cache", JSON.stringify(clean));
         }
-        return clean;
+        return clean.sort((a, b) => String(b.updated_at ?? b.created_at).localeCompare(String(a.updated_at ?? a.created_at)));
       }
     } catch (_) {}
     return [];
@@ -61,7 +61,8 @@ function Proposals() {
 
   const { data: rawData, loading: liveLoading } = useLive(
     async () => {
-      const res = await supabase().from("proposals").select("*").order("created_at", { ascending: false }).limit(100);
+      // Última alteração primeiro: orçamento editado agora sobe para o topo
+      const res = await supabase().from("proposals").select("*").order("updated_at", { ascending: false }).limit(100);
       if (res.error) throw res.error;
       const rawProposals = res.data || [];
       const proposals = filterRealProposals(rawProposals);
@@ -378,7 +379,9 @@ function ProposalRow({ p, idx, onDuplicate, onDelete }: { p: Proposal; idx: numb
         </div>
         <p className="mt-0.5 truncate text-[13px] text-zinc-400">
           <span className="hidden sm:inline tnum text-zinc-500 font-medium">#{p.number} · </span>
-          {proposalSummary(p)} · {formatDate(p.created_at)}
+          {proposalSummary(p)} · {p.updated_at && p.updated_at.slice(0, 16) !== p.created_at?.slice(0, 16)
+            ? `atualizada ${formatDateTime(p.updated_at)}`
+            : formatDate(p.created_at)}
         </p>
       </div>
       <div className="text-right">

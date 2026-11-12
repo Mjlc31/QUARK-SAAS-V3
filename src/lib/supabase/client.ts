@@ -347,18 +347,23 @@ class ProposalMutationBuilder {
           }
         };
 
-        const timeoutPromise = new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 4000));
+        const timeoutPromise = new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 8000));
         const resInsert: any = await Promise.race([
           _supabase.from("proposals").insert(dbRow).select().single(),
           timeoutPromise
         ]);
 
+        if (resInsert?.error) throw resInsert.error;
         if (resInsert?.data) {
           if (resInsert.data.number) newProp.number = resInsert.data.number;
           if (resInsert.data.public_token) newProp.public_token = resInsert.data.public_token;
         }
-      } catch (sbErr) {
-        console.warn("[ProposalsClient] Supabase insert warning:", sbErr);
+      } catch (sbErr: any) {
+        console.warn("[ProposalsClient] Supabase insert falhou:", sbErr);
+        return {
+          data: null,
+          error: { message: sbErr?.message === "timeout" ? "Sem conexão com o servidor — orçamento não foi salvo" : `Orçamento não foi salvo: ${sbErr?.message || "erro desconhecido"}` },
+        };
       }
 
       // Sincroniza com o servidor backend em background
@@ -424,6 +429,10 @@ class ProposalMutationBuilder {
           if (this.payload.valid_until !== undefined) dbUpdate.valid_until = this.payload.valid_until;
           if (this.payload.accepted_at !== undefined) dbUpdate.accepted_at = this.payload.accepted_at;
           if (this.payload.accepted_by !== undefined) dbUpdate.accepted_by = this.payload.accepted_by;
+          if (this.payload.sent_at !== undefined) dbUpdate.sent_at = this.payload.sent_at;
+          if (this.payload.deleted_at !== undefined) dbUpdate.deleted_at = this.payload.deleted_at;
+          if (this.payload.lead_id !== undefined) dbUpdate.lead_id = this.payload.lead_id;
+          if (this.payload.opportunity_id !== undefined) dbUpdate.opportunity_id = this.payload.opportunity_id;
           const prevTarget: any = target || {};
           dbUpdate.data = {
             ...(prevTarget.data || {}),
@@ -439,13 +448,21 @@ class ProposalMutationBuilder {
             lead: this.payload.lead ?? prevTarget.lead,
           };
 
-          const timeoutPromise = new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 4000));
-          await Promise.race([
-            _supabase.from("proposals").update(dbUpdate).eq("id", idFilter),
+          const timeoutPromise = new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 8000));
+          const resUpdate: any = await Promise.race([
+            _supabase.from("proposals").update(dbUpdate).eq("id", idFilter).select("id, updated_at"),
             timeoutPromise
           ]);
-        } catch (sbErr) {
-          console.warn("[ProposalsClient] Supabase update warning:", sbErr);
+          // supabase-js não lança: erro e "0 linhas" (RLS) vêm no retorno e antes eram ignorados
+          if (resUpdate?.error) throw resUpdate.error;
+          if (!resUpdate?.data?.length) throw new Error("Sem permissão para alterar este orçamento");
+          if (target) (target as any).updated_at = resUpdate.data[0].updated_at;
+        } catch (sbErr: any) {
+          console.warn("[ProposalsClient] Supabase update falhou:", sbErr);
+          return {
+            data: null,
+            error: { message: sbErr?.message === "timeout" ? "Sem conexão com o servidor — orçamento não foi salvo" : `Orçamento não foi salvo: ${sbErr?.message || "erro desconhecido"}` },
+          };
         }
       }
 

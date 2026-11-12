@@ -54,8 +54,9 @@ async function loadCrm(): Promise<CrmData> {
       Promise.resolve(
         supabase
           .from("proposals")
-          .select("id, number, lead_id, status, final_price, power_kwp, public_token, created_at")
-          .order("created_at", { ascending: false })
+          .select("id, number, lead_id, status, final_price, power_kwp, public_token, created_at, updated_at")
+          .is("deleted_at", null)
+          .order("updated_at", { ascending: false })
           .limit(100)
       ),
     ]);

@@ -13,7 +13,7 @@ import { PROPOSAL_STATUS } from "@/lib/constants";
 import { addDays, whatsappUrl } from "@/lib/format";
 import { brl, fmtNum, pct } from "@/lib/pricing";
 import { CHARGER_OPTIONS, calcSave, mergeSave, type SaveCostItem, type SaveInputs } from "@/lib/save";
-import { duplicateProposal } from "@/lib/proposal-actions";
+import { duplicateProposal, syncOpportunityAmount } from "@/lib/proposal-actions";
 import { supabase } from "@/lib/supabase/client";
 import { logCrmNote, useCrmLeads } from "@/lib/crm-leads";
 import { NewLeadModal } from "@/components/proposal/NewLeadModal";
@@ -129,7 +129,9 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
       setDirty(false);
       const saved = res.data as Proposal;
       const wasNew = !current.current;
+      const priceChanged = wasNew || Number(current.current?.final_price) !== Number(saved.final_price);
       current.current = saved;
+      if (priceChanged) syncOpportunityAmount(saved).catch(() => {});
 
       if (wasNew) {
         try {
