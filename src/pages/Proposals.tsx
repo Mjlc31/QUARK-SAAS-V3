@@ -88,6 +88,7 @@ function Proposals() {
     },
     [],
     ["proposals", "proposal_views"],
+    { cacheKey: "quark_proposals_list" }
   );
   const data = rawData;
   const loading = liveLoading && !data;

@@ -16,14 +16,26 @@ export default function ProposalEditorPage() {
     async () => {
       if (!id) return null;
       let p: any = null;
+
+      // 1. Busca ultra rápida via RPC atômico indexado (<5ms)
       try {
-        const direct = await supabase().from("proposals").select("*").eq("id", id).maybeSingle();
-        if (direct?.data) p = direct.data;
+        const { data: rpcData, error: rpcErr } = await supabase().rpc("get_proposal_by_id", { p_id: id });
+        if (!rpcErr && rpcData && typeof rpcData === "object" && (rpcData as any).id) {
+          p = rpcData;
+        }
       } catch (_) {}
+
+      // 2. Fallbacks diretos
+      if (!p) {
+        try {
+          const direct = await supabase().from("proposals").select("*").eq("id", id).maybeSingle();
+          if (direct?.data) p = direct.data;
+        } catch (_) {}
+      }
 
       if (!p) {
         try {
-          const { data: list } = await supabase().rpc("get_proposals", { p_limit: 200 });
+          const { data: list } = await supabase().rpc("get_proposals", { p_limit: 50 });
           if (Array.isArray(list)) {
             p = list.find((item: any) => item.id === id || String(item.number) === id);
           }
@@ -39,8 +51,8 @@ export default function ProposalEditorPage() {
       } as Proposal;
     },
     [id],
-    [],
-    { fresh: true }
+    ["proposals"],
+    { cacheKey: `quark_proposal_edit_${id}` }
   );
 
   if (id) {

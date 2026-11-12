@@ -84,15 +84,25 @@ export function trackProposalView(token: string): () => void {
 
 export async function fetchProposalViews(proposalIds: string[]): Promise<ProposalView[]> {
   if (!proposalIds.length) return [];
-  const { data, error } = await supabase
-    .from("proposal_views")
-    .select("*")
-    .in("proposal_id", proposalIds)
-    .eq("internal", false)
-    .order("viewed_at", { ascending: false })
-    .limit(500);
-  if (error) return [];
-  return (data ?? []) as unknown as ProposalView[];
+  try {
+    const query = supabase
+      .from("proposal_views")
+      .select("*")
+      .in("proposal_id", proposalIds)
+      .eq("internal", false)
+      .order("viewed_at", { ascending: false })
+      .limit(500);
+
+    const res = await Promise.race([
+      query,
+      new Promise<{ data: null; error: Error }>((resolve) =>
+        setTimeout(() => resolve({ data: null, error: new Error("views timeout") }), 1500)
+      )
+    ]);
+    return (res.data ?? []) as unknown as ProposalView[];
+  } catch {
+    return [];
+  }
 }
 
 export function formatDuration(s: number) {

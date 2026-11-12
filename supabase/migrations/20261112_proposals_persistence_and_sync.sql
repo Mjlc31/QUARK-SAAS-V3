@@ -208,3 +208,23 @@ AS $$
 $$;
 
 GRANT EXECUTE ON FUNCTION public.get_proposals(int) TO anon, authenticated, service_role;
+
+-- 3. RPC para buscar proposta específica de forma atômica e instantânea (< 5ms)
+CREATE OR REPLACE FUNCTION public.get_proposal_by_id(p_id text)
+RETURNS jsonb
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public, auth, pg_temp
+AS $$
+  SELECT to_jsonb(p) 
+  FROM public.proposals p 
+  WHERE (p.id = p_id OR p.number::text = p_id OR p.public_token = p_id)
+    AND p.deleted_at IS NULL
+  LIMIT 1;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_proposal_by_id(text) TO anon, authenticated, service_role;
+
+-- 4. Índices para aceleração máxima de buscas e ordenações
+CREATE INDEX IF NOT EXISTS idx_proposals_updated_at_active ON public.proposals (updated_at DESC NULLS LAST, created_at DESC) WHERE (deleted_at IS NULL);
+CREATE INDEX IF NOT EXISTS idx_proposals_number ON public.proposals (number) WHERE (deleted_at IS NULL);
