@@ -1,11 +1,14 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './lib/cacheEpoch';
+import { installAuthFetch } from './lib/authFetch';
 import App from './App';
 import './index.css';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './store/queryClient';
+
+installAuthFetch();
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

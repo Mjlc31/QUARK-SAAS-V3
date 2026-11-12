@@ -83,7 +83,7 @@ async function loadCrm(): Promise<CrmData> {
 
 const CRM: React.FC = () => {
   const queryClient = useQueryClient();
-  const { data, setData, loading, reload } = useLive(
+  const { data, setData, loading } = useLive(
     loadCrm, 
     [], 
     ["opportunities", "proposals"],

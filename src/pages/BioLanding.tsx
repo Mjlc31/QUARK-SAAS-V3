@@ -142,7 +142,7 @@ export default function BioLanding() {
           <main className="animate-fade-up mt-4">
             {/* Hero */}
             <section className="relative overflow-hidden rounded-[28px] ring-1 ring-white/10">
-              <img src="/projetos-entregues.jpg" alt="Usina solar instalada pela Quark Energia" className="h-56 w-full object-cover" fetchPriority="high" />
+              <img src="/projetos-entregues.jpg" alt="Usina solar instalada pela Quark Energia" className="h-56 w-full object-cover" {...{ fetchpriority: 'high' }} /* React 18 só aceita o atributo em minúsculo */ />
               <div className="absolute inset-0 bg-gradient-to-t from-[#07060D] via-[#07060D]/60 to-transparent" />
               <div className="absolute inset-x-0 bottom-0 p-5">
                 <span className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-lime-300/15 px-2.5 py-1 text-[11px] font-bold tracking-wide text-lime-200 ring-1 ring-lime-300/30 backdrop-blur">

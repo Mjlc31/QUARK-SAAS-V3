@@ -45,7 +45,8 @@ function getStoredCache<T>(key: string): T | undefined {
 function setStoredCache<T>(key: string, value: T) {
   cache.set(key, value);
   try {
-    localStorage.setItem(key, JSON.stringify(value));
+    // A chave padrão é o código-fonte da consulta: gravá-la crua duplicava os dados e enchia o localStorage (onde fica a sessão).
+    if (key.length <= 100) localStorage.setItem(key, JSON.stringify(value));
     const k = `quark_live_${hashKey(key)}`;
     localStorage.setItem(k, JSON.stringify(value));
   } catch (_) {}

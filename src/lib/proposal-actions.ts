@@ -21,6 +21,40 @@ export async function syncOpportunityAmount(p: Pick<Proposal, "id" | "lead_id" |
   if (error) console.warn("[syncOpportunityAmount] CRM não atualizado:", error.message);
 }
 
+const LEGACY_CACHE = "quark_proposals_cache";
+const RESCUE_FIELDS = ["title", "inputs", "power_kwp", "monthly_generation", "direct_cost", "commission_value", "tax_value", "profit_value", "final_price"] as const;
+
+/**
+ * O cliente antigo gravava a edição primeiro no navegador e escondia a falha no banco.
+ * Leva para o banco as edições presas nesse cache que são mais novas que o banco; depois apaga o cache.
+ */
+export async function rescueLocalProposalEdits(): Promise<number> {
+  let cached: any[];
+  try {
+    cached = JSON.parse(localStorage.getItem(LEGACY_CACHE) || "null");
+  } catch {
+    cached = [];
+  }
+  if (!Array.isArray(cached)) return 0;
+  const sb = supabase();
+  const candidates = cached.filter((c) => c && UUID_RE.test(String(c.id)) && c.updated_at && c.inputs);
+  let rescued = 0;
+  for (const c of candidates) {
+    const row: Record<string, unknown> = { system_size_kw: Number(c.power_kwp) || 0 };
+    for (const f of RESCUE_FIELDS) if (c[f] !== undefined) row[f] = c[f];
+    // Só sobrescreve se o banco for mais antigo que a edição local e o orçamento não estiver aceito/excluído.
+    const { data, error } = await sb.from("proposals").update(row).eq("id", c.id).lt("updated_at", c.updated_at)
+      .is("deleted_at", null).neq("status", "aceita").select("id, lead_id, opportunity_id, status, final_price");
+    if (error) return rescued; // mantém o cache para tentar de novo
+    for (const saved of data ?? []) {
+      rescued++;
+      await syncOpportunityAmount(saved as any);
+    }
+  }
+  localStorage.removeItem(LEGACY_CACHE);
+  return rescued;
+}
+
 /** Cria uma cópia da proposta como rascunho (novo número e novo link público). */
 export async function duplicateProposal(id: string, userId: string): Promise<{ id: string; number: number }> {
   const sb = supabase();

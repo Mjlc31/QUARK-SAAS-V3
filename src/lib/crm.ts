@@ -96,7 +96,7 @@ export async function convertToClient(o: Opportunity) {
     let systemPower = Number(o.system_power || 0);
     const cleanPhone = o.phone ? o.phone.trim() : null;
     const cleanEmail = o.email ? o.email.trim().toLowerCase() : null;
-    const cleanCpf = o.cpf_cnpj ? o.cpf_cnpj.trim() : null;
+    const cleanCpf = o.cpf_cnpj ? o.cpf_cnpj.replace(/\D/g, '') : null;
 
     const isUuid = (val?: string | null): val is string =>
       typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
@@ -170,6 +170,7 @@ export async function convertToClient(o: Opportunity) {
           .select();
         if (!error && client && client.length > 0) createdClient = client[0];
       }
+      // Acesso ao portal é provisionado pelo trigger trg_auto_provision_client_portal (RPC não é chamável pelo front).
     } catch (sbErr) {
       console.warn('[convertToClient] Supabase direto aviso:', sbErr);
     }

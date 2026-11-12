@@ -7,7 +7,6 @@ import rateLimit from 'express-rate-limit';
 import axios from 'axios';
 import NodeCache from 'node-cache';
 import cron from 'node-cron';
-import { createClient } from '@supabase/supabase-js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { z } from 'zod';
 import path from 'path';
@@ -25,6 +24,8 @@ import clientsRouter from './routes/clients.js';
 import opportunitiesRouter from './routes/opportunities.js';
 import proposalsRouter from './routes/proposals.js';
 import socialRouter, { initSocialCronWorker } from './routes/social.js';
+import { supabase } from './services/supabase.js';
+import { requireTeam, requireUser, socketRequireTeam, requireWebhookSecret } from './middleware/auth.js';
 
 dotenv.config();
 
@@ -69,8 +70,14 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Servir arquivos de mídia e uploads estáticos
-app.use('/uploads', express.static(path.resolve(__dirname, 'uploads')));
+// Servir arquivos de mídia e uploads estáticos (públicos para a Meta buscar).
+// sandbox + nosniff: um .html/.svg enviado não executa script na origem do backend.
+app.use('/uploads', express.static(path.resolve(__dirname, 'uploads'), {
+  setHeaders: (res) => {
+    res.setHeader('Content-Security-Policy', 'sandbox');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+  },
+}));
 
 // Socket.IO
 const io = new Server(server, {
@@ -80,19 +87,19 @@ const io = new Server(server, {
     credentials: true
   }
 });
+io.use(socketRequireTeam);
 app.set('io', io);
 
 // ─── Environment & Config ──────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://sumydaewtszecrvdgoku.supabase.co';
-// SECURITY FIX: Using Service Role Key instead of anon/publishable key to bypass RLS in backend
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || 'sb_publishable_YSHgrXjsvOroxDokhAZavg_GBQY8Hha';
 const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || 'http://localhost:8082';
 const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || 'quark_senha_secreta_123';
 const INSTANCE_NAME = 'quark';
+const EVOLUTION_WEBHOOK_SECRET = process.env.EVOLUTION_WEBHOOK_SECRET || '';
+if (!EVOLUTION_WEBHOOK_SECRET) console.warn('⚠️  EVOLUTION_WEBHOOK_SECRET ausente: o webhook da Evolution API vai recusar todas as chamadas.');
+// URL pela qual a Evolution API alcança este backend (o IP fixo antigo fica só como fallback)
+const WEBHOOK_BASE_URL = process.env.WEBHOOK_BASE_URL || `http://192.168.0.149:${PORT}`;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.VITE_GOOGLE_AI_KEY;
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const evoClient = axios.create({
   baseURL: EVOLUTION_API_URL,
@@ -109,38 +116,6 @@ let clientReady = false;
 let agentEnabled = true;
 const activeContacts = new NodeCache({ stdTTL: 24 * 60 * 60, checkperiod: 60 * 60 });
 const pausedContacts = new Set();
-
-// ─── Authentication Middleware ───────────────────────────────────────────────
-const requireAuth = async (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1] || req.headers['x-api-key'] || req.query.token;
-  
-  if (!token) {
-    if (process.env.NODE_ENV !== 'production' || req.ip === '127.0.0.1' || req.ip === '::1' || req.headers.host?.includes('localhost')) {
-      return next();
-    }
-    return res.status(401).json({ error: 'Unauthorized: No token provided' });
-  }
-
-  // Se for a chave anônima ou token local, aceita para operações do frontend interno
-  if (token === process.env.VITE_SUPABASE_ANON_KEY || token === 'offline-token') {
-    return next();
-  }
-
-  // Validação real do JWT via Supabase
-  try {
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    if (!error && user) {
-      req.user = user;
-      return next();
-    }
-  } catch (_) {}
-
-  if (process.env.NODE_ENV !== 'production' || req.headers.host?.includes('localhost')) {
-    return next();
-  }
-  
-  return res.status(401).json({ error: 'Unauthorized: Invalid token' });
-};
 
 // ─── Helper Functions ──────────────────────────────────────────────────────
 function cleanPhoneNumber(number) {
@@ -178,17 +153,10 @@ async function sendWhatsAppMessage(number, text) {
 
 // ─── Rotas de Health Check & Status ─────────────────────────────────────────
 app.get(['/api/health', '/health'], (req, res) => {
-  res.json({
-    status: 'ok',
-    service: 'Quark SaaS Unified Backend Engine',
-    port: PORT,
-    evolutionUrl: EVOLUTION_API_URL,
-    whatsappConnected: clientReady,
-    agentEnabled
-  });
+  res.json({ status: 'ok', service: 'Quark SaaS Unified Backend Engine' });
 });
 
-app.get(['/api/status', '/status'], async (req, res) => {
+app.get(['/api/status', '/status'], requireTeam, async (req, res) => {
   let evoStatus = 'disconnected';
   try {
     const evoRes = await evoClient.get(`/instance/connectionState/${INSTANCE_NAME}`);
@@ -211,7 +179,7 @@ app.get(['/api/status', '/status'], async (req, res) => {
 // ─── Rotas da Evolution API ────────────────────────────────────────────────
 
 // 1. Checagem de Conexão
-app.get(['/api/evolution/status', '/instance/connectionState', '/instance/connectionState/:instanceName'], async (req, res) => {
+app.get(['/api/evolution/status', '/instance/connectionState', '/instance/connectionState/:instanceName'], requireTeam, async (req, res) => {
   const instance = req.params.instanceName || INSTANCE_NAME;
   try {
     const evoRes = await evoClient.get(`/instance/connectionState/${instance}`);
@@ -227,7 +195,7 @@ app.get(['/api/evolution/status', '/instance/connectionState', '/instance/connec
 });
 
 // 2. Conectar / Obter QR Code
-app.post(['/api/evolution/connect', '/whatsapp/connect'], requireAuth, async (req, res) => {
+app.post(['/api/evolution/connect', '/whatsapp/connect'], requireTeam, async (req, res) => {
   try {
     const instance = req.body?.instanceName || INSTANCE_NAME;
     console.log(`[EVOLUTION] Solicitando conexão para instância: ${instance}...`);
@@ -255,7 +223,7 @@ app.post(['/api/evolution/connect', '/whatsapp/connect'], requireAuth, async (re
       instanceName: instance,
       integration: 'WHATSAPP-BAILEYS',
       qrcode: true,
-      webhook: `http://192.168.0.149:${PORT}/api/evolution/webhook`,
+      webhook: `${WEBHOOK_BASE_URL}/api/evolution/webhook?token=${encodeURIComponent(EVOLUTION_WEBHOOK_SECRET)}`,
       webhookByEvents: true,
       events: [
         'MESSAGES_UPSERT',
@@ -276,7 +244,7 @@ app.post(['/api/evolution/connect', '/whatsapp/connect'], requireAuth, async (re
 });
 
 // 3. Enviar Mensagem via Evolution + Gravar no Supabase
-app.post(['/api/evolution/send', '/whatsapp/send', '/message/sendText', '/message/sendText/:instanceName'], requireAuth, async (req, res) => {
+app.post(['/api/evolution/send', '/whatsapp/send', '/message/sendText', '/message/sendText/:instanceName'], requireTeam, async (req, res) => {
   try {
     const phone = req.body.phone || req.body.number;
     const message = req.body.message || req.body.text || req.body.textMessage?.text;
@@ -340,7 +308,7 @@ app.all(['/api/evolution/logout', '/disconnect', '/instance/logout', '/instance/
 });
 
 // ─── Webhook Receptor da Evolution API ──────────────────────────────────────
-app.post(['/api/evolution/webhook', '/webhook/evolution'], async (req, res) => {
+app.post(['/api/evolution/webhook', '/webhook/evolution'], requireWebhookSecret(EVOLUTION_WEBHOOK_SECRET), async (req, res) => {
   // Sempre responde 200 rápido para a Evolution API não travar nem retentar em loop
   res.status(200).send('OK');
 
@@ -464,7 +432,7 @@ app.post(['/api/evolution/webhook', '/webhook/evolution'], async (req, res) => {
 });
 
 // ─── Rotas do Agente de IA (SPIN Selling) ──────────────────────────────────
-app.post('/agent/toggle', requireAuth, (req, res) => {
+app.post('/agent/toggle', requireTeam, (req, res) => {
   if (req.body?.enabled !== undefined) {
     agentEnabled = Boolean(req.body.enabled);
   } else {
@@ -474,55 +442,55 @@ app.post('/agent/toggle', requireAuth, (req, res) => {
   res.json({ ok: true, agentEnabled });
 });
 
-app.post('/agent/on', requireAuth, (req, res) => {
+app.post('/agent/on', requireTeam, (req, res) => {
   agentEnabled = true;
   io.emit('agent_status', { enabled: true });
   res.json({ ok: true, agentEnabled: true });
 });
 
-app.post('/agent/off', requireAuth, (req, res) => {
+app.post('/agent/off', requireTeam, (req, res) => {
   agentEnabled = false;
   io.emit('agent_status', { enabled: false });
   res.json({ ok: true, agentEnabled: false });
 });
 
-app.post('/agent/pause/:contactId', requireAuth, (req, res) => {
+app.post('/agent/pause/:contactId', requireTeam, (req, res) => {
   const { contactId } = req.params;
   pausedContacts.add(contactId);
   spinAgent.pauseContact(contactId);
   res.json({ ok: true, paused: true, contactId });
 });
 
-app.post('/agent/resume/:contactId', requireAuth, (req, res) => {
+app.post('/agent/resume/:contactId', requireTeam, (req, res) => {
   const { contactId } = req.params;
   pausedContacts.delete(contactId);
   spinAgent.resumeContact(contactId);
   res.json({ ok: true, paused: false, contactId });
 });
 
-app.post('/agent/activate/:contactId', requireAuth, (req, res) => {
+app.post('/agent/activate/:contactId', requireTeam, (req, res) => {
   const { contactId } = req.params;
   activeContacts.set(contactId, Date.now());
   pausedContacts.delete(contactId);
   res.json({ ok: true, active: true, contactId });
 });
 
-app.post('/agent/deactivate/:contactId', requireAuth, (req, res) => {
+app.post('/agent/deactivate/:contactId', requireTeam, (req, res) => {
   const { contactId } = req.params;
   activeContacts.del(contactId);
   pausedContacts.add(contactId);
   res.json({ ok: true, active: false, contactId });
 });
 
-app.get('/agent/stats', (req, res) => {
+app.get('/agent/stats', requireTeam, (req, res) => {
   res.json(spinAgent.getStats());
 });
 
-app.get('/pricing', (req, res) => {
+app.get('/pricing', requireTeam, (req, res) => {
   res.json({ ok: true, pricing: spinAgent.getPriceTable() });
 });
 
-app.post('/agent/suggest/:contactId', requireAuth, async (req, res) => {
+app.post('/agent/suggest/:contactId', requireTeam, async (req, res) => {
   try {
     const { contactId } = req.params;
     const { messages } = req.body;
@@ -534,13 +502,13 @@ app.post('/agent/suggest/:contactId', requireAuth, async (req, res) => {
   }
 });
 
-app.get('/agent/context/:contactId', (req, res) => {
+app.get('/agent/context/:contactId', requireTeam, (req, res) => {
   const { contactId } = req.params;
   res.json(spinAgent.getContactContext(contactId));
 });
 
 // ─── Notificação de Tarefas & Google Agenda ────────────────────────────────
-app.post('/agent/task-notify', requireAuth, async (req, res) => {
+app.post('/agent/task-notify', requireTeam, async (req, res) => {
   try {
     const { title, assignee, assigneePhone, priority, deadline, notifyWhatsapp, insertCalendar } = req.body;
 
@@ -568,20 +536,23 @@ app.post('/agent/task-notify', requireAuth, async (req, res) => {
 
 
 // ─── Rotas Modulares do Quark SaaS ─────────────────────────────────────────
-app.use('/api/tickets', ticketsRouter);
-app.use('/api/maintenance', maintenanceRouter);
-app.use('/api/portal', trackingRouter);
-app.use('/api/portal/points', pointsRouter);
-app.use('/api/portal/telemetry', telemetryRouter);
-app.use('/api/ocr', ocrRouter);
-app.use('/api/audit', ocrRouter);
-app.use('/api/utility', ocrRouter);
-app.use('/api/prospeccao', prospectingRouter);
-app.use('/api/clients', clientsRouter);
-app.use('/api/opportunities', opportunitiesRouter);
-app.use('/api/proposals', proposalsRouter);
-app.use('/api/social', socialRouter);
-app.post('/api/portal/auth', (req, res) => res.json({ success: true, message: 'Portal auth ready' }));
+// Usadas também pelo portal do cliente: checagem de dono dentro de cada router
+app.use('/api/tickets', requireUser, ticketsRouter);
+app.use('/api/maintenance', requireUser, maintenanceRouter);
+app.use('/api/portal/points', requireUser, pointsRouter);
+app.use('/api/portal/telemetry', requireUser, telemetryRouter);
+app.use('/api/portal', requireUser, trackingRouter);
+// Só equipe
+app.use('/api/ocr', requireTeam, ocrRouter);
+app.use('/api/audit', requireTeam, ocrRouter);
+app.use('/api/utility', requireTeam, ocrRouter);
+app.use('/api/prospeccao', requireTeam, prospectingRouter);
+app.use('/api/clients', requireTeam, clientsRouter);
+app.use('/api/opportunities', requireTeam, opportunitiesRouter);
+app.use('/api/proposals', requireTeam, proposalsRouter);
+// Webhook e callback OAuth da Meta são chamados sem sessão
+const SOCIAL_PUBLIC_PATHS = new Set(['/webhook', '/callback/instagram']);
+app.use('/api/social', (req, res, next) => (SOCIAL_PUBLIC_PATHS.has(req.path) ? next() : requireTeam(req, res, next)), socialRouter);
 
 
 // ─── API DE DOCUMENTOS PÚBLICOS (Assinatura Eletrônica Certificada) ──────
@@ -591,10 +562,7 @@ const handlePublicDocument = async (req, res) => {
     const { action, name, cpf, signature } = req.body || {};
     if (!token) return res.status(400).json({ ok: false, error: 'Token obrigatório' });
 
-    const sb = createClient(
-      process.env.VITE_SUPABASE_URL,
-      process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY
-    );
+    const sb = supabase;
 
     // 1. Ação: Visualizar documento
     if (action === 'view') {
@@ -686,7 +654,7 @@ app.post('/api/public/document/:token', handlePublicDocument);
 
 
 // ─── API DE NOTIFICAÇÃO DO FRONTEND ──────────────────────────────────────
-app.post('/api/notify', (req, res) => {
+app.post('/api/notify', requireTeam, (req, res) => {
   const { type, id } = req.body || {};
   if (io) {
     io.emit('quark_notification', { type, id, timestamp: Date.now() });
@@ -695,6 +663,10 @@ app.post('/api/notify', (req, res) => {
 });
 
 // ─── PROXY DE IMAGENS DE EQUIPAMENTOS (CORS-SAFE) ─────────────────────────
+// Mesma lista de src/lib/product-images.ts (PROXY_IMAGE_HOSTS). Sem lista o proxy vira SSRF.
+const PROXY_IMAGE_HOSTS = ['vteximg.com.br', 'vtexassets.com', 'sungrowpower.com'];
+const isProxyHost = (u) => u.protocol === 'https:' && PROXY_IMAGE_HOSTS.some((h) => u.hostname === h || u.hostname.endsWith(`.${h}`));
+
 app.get('/api/img', async (req, res) => {
   const targetUrl = req.query.u;
   if (!targetUrl || typeof targetUrl !== 'string') {
@@ -702,17 +674,23 @@ app.get('/api/img', async (req, res) => {
   }
   try {
     const parsed = new URL(targetUrl);
-    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
-      return res.status(400).send('Invalid protocol');
+    if (!isProxyHost(parsed)) {
+      return res.status(400).send('Host not allowed');
     }
-    const response = await axios.get(targetUrl, {
+    const response = await axios.get(parsed.href, {
       responseType: 'arraybuffer',
       timeout: 6000,
+      maxRedirects: 0,
+      maxContentLength: 5 * 1024 * 1024,
       headers: {
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
       }
     });
-    res.setHeader('Content-Type', response.headers['content-type'] || 'image/png');
+    const contentType = String(response.headers['content-type'] || '');
+    if (!contentType.startsWith('image/')) {
+      return res.status(415).send('Not an image');
+    }
+    res.setHeader('Content-Type', contentType);
     res.setHeader('Cache-Control', 'public, max-age=86400');
     res.send(response.data);
   } catch (err) {
@@ -727,9 +705,8 @@ app.post('/api/public/proposal/:token', async (req, res) => {
     const { token } = req.params;
     const { action, name } = req.body;
     
-    // Configura supabase do backend (com SERVICE_ROLE para bypass RLS se necessário)
-    const sb = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY);
-    
+    const sb = supabase;
+
     if (action === 'view') {
       await sb.from('proposals').update({ status: 'visto' }).eq('public_token', token).eq('status', 'enviada');
       return res.json({ ok: true });

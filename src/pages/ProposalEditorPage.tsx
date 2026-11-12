@@ -15,7 +15,21 @@ export default function ProposalEditorPage() {
   const { data, loading } = useLive(
     async () => {
       if (!id) return null;
-      const p = must(await supabase().from("proposals").select("*").eq("id", id).maybeSingle()) as any;
+      let p: any = null;
+      try {
+        const direct = await supabase().from("proposals").select("*").eq("id", id).maybeSingle();
+        if (direct?.data) p = direct.data;
+      } catch (_) {}
+
+      if (!p) {
+        try {
+          const { data: list } = await supabase().rpc("get_proposals", { p_limit: 200 });
+          if (Array.isArray(list)) {
+            p = list.find((item: any) => item.id === id || String(item.number) === id);
+          }
+        } catch (_) {}
+      }
+
       if (!p) return null;
       const inputs = p.inputs || p.data?.inputs || null;
       return {

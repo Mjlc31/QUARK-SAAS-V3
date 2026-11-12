@@ -1,6 +1,7 @@
 import express from 'express';
 import { z } from 'zod';
 import { supabase } from '../services/supabase.js';
+import { requireTeam, canAccessClient } from '../middleware/auth.js';
 import { sendWhatsAppMessage } from '../services/whatsapp.js';
 
 const router = express.Router();
@@ -20,7 +21,7 @@ const createTicketSchema = z.object({
 });
 
 // GET /api/tickets - Lista todos os chamados
-router.get('/', async (req, res) => {
+router.get('/', requireTeam, async (req, res) => {
   try {
     const { status, category, priority, limit = 50 } = req.query;
 
@@ -75,7 +76,7 @@ router.get('/:id', async (req, res) => {
       .maybeSingle();
 
     if (ticketErr) throw ticketErr;
-    if (!ticket) {
+    if (!ticket || !canAccessClient(req, ticket.client_id)) {
       return res.status(404).json({ success: false, error: 'Chamado não encontrado' });
     }
 
@@ -126,7 +127,11 @@ router.post('/', async (req, res) => {
       user_id,
     } = parsed.data;
 
-    let resolvedClientId = client_id;
+    // Cliente do portal só abre chamado em nome próprio
+    let resolvedClientId = req.auth.isTeam ? client_id : req.auth.clientId;
+    if (!req.auth.isTeam && !resolvedClientId) {
+      return res.status(403).json({ success: false, error: 'Perfil de cliente não encontrado' });
+    }
 
     // Se não passou client_id mas passou email/nome, busca ou cria cliente no portal
     if (!resolvedClientId && client_email) {
@@ -216,7 +221,10 @@ router.post('/', async (req, res) => {
 router.post('/:id/messages', async (req, res) => {
   try {
     const { id } = req.params;
-    const { message, sender_type = 'operator', sender_id } = req.body;
+    const { message } = req.body;
+    // Remetente vem da sessão, não do body (cliente não pode se passar por operador)
+    const sender_type = req.auth.isTeam ? 'operator' : 'client';
+    const sender_id = req.auth.isTeam ? req.auth.user.id : req.auth.clientId;
 
     if (!message || !message.trim()) {
       return res.status(400).json({ success: false, error: 'Mensagem não pode ser vazia' });
@@ -232,7 +240,7 @@ router.post('/:id/messages', async (req, res) => {
       .eq('id', id)
       .single();
 
-    if (ticketErr || !ticket) {
+    if (ticketErr || !ticket || !canAccessClient(req, ticket.client_id)) {
       return res.status(404).json({ success: false, error: 'Chamado não encontrado' });
     }
 
@@ -284,7 +292,7 @@ router.post('/:id/messages', async (req, res) => {
 });
 
 // PATCH /api/tickets/:id/status - Atualizar status do chamado
-router.patch('/:id/status', async (req, res) => {
+router.patch('/:id/status', requireTeam, async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;

@@ -18,26 +18,7 @@ export default function PublicProposalPage() {
       if (!token) return;
       setLoading(true);
 
-      // 1. Tenta cache local primeiro para carregamento instantâneo
-      try {
-        const raw = localStorage.getItem("quark_proposals_cache");
-        if (raw) {
-          const list = JSON.parse(raw);
-          const found = list.find((p: any) => p.public_token === token || p.id === token);
-          if (found && isMounted) {
-            const inputs = found.inputs || found.data?.inputs;
-            setData({
-              proposal: { ...found, inputs },
-              lead: found.lead || { name: found.client_name || "Cliente Quark", city: found.city || "Maceió - AL", state: "AL", address: null },
-              seller: { name: "Arthur Duda", email: "arthurmoraesp12@gmail.com", phone: "(82) 99424-1835" },
-              settings: {},
-            });
-            setLoading(false);
-          }
-        }
-      } catch (_) {}
-
-      // 2. Busca do RPC / API do backend (atualiza se houver versão mais recente)
+      // Fonte única: RPC pública do banco
       try {
         const { data: res } = await supabase().rpc("get_public_proposal", { p_token: token });
         if (res && isMounted) {

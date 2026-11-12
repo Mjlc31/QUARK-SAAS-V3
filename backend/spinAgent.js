@@ -18,13 +18,12 @@
 'use strict';
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
+import { supabase } from './services/supabase.js';
 dotenv.config();
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const supabase = process.env.SUPABASE_URL ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY) : null;
 
 // Tabela de preços — atualizada pelo sync da planilha
 let PRICE_TABLE = buildDefaultPriceTable();

@@ -1,5 +1,6 @@
 import express from 'express';
 import { supabase } from '../services/supabase.js';
+import { requireTeam, requireClientAccess } from '../middleware/auth.js';
 import { syncClientWithSolarZ, syncAllSolarZ, getAllSolarZPlants } from '../services/solarz.js';
 
 const router = express.Router();
@@ -85,7 +86,7 @@ function generateEstimatedChartData(expectedMonthlyGen) {
 }
 
 // ─── GET /:clientId - Telemetria e Geração Solar do Cliente ────────────────
-router.get(['/:clientId', '/api/portal/telemetry/:clientId'], async (req, res) => {
+router.get(['/:clientId', '/api/portal/telemetry/:clientId'], requireClientAccess(), async (req, res) => {
   try {
     const { clientId } = req.params;
     if (!clientId) {
@@ -246,7 +247,7 @@ router.get(['/:clientId', '/api/portal/telemetry/:clientId'], async (req, res) =
 });
 
 // POST /solarz/sync/:clientId - Sincroniza telemetria do SolarZ para um cliente instalado
-router.post(['/solarz/sync/:clientId', '/api/portal/solarz/sync/:clientId'], async (req, res) => {
+router.post(['/solarz/sync/:clientId', '/api/portal/solarz/sync/:clientId'], requireTeam, async (req, res) => {
   try {
     const { clientId } = req.params;
     const { ucCode } = req.body;
@@ -259,7 +260,7 @@ router.post(['/solarz/sync/:clientId', '/api/portal/solarz/sync/:clientId'], asy
 });
 
 // POST /solarz/sync-all - Ingestão e sincronização em massa de todas as usinas do SolarZ
-router.post(['/solarz/sync-all', '/api/portal/solarz/sync-all'], async (req, res) => {
+router.post(['/solarz/sync-all', '/api/portal/solarz/sync-all'], requireTeam, async (req, res) => {
   try {
     const result = await syncAllSolarZ();
     res.json(result);
@@ -270,7 +271,7 @@ router.post(['/solarz/sync-all', '/api/portal/solarz/sync-all'], async (req, res
 });
 
 // GET /solarz/plants - Retorna todas as 58 usinas monitoradas
-router.get(['/solarz/plants', '/api/portal/solarz/plants'], async (req, res) => {
+router.get(['/solarz/plants', '/api/portal/solarz/plants'], requireTeam, async (req, res) => {
   try {
     const plants = getAllSolarZPlants();
     res.json({ success: true, count: plants.length, plants });

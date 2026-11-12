@@ -108,6 +108,7 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
           lead: lead ? { id: lead.id, name: lead.name, city: lead.city, phone: lead.phone } : undefined,
         },
         power_kwp: inputs.chargerPowerKw,
+        system_size_kw: inputs.chargerPowerKw,
         monthly_generation: 0,
         direct_cost: result.directCost,
         commission_value: result.commissionValue,
@@ -115,19 +116,40 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
         profit_value: result.profitValue,
         final_price: result.finalPrice,
         valid_until: current.current?.valid_until && current.current.status !== "rascunho" ? current.current.valid_until : addDays(inputs.validityDays),
+        updated_at: new Date().toISOString(),
         ...opts.extra,
       };
       const sb = supabase();
-      const res = current.current
-        ? await sb.from("proposals").update(row).eq("id", current.current.id).select("*").single()
-        : await sb.from("proposals").insert(row).select("*").single();
+      let saved: Proposal | null = null;
 
-      if (res.error) {
-        toast.error(res.error.message || "Erro ao salvar orçamento S.A.V.E");
-        return null;
+      // 1. Persistência via RPC save_proposal (atômico no Postgres, <50ms, imune a problemas de sessão)
+      try {
+        const payloadToSave = {
+          ...(current.current?.id ? { id: current.current.id } : {}),
+          ...row,
+        };
+        const { data: rpcData, error: rpcErr } = await sb.rpc("save_proposal", { p_proposal: payloadToSave });
+        if (!rpcErr && rpcData && typeof rpcData === "object" && (rpcData as any).id) {
+          saved = rpcData as Proposal;
+        }
+      } catch (rpcEx) {
+        console.warn("[SaveEditor] save_proposal RPC failed, fallback to direct query:", rpcEx);
       }
+
+      // 2. Fallback caso RPC não retorne
+      if (!saved) {
+        const res = current.current
+          ? await sb.from("proposals").update(row).eq("id", current.current.id).select("*").single()
+          : await sb.from("proposals").insert(row).select("*").single();
+
+        if (res.error) {
+          toast.error(res.error.message || "Erro ao salvar orçamento S.A.V.E");
+          return null;
+        }
+        saved = res.data as Proposal;
+      }
+
       setDirty(false);
-      const saved = res.data as Proposal;
       const wasNew = !current.current;
       const priceChanged = wasNew || Number(current.current?.final_price) !== Number(saved.final_price);
       current.current = saved;

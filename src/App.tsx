@@ -53,7 +53,8 @@ const pageTransition = { initial: { opacity: 0, x: 20 }, animate: { opacity: 1, 
 
 const PageWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <motion.div {...pageTransition} className="h-full">
-    {children}
+    {/* Isola o crash na página: sidebar/portal continuam navegáveis (Routes remonta por pathname) */}
+    <ErrorBoundary>{children}</ErrorBoundary>
   </motion.div>
 );
 

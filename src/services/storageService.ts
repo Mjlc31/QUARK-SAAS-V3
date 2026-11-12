@@ -431,7 +431,7 @@ export const storageService = {
   // Now fetches from real Supabase 'profiles' table
   getUsers: async (): Promise<User[]> => {
     try {
-      const res = await withTimeout(supabase.from('profiles').select('*') as any).catch(() => ({ data: null, error: true }));
+      const res = await withTimeout(supabase.from('profiles').select('*').neq('role', 'client') as any).catch(() => ({ data: null, error: true }));
       const { data, error } = res as any;
       if (error) { throw new Error('Supabase offline'); }
 

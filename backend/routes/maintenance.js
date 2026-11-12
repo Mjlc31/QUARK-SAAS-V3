@@ -1,6 +1,7 @@
 import express from 'express';
 import { z } from 'zod';
 import { supabase } from '../services/supabase.js';
+import { requireTeam, canAccessClient } from '../middleware/auth.js';
 import { sendWhatsAppMessage } from '../services/whatsapp.js';
 
 const router = express.Router();
@@ -16,7 +17,7 @@ const batchAlertSchema = z.object({
 });
 
 // GET /api/maintenance/alerts - Lista alertas de manutenção com inteligência
-router.get('/alerts', async (req, res) => {
+router.get('/alerts', requireTeam, async (req, res) => {
   try {
     const { status, limit = 100 } = req.query;
 
@@ -52,7 +53,7 @@ router.get('/alerts', async (req, res) => {
 });
 
 // POST /api/maintenance/alert-batch - Disparo em lote com persistência e envio via WhatsApp
-router.post('/alert-batch', async (req, res) => {
+router.post('/alert-batch', requireTeam, async (req, res) => {
   try {
     const parsed = batchAlertSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -202,7 +203,7 @@ router.post('/alert-batch', async (req, res) => {
 });
 
 // POST /api/maintenance/webhook-delivery - Confirmação reversa de entrega
-router.post('/webhook-delivery', async (req, res) => {
+router.post('/webhook-delivery', requireTeam, async (req, res) => {
   try {
     const { alert_id, status, error_reason } = req.body;
     if (!alert_id || !status) {
@@ -238,6 +239,11 @@ router.post('/services', async (req, res) => {
     const { id, client_id, service_type, status, scheduled_date, price, technician, notes } = req.body;
     const now = new Date().toISOString();
 
+    // Cliente do portal só solicita serviço novo, em nome próprio; editar OS é da equipe
+    if (!req.auth.isTeam && (id || !canAccessClient(req, client_id) || (status && status !== 'pendente'))) {
+      return res.status(403).json({ success: false, error: 'Operação não permitida' });
+    }
+
     let serviceData;
     if (id) {
       const updateData = {
@@ -267,7 +273,7 @@ router.post('/services', async (req, res) => {
         serviceData = data;
       }
     } else {
-      let resolvedUserId = req.user?.id || null;
+      let resolvedUserId = req.auth.isTeam ? req.auth.user.id : null;
       if (client_id && !resolvedUserId) {
         const { data: clientUser } = await supabase
           .from('client_portal_users')

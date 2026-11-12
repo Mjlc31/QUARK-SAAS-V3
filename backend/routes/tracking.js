@@ -1,5 +1,6 @@
 import express from 'express';
 import { supabase } from '../services/supabase.js';
+import { requireTeam, requireClientAccess } from '../middleware/auth.js';
 import { sendWhatsAppMessage, cleanPhoneNumber } from '../services/whatsapp.js';
 
 const router = express.Router();
@@ -75,7 +76,7 @@ const SOLAR_PHASES = [
 ];
 
 // GET /api/portal/project/:clientId - Retorna tracking do cliente com seeding automático
-router.get('/project/:clientId', async (req, res) => {
+router.get('/project/:clientId', requireClientAccess(), async (req, res) => {
   try {
     const { clientId } = req.params;
     if (!clientId) {
@@ -230,25 +231,11 @@ router.get('/project/:clientId', async (req, res) => {
 });
 
 // POST /api/portal/project/:clientId/advance - Avança etapa do projeto e notifica cliente via WhatsApp
-router.post('/project/:clientId/advance', async (req, res) => {
+router.post('/project/:clientId/advance', requireTeam, async (req, res) => {
   try {
     const { clientId } = req.params;
     if (!clientId) {
       return res.status(400).json({ success: false, error: 'clientId é obrigatório' });
-    }
-
-    // Validação de autenticação de operador
-    const token = req.headers.authorization?.split(' ')[1] || req.headers['x-api-key'] || req.query.token;
-    if (token) {
-      const isAnonOrService = token === process.env.VITE_SUPABASE_ANON_KEY || token === process.env.SUPABASE_SERVICE_ROLE_KEY;
-      if (!isAnonOrService) {
-        const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
-        if (authErr || !user) {
-          return res.status(401).json({ success: false, error: 'Unauthorized: Token de operador inválido' });
-        }
-      }
-    } else if (process.env.NODE_ENV === 'production') {
-      return res.status(401).json({ success: false, error: 'Unauthorized: Operação restrita a operadores autenticados' });
     }
 
     const clientUser = await resolveClientUser(clientId, 'lead_id');
@@ -430,7 +417,7 @@ router.post('/project/:clientId/advance', async (req, res) => {
 });
 
 // POST /api/portal/provision-access - Gera/redefine acesso do cliente por CPF e senha
-router.post('/provision-access', async (req, res) => {
+router.post('/provision-access', requireTeam, async (req, res) => {
   try {
     const { clientId, customPassword, cpf } = req.body;
     if (!clientId && !cpf) {
@@ -509,7 +496,7 @@ router.post('/provision-access', async (req, res) => {
 });
 
 // POST /api/portal/project/:clientId/set-phase - Define diretamente a fase do projeto do cliente
-router.post('/project/:clientId/set-phase', async (req, res) => {
+router.post('/project/:clientId/set-phase', requireTeam, async (req, res) => {
   try {
     const { clientId } = req.params;
     const { phase, phaseLabel, notes, cpf } = req.body;

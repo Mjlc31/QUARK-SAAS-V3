@@ -18,7 +18,7 @@ import { ViewsPill } from "@/components/ProposalViews";
 import { fetchProposalViews, type ProposalView } from "@/lib/proposal-tracking";
 import type { Product, Proposal, ProposalStatus } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthContext";
-import { duplicateProposal } from "@/lib/proposal-actions";
+import { duplicateProposal, rescueLocalProposalEdits } from "@/lib/proposal-actions";
 
 type Filter = "todas" | ProposalStatus;
 
@@ -44,27 +44,28 @@ function Proposals() {
     const t = params.get("tipo");
     setProduct(t === "save" ? "save" : t === "solar" ? "solar" : "todos");
   }, [params]);
-  const [cachedProposals] = useState<Proposal[]>(() => {
-    try {
-      const raw = localStorage.getItem("quark_proposals_cache");
-      if (raw) {
-        const list = JSON.parse(raw);
-        const clean = filterRealProposals(list);
-        if (clean.length !== list.length) {
-          localStorage.setItem("quark_proposals_cache", JSON.stringify(clean));
-        }
-        return clean.sort((a, b) => String(b.updated_at ?? b.created_at).localeCompare(String(a.updated_at ?? a.created_at)));
-      }
-    } catch (_) {}
-    return [];
-  });
+  useEffect(() => {
+    rescueLocalProposalEdits()
+      .then((n) => n > 0 && toast.success(`${n} orçamento(s) com edição pendente gravado(s) no banco`))
+      .catch(() => {});
+  }, []);
 
   const { data: rawData, loading: liveLoading } = useLive(
     async () => {
       // Última alteração primeiro: orçamento editado agora sobe para o topo
-      const res = await supabase().from("proposals").select("*").order("updated_at", { ascending: false }).limit(100);
-      if (res.error) throw res.error;
-      const rawProposals = res.data || [];
+      let rawProposals: any[] = [];
+      try {
+        const { data: rpcData, error: rpcErr } = await supabase().rpc("get_proposals", { p_limit: 100 });
+        if (!rpcErr && Array.isArray(rpcData) && rpcData.length > 0) {
+          rawProposals = rpcData;
+        }
+      } catch (_) {}
+
+      if (rawProposals.length === 0) {
+        const res = await supabase().from("proposals").select("*").is("deleted_at", null).order("updated_at", { ascending: false }).limit(100);
+        if (res.error) throw res.error;
+        rawProposals = res.data || [];
+      }
       const proposals = filterRealProposals(rawProposals);
       const leadIds = [...new Set(proposals.map((p) => p.lead_id).filter(Boolean))];
       
@@ -88,8 +89,8 @@ function Proposals() {
     [],
     ["proposals", "proposal_views"],
   );
-  const data = rawData || (cachedProposals.length > 0 ? cachedProposals : null);
-  const loading = liveLoading && (!data || data.length === 0);
+  const data = rawData;
+  const loading = liveLoading && !data;
   const scoped = useMemo(() => (data ?? []).filter((p) => product === "todos" || productOf(p.inputs) === product), [data, product]);
 
   const rows = useMemo(

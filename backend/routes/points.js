@@ -1,5 +1,6 @@
 import express from 'express';
 import { z } from 'zod';
+import { requireTeam, requireClientAccess } from '../middleware/auth.js';
 import { supabase } from '../services/supabase.js';
 import { cleanPhoneNumber, sendWhatsAppMessage } from '../services/whatsapp.js';
 
@@ -113,7 +114,7 @@ router.get(['/rewards', '/api/portal/points/rewards'], (req, res) => {
 });
 
 // ─── 2. GET /:clientId - Saldo, Código, Indicações, Transações e Resgates ────
-router.get(['/:clientId', '/api/portal/points/:clientId'], async (req, res) => {
+router.get(['/:clientId', '/api/portal/points/:clientId'], requireClientAccess(), async (req, res) => {
   try {
     const { clientId } = req.params;
     if (!clientId) {
@@ -211,7 +212,7 @@ const referValidationSchema = z.object({
   notes: z.string().optional().nullable(),
 });
 
-router.post(['/:clientId/refer', '/api/portal/points/:clientId/refer'], async (req, res) => {
+router.post(['/:clientId/refer', '/api/portal/points/:clientId/refer'], requireClientAccess(), async (req, res) => {
   try {
     const { clientId } = req.params;
     if (!clientId) {
@@ -338,7 +339,7 @@ const redeemValidationSchema = z.object({
   notes: z.string().optional().nullable(),
 });
 
-router.post(['/:clientId/redeem', '/api/portal/points/:clientId/redeem'], async (req, res) => {
+router.post(['/:clientId/redeem', '/api/portal/points/:clientId/redeem'], requireClientAccess(), async (req, res) => {
   try {
     const { clientId } = req.params;
     if (!clientId) {
