@@ -152,6 +152,10 @@ export interface ContratoData {
   contractorSignature: string;
   place: string;
   date: string;
+  /** Contrato gerado do template oficial (backend/contratos): texto exato do .docx, exibido e assinado no lugar do texto montado. */
+  generatedBlocks?: Block[];
+  generatedContractId?: string;
+  generatedVersion?: number;
 }
 
 export type DocData = ProcuracaoData | AluguelData | ContratoData;
@@ -605,6 +609,7 @@ export function paymentText(d: ContratoData) {
 }
 
 export function contratoBlocks(d: ContratoData): Block[] {
+  if (d.generatedBlocks?.length) return d.generatedBlocks;
   const w = d.warranty;
   const dl = d.deadlines;
   const kwp = contractKwp(d);

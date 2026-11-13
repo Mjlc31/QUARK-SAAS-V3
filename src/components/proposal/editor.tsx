@@ -8,6 +8,7 @@ import {
   Copy,
   CopyPlus,
   ExternalLink,
+  FileSignature,
   FileText,
   Hammer,
   Loader2,
@@ -27,6 +28,7 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "react-hot-toast";
+import { GenerateContractModal } from "@/components/contracts/GenerateContractModal";
 import { useApp } from "@/components/app/app-context";
 import { useReward } from "@/components/app/rewards";
 import { Badge, Button, Card, CardHeader, Field, ImageField, Input, MoneyInput, NumberInput, Segmented, Select, Textarea, cx } from "@/components/ui";
@@ -69,6 +71,7 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
   const [leadId, setLeadId] = useState<string | null>(proposal?.lead_id ?? initialLeadId ?? null);
   const [title, setTitle] = useState(proposal?.title ?? "");
   const [saving, setSaving] = useState(false);
+  const [contractOpen, setContractOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [sheet, setSheet] = useState(false);
@@ -518,8 +521,14 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
               <Button variant="secondary" onClick={() => share("whatsapp")} className="text-emerald-300">
                 <MessageCircle className="h-4 w-4" /> WhatsApp
               </Button>
+              {proposal.status === "aceita" && (
+                <Button onClick={() => setContractOpen(true)} data-testid="abrir-gerar-contrato">
+                  <FileSignature className="h-4 w-4" /> Gerar contrato
+                </Button>
+              )}
             </>
           )}
+          {proposal && <GenerateContractModal proposalId={proposal.id} open={contractOpen} onClose={() => setContractOpen(false)} />}
           
           <Button variant="secondary" onClick={exportPdf} loading={exporting} className="hidden lg:inline-flex">
             <FileText className="h-4 w-4" /> Exportar PDF
