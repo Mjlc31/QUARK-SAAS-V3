@@ -73,6 +73,7 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
   const [dirty, setDirty] = useState(false);
   const [sheet, setSheet] = useState(false);
   const [showNewLead, setShowNewLead] = useState(false);
+  const isSavingRef = useRef(false);
   const current = useRef(proposal);
   current.current = proposal;
 
@@ -149,10 +150,14 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
     }
   }, [proposal, pricing, energy]);
 
-  // Autosave para orçamentos já existentes.
+  // Autosave para orçamentos já existentes com proteção contra execução concorrente
   useEffect(() => {
     if (!dirty || !proposal) return;
-    const t = setTimeout(() => save({ silent: true }), 1500);
+    const t = setTimeout(() => {
+      if (!isSavingRef.current) {
+        save({ silent: true });
+      }
+    }, 1500);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inputs, title, leadId, dirty]);
@@ -183,6 +188,7 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
       const saved = await save({ silent: true, extra: draft ? { status: "enviada", sent_at: new Date().toISOString(), valid_until: addDays(inputs!.validityDays) } : {} });
       if (!saved) {
         win?.close();
+        toast.error("Preencha e selecione o cliente antes de exportar o PDF");
         return;
       }
       const url = `${window.location.origin}/p/${saved.public_token}?print=1`;
@@ -194,6 +200,7 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
 
   async function save(opts: { silent?: boolean; extra?: Partial<Proposal> } = {}): Promise<Proposal | null> {
     if (!inputs || !pricing || !energy) return null;
+    if (isSavingRef.current) return null;
     if (!leadId) {
       toast.error("Selecione o cliente do orçamento");
       focusSection("sec-cliente");
@@ -205,6 +212,7 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
       return null;
     }
 
+    isSavingRef.current = true;
     setSaving(true);
     try {
       const isUuid = (val?: string | null): val is string =>
@@ -243,31 +251,54 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
       const sb = supabase();
       let saved: Proposal | null = null;
 
-      // 1. Persistência via RPC save_proposal (atômico no Postgres, <50ms, imune a problemas de sessão)
+      const payloadToSave = {
+        ...(current.current?.id ? { id: current.current.id } : {}),
+        ...row,
+      };
+
+      // 1. Persistência via RPC save_proposal com timeout estrito de segurança (4000ms)
       try {
-        const payloadToSave = {
-          ...(current.current?.id ? { id: current.current.id } : {}),
-          ...row,
-        };
-        const { data: rpcData, error: rpcErr } = await sb.rpc("save_proposal", { p_proposal: payloadToSave });
+        const rpcPromise = sb.rpc("save_proposal", { p_proposal: payloadToSave });
+        const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) =>
+          setTimeout(() => resolve({ data: null, error: new Error("save_proposal_timeout") }), 4000)
+        );
+        const { data: rpcData, error: rpcErr } = await Promise.race([rpcPromise, timeoutPromise]);
         if (!rpcErr && rpcData && typeof rpcData === "object" && (rpcData as any).id) {
           saved = rpcData as Proposal;
+        } else if (rpcErr) {
+          console.warn("[ProposalEditor] save_proposal RPC avisou:", rpcErr);
         }
       } catch (rpcEx) {
         console.warn("[ProposalEditor] save_proposal RPC failed, fallback to direct query:", rpcEx);
       }
 
-      // 2. Fallback caso RPC não retorne
+      // 2. Fallback resiliente caso a RPC falhe ou sofra timeout
       if (!saved) {
-        const res = current.current
-          ? await sb.from("proposals").update(row).eq("id", current.current.id).select("*").single()
-          : await sb.from("proposals").insert(row).select("*").single();
+        try {
+          const directPromise = current.current
+            ? sb.from("proposals").update(row).eq("id", current.current.id).select("*").maybeSingle()
+            : sb.from("proposals").insert(row).select("*").maybeSingle();
 
-        if (res.error) {
-          toast.error(res.error.message || "Erro ao salvar orçamento");
-          return null;
+          const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) =>
+            setTimeout(() => resolve({ data: null, error: new Error("direct_save_timeout") }), 4000)
+          );
+          const res = await Promise.race([directPromise, timeoutPromise]);
+
+          if (res?.data) {
+            saved = res.data as Proposal;
+          } else if (res?.error) {
+            console.error("[ProposalEditor] Direct save error:", res.error);
+          }
+        } catch (directEx) {
+          console.error("[ProposalEditor] Direct save exception:", directEx);
         }
-        saved = res.data as Proposal;
+      }
+
+      if (!saved) {
+        if (!opts.silent) {
+          toast.error("Não foi possível salvar o orçamento. Tente novamente.");
+        }
+        return null;
       }
 
       setDirty(false);
@@ -299,20 +330,21 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
           } catch (_) {}
         });
 
-        setSaving(false);
         toast.success(`Orçamento #${saved.number} salvo com sucesso!`);
         navigate(`/propostas/${saved.id}`, { replace: true });
         reward("proposta", saved.id);
       } else if (!opts.silent) {
-        setSaving(false);
         toast.success("Orçamento salvo com sucesso!");
       }
       return saved;
     } catch (err: any) {
       console.error("Erro ao salvar proposta:", err);
-      toast.error(err?.message || "Erro inesperado ao salvar orçamento");
+      if (!opts.silent) {
+        toast.error(err?.message || "Erro inesperado ao salvar orçamento");
+      }
       return null;
     } finally {
+      isSavingRef.current = false;
       setSaving(false);
     }
   }

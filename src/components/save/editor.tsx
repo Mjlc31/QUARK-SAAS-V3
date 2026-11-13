@@ -31,6 +31,7 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [sheet, setSheet] = useState(false);
+  const isSavingRef = useRef(false);
   const current = useRef(proposal);
   current.current = proposal;
 
@@ -58,7 +59,11 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
 
   useEffect(() => {
     if (!dirty || !proposal) return;
-    const t = setTimeout(() => save({ silent: true }), 1500);
+    const t = setTimeout(() => {
+      if (!isSavingRef.current) {
+        save({ silent: true });
+      }
+    }, 1500);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inputs, title, leadId, dirty]);
@@ -73,6 +78,7 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
 
   async function save(opts: { silent?: boolean; extra?: Partial<Proposal> } = {}): Promise<Proposal | null> {
     if (!inputs || !result) return null;
+    if (isSavingRef.current) return null;
     if (!leadId) {
       toast.error("Selecione o cliente do orçamento");
       return null;
@@ -81,10 +87,11 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
       toast.error(result.error ?? "Revise os valores do orçamento");
       return null;
     }
+
+    isSavingRef.current = true;
     setSaving(true);
     // A infraestrutura por metro acompanha sempre a distância informada.
     const synced: SaveInputs = { ...inputs, extraCosts: inputs.extraCosts.map((it) => (it.key === "infra" ? { ...it, qty: inputs.distanceM, value: inputs.distanceM * it.unit } : it)) };
-    setSaving(true);
     try {
       const isUuid = (val?: string | null): val is string =>
         typeof val === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
@@ -122,31 +129,54 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
       const sb = supabase();
       let saved: Proposal | null = null;
 
-      // 1. Persistência via RPC save_proposal (atômico no Postgres, <50ms, imune a problemas de sessão)
+      const payloadToSave = {
+        ...(current.current?.id ? { id: current.current.id } : {}),
+        ...row,
+      };
+
+      // 1. Persistência via RPC save_proposal com timeout de segurança (4000ms)
       try {
-        const payloadToSave = {
-          ...(current.current?.id ? { id: current.current.id } : {}),
-          ...row,
-        };
-        const { data: rpcData, error: rpcErr } = await sb.rpc("save_proposal", { p_proposal: payloadToSave });
+        const rpcPromise = sb.rpc("save_proposal", { p_proposal: payloadToSave });
+        const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) =>
+          setTimeout(() => resolve({ data: null, error: new Error("save_proposal_timeout") }), 4000)
+        );
+        const { data: rpcData, error: rpcErr } = await Promise.race([rpcPromise, timeoutPromise]);
         if (!rpcErr && rpcData && typeof rpcData === "object" && (rpcData as any).id) {
           saved = rpcData as Proposal;
+        } else if (rpcErr) {
+          console.warn("[SaveEditor] save_proposal RPC avisou:", rpcErr);
         }
       } catch (rpcEx) {
         console.warn("[SaveEditor] save_proposal RPC failed, fallback to direct query:", rpcEx);
       }
 
-      // 2. Fallback caso RPC não retorne
+      // 2. Fallback resiliente caso a RPC falhe ou sofra timeout
       if (!saved) {
-        const res = current.current
-          ? await sb.from("proposals").update(row).eq("id", current.current.id).select("*").single()
-          : await sb.from("proposals").insert(row).select("*").single();
+        try {
+          const directPromise = current.current
+            ? sb.from("proposals").update(row).eq("id", current.current.id).select("*").maybeSingle()
+            : sb.from("proposals").insert(row).select("*").maybeSingle();
 
-        if (res.error) {
-          toast.error(res.error.message || "Erro ao salvar orçamento S.A.V.E");
-          return null;
+          const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) =>
+            setTimeout(() => resolve({ data: null, error: new Error("direct_save_timeout") }), 4000)
+          );
+          const res = await Promise.race([directPromise, timeoutPromise]);
+
+          if (res?.data) {
+            saved = res.data as Proposal;
+          } else if (res?.error) {
+            console.error("[SaveEditor] Direct save error:", res.error);
+          }
+        } catch (directEx) {
+          console.error("[SaveEditor] Direct save exception:", directEx);
         }
-        saved = res.data as Proposal;
+      }
+
+      if (!saved) {
+        if (!opts.silent) {
+          toast.error("Não foi possível salvar o orçamento S.A.V.E. Tente novamente.");
+        }
+        return null;
       }
 
       setDirty(false);
@@ -173,9 +203,12 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
       return saved;
     } catch (err: any) {
       console.error("Erro ao salvar proposta S.A.V.E:", err);
-      toast.error(err?.message || "Erro inesperado ao salvar orçamento S.A.V.E");
+      if (!opts.silent) {
+        toast.error(err?.message || "Erro inesperado ao salvar orçamento S.A.V.E");
+      }
       return null;
     } finally {
+      isSavingRef.current = false;
       setSaving(false);
     }
   }

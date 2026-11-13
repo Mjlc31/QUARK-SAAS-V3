@@ -7,7 +7,7 @@ CREATE OR REPLACE FUNCTION public.save_proposal(p_proposal jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, auth, pg_temp
+SET search_path = public, auth, extensions, pg_temp
 AS $$
 DECLARE
   v_id text;
@@ -118,7 +118,7 @@ BEGIN
     IF v_id IS NULL OR length(v_id) = 0 THEN
       v_id := gen_random_uuid()::text;
     END IF;
-    v_public_token := COALESCE(p_proposal->>'public_token', encode(gen_random_bytes(16), 'hex'));
+    v_public_token := COALESCE(p_proposal->>'public_token', encode(extensions.gen_random_bytes(16), 'hex'));
 
     INSERT INTO proposals (
       id,
@@ -228,3 +228,6 @@ GRANT EXECUTE ON FUNCTION public.get_proposal_by_id(text) TO anon, authenticated
 -- 4. Índices para aceleração máxima de buscas e ordenações
 CREATE INDEX IF NOT EXISTS idx_proposals_updated_at_active ON public.proposals (updated_at DESC NULLS LAST, created_at DESC) WHERE (deleted_at IS NULL);
 CREATE INDEX IF NOT EXISTS idx_proposals_number ON public.proposals (number) WHERE (deleted_at IS NULL);
+
+-- 5. Default com schema explícito para public_token
+ALTER TABLE public.proposals ALTER COLUMN public_token SET DEFAULT encode(extensions.gen_random_bytes(16), 'hex'::text);
