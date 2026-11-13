@@ -150,11 +150,12 @@ export function GenerateContractModal({ proposalId, open, onClose }: { proposalI
       {dados && (
         <div className="space-y-6">
           <Section title="Cliente">
-            <Field label="Nome completo / razão social" className="sm:col-span-2">
-              <Input value={dados.cliente.nome} onChange={(e) => setCliente({ nome: e.target.value })} />
+            <Field label="Nome completo / razão social" htmlFor="gc-nome-completo-razao-social" className="sm:col-span-2">
+              <Input id="gc-nome-completo-razao-social" value={dados.cliente.nome} onChange={(e) => setCliente({ nome: e.target.value })} />
             </Field>
-            <Field label={isPf ? "CPF" : "CNPJ"} hint={docInvalid ? <span className="text-rose-400">Documento inválido</span> : undefined}>
+            <Field label={isPf ? "CPF" : "CNPJ"} htmlFor="gc-documento" hint={docInvalid ? <span className="text-rose-400">Documento inválido</span> : undefined}>
               <Input
+                id="gc-documento"
                 inputMode="numeric"
                 value={formatDoc(dados.cliente.documento)}
                 onChange={(e) => setCliente({ documento: digits(e.target.value).slice(0, 14) })}
@@ -168,24 +169,24 @@ export function GenerateContractModal({ proposalId, open, onClose }: { proposalI
                 <Segmented value={dados.cliente.genero as "f" | "m"} onChange={(g) => setCliente({ genero: g })} options={[{ value: "f", label: "Feminino" }, { value: "m", label: "Masculino" }]} />
               </Field>
             )}
-            <Field label="Logradouro" className="sm:col-span-2">
-              <Input value={dados.cliente.endereco.logradouro} onChange={(e) => setEndereco({ logradouro: e.target.value })} />
+            <Field label="Logradouro" htmlFor="gc-logradouro" className="sm:col-span-2">
+              <Input id="gc-logradouro" value={dados.cliente.endereco.logradouro} onChange={(e) => setEndereco({ logradouro: e.target.value })} />
             </Field>
-            <Field label="Número"><Input value={dados.cliente.endereco.numero} onChange={(e) => setEndereco({ numero: e.target.value })} /></Field>
-            <Field label="Complemento"><Input value={dados.cliente.endereco.complemento} onChange={(e) => setEndereco({ complemento: e.target.value })} /></Field>
-            <Field label="CEP"><Input inputMode="numeric" value={formatCep(dados.cliente.endereco.cep)} onChange={(e) => setEndereco({ cep: digits(e.target.value).slice(0, 8) })} /></Field>
-            <Field label="Bairro"><Input value={dados.cliente.endereco.bairro} onChange={(e) => setEndereco({ bairro: e.target.value })} /></Field>
-            <Field label="Cidade"><Input value={dados.cliente.endereco.cidade} onChange={(e) => setEndereco({ cidade: e.target.value })} /></Field>
-            <Field label="UF"><Input maxLength={2} value={dados.cliente.endereco.uf} onChange={(e) => setEndereco({ uf: e.target.value.toUpperCase() })} /></Field>
+            <Field label="Número" htmlFor="gc-numero"><Input id="gc-numero" value={dados.cliente.endereco.numero} onChange={(e) => setEndereco({ numero: e.target.value })} /></Field>
+            <Field label="Complemento" htmlFor="gc-complemento"><Input id="gc-complemento" value={dados.cliente.endereco.complemento} onChange={(e) => setEndereco({ complemento: e.target.value })} /></Field>
+            <Field label="CEP" htmlFor="gc-cep"><Input id="gc-cep" inputMode="numeric" value={formatCep(dados.cliente.endereco.cep)} onChange={(e) => setEndereco({ cep: digits(e.target.value).slice(0, 8) })} /></Field>
+            <Field label="Bairro" htmlFor="gc-bairro"><Input id="gc-bairro" value={dados.cliente.endereco.bairro} onChange={(e) => setEndereco({ bairro: e.target.value })} /></Field>
+            <Field label="Cidade" htmlFor="gc-cidade"><Input id="gc-cidade" value={dados.cliente.endereco.cidade} onChange={(e) => setEndereco({ cidade: e.target.value })} /></Field>
+            <Field label="UF" htmlFor="gc-uf"><Input id="gc-uf" maxLength={2} value={dados.cliente.endereco.uf} onChange={(e) => setEndereco({ uf: e.target.value.toUpperCase() })} /></Field>
           </Section>
 
           <Section title="Sistema" aside={<span className="tnum text-sm text-lime-300">{kwp.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kWp</span>}>
-            <Field label="Módulos (qtd.)"><NumberInput digits={0} value={dados.sistema.qtd_modulos} onChange={(v) => setSistema({ qtd_modulos: v })} /></Field>
-            <Field label="Potência do módulo"><NumberInput digits={0} suffix="Wp" value={dados.sistema.potencia_modulo_wp} onChange={(v) => setSistema({ potencia_modulo_wp: v })} /></Field>
-            <Field label="Inversores (qtd.)"><NumberInput digits={0} value={dados.sistema.qtd_inversores} onChange={(v) => setSistema({ qtd_inversores: v })} /></Field>
-            <Field label="Marca do inversor"><Input value={dados.sistema.inversor_marca} onChange={(e) => setSistema({ inversor_marca: e.target.value })} /></Field>
-            <Field label="Potência do inversor"><NumberInput digits={1} suffix="kW" value={dados.sistema.inversor_potencia_kw} onChange={(v) => setSistema({ inversor_potencia_kw: v })} /></Field>
-            <Field label="Estrutura" hint="Ex.: telhado, solo, laje"><Input value={dados.tipo_estrutura} onChange={(e) => set("tipo_estrutura", e.target.value)} /></Field>
+            <Field label="Módulos (qtd.)" htmlFor="gc-modulos-qtd"><NumberInput id="gc-modulos-qtd" digits={0} value={dados.sistema.qtd_modulos} onChange={(v) => setSistema({ qtd_modulos: v })} /></Field>
+            <Field label="Potência do módulo" htmlFor="gc-potencia-do-modulo"><NumberInput id="gc-potencia-do-modulo" digits={0} suffix="Wp" value={dados.sistema.potencia_modulo_wp} onChange={(v) => setSistema({ potencia_modulo_wp: v })} /></Field>
+            <Field label="Inversores (qtd.)" htmlFor="gc-inversores-qtd"><NumberInput id="gc-inversores-qtd" digits={0} value={dados.sistema.qtd_inversores} onChange={(v) => setSistema({ qtd_inversores: v })} /></Field>
+            <Field label="Marca do inversor" htmlFor="gc-marca-do-inversor"><Input id="gc-marca-do-inversor" value={dados.sistema.inversor_marca} onChange={(e) => setSistema({ inversor_marca: e.target.value })} /></Field>
+            <Field label="Potência do inversor" htmlFor="gc-potencia-do-inversor"><NumberInput id="gc-potencia-do-inversor" digits={1} suffix="kW" value={dados.sistema.inversor_potencia_kw} onChange={(v) => setSistema({ inversor_potencia_kw: v })} /></Field>
+            <Field label="Estrutura" htmlFor="gc-estrutura" hint="Ex.: telhado, solo, laje"><Input id="gc-estrutura" value={dados.tipo_estrutura} onChange={(e) => set("tipo_estrutura", e.target.value)} /></Field>
           </Section>
 
           <Section title="Pagamento" aside={
@@ -193,10 +194,10 @@ export function GenerateContractModal({ proposalId, open, onClose }: { proposalI
               {brl(soma)} de {brl(dados.valor_total)}
             </span>
           }>
-            <Field label="Valor total do contrato" className="sm:col-span-2"><MoneyInput value={dados.valor_total} onChange={(v) => set("valor_total", v)} /></Field>
+            <Field label="Valor total do contrato" htmlFor="gc-valor-total-do-contrato" className="sm:col-span-2"><MoneyInput id="gc-valor-total-do-contrato" value={dados.valor_total} onChange={(v) => set("valor_total", v)} /></Field>
             <div className="space-y-3 sm:col-span-2">
               {dados.pagamentos.map((p, i) => (
-                <div key={i} className="grid gap-3 rounded-2xl bg-black/20 p-3 ring-1 ring-white/5 sm:grid-cols-[160px_1fr_auto]" data-testid="parcela">
+                <div key={i} className="grid gap-3 rounded-2xl bg-black/20 p-3 ring-1 ring-white/5 sm:grid-cols-[200px_1fr_auto]" data-testid="parcela">
                   <Select aria-label="Forma de pagamento" value={p.tipo} onChange={(e) => setPagamento(i, { tipo: e.target.value as PaymentType })}>
                     {Object.entries(PAYMENT_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                   </Select>
@@ -229,12 +230,12 @@ export function GenerateContractModal({ proposalId, open, onClose }: { proposalI
               Avançado: fornecedora, garantias e data <ChevronDown className="h-4 w-4 transition group-open:rotate-180" />
             </summary>
             <div className="grid gap-4 px-4 pb-4 sm:grid-cols-2">
-              <Field label="Fornecedora do kit"><Input value={dados.fornecedora} onChange={(e) => set("fornecedora", e.target.value)} /></Field>
-              <Field label="Data de assinatura"><Input type="date" value={dados.data_assinatura} onChange={(e) => set("data_assinatura", e.target.value)} /></Field>
-              <Field label="Garantia do módulo"><NumberInput digits={0} suffix="anos" value={dados.garantia_modulo_anos} onChange={(v) => set("garantia_modulo_anos", v)} /></Field>
-              <Field label="Garantia linear"><NumberInput digits={0} suffix="anos" value={dados.garantia_linear_anos} onChange={(v) => set("garantia_linear_anos", v)} /></Field>
-              <Field label="Eficiência ao fim da linear"><NumberInput digits={0} suffix="%" value={dados.garantia_eficiencia} onChange={(v) => set("garantia_eficiencia", v)} /></Field>
-              <Field label="Garantia do inversor"><NumberInput digits={0} suffix="anos" value={dados.garantia_inversor_anos} onChange={(v) => set("garantia_inversor_anos", v)} /></Field>
+              <Field label="Fornecedora do kit" htmlFor="gc-fornecedora-do-kit"><Input id="gc-fornecedora-do-kit" value={dados.fornecedora} onChange={(e) => set("fornecedora", e.target.value)} /></Field>
+              <Field label="Data de assinatura" htmlFor="gc-data-de-assinatura"><Input id="gc-data-de-assinatura" type="date" value={dados.data_assinatura} onChange={(e) => set("data_assinatura", e.target.value)} /></Field>
+              <Field label="Garantia do módulo" htmlFor="gc-garantia-do-modulo"><NumberInput id="gc-garantia-do-modulo" digits={0} suffix="anos" value={dados.garantia_modulo_anos} onChange={(v) => set("garantia_modulo_anos", v)} /></Field>
+              <Field label="Garantia linear" htmlFor="gc-garantia-linear"><NumberInput id="gc-garantia-linear" digits={0} suffix="anos" value={dados.garantia_linear_anos} onChange={(v) => set("garantia_linear_anos", v)} /></Field>
+              <Field label="Eficiência ao fim da linear" htmlFor="gc-eficiencia-ao-fim-da-linear"><NumberInput id="gc-eficiencia-ao-fim-da-linear" digits={0} suffix="%" value={dados.garantia_eficiencia} onChange={(v) => set("garantia_eficiencia", v)} /></Field>
+              <Field label="Garantia do inversor" htmlFor="gc-garantia-do-inversor"><NumberInput id="gc-garantia-do-inversor" digits={0} suffix="anos" value={dados.garantia_inversor_anos} onChange={(v) => set("garantia_inversor_anos", v)} /></Field>
             </div>
           </details>
 
