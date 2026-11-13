@@ -99,6 +99,8 @@ CREATE POLICY generated_contracts_team_update ON public.generated_contracts
   FOR UPDATE TO authenticated USING (public.is_team_member()) WITH CHECK (public.is_team_member());
 
 REVOKE ALL ON public.generated_contracts FROM anon;
+-- Os default privileges do Supabase dão ALL ao authenticated; TRUNCATE ignora RLS, então tira o que é destrutivo.
+REVOKE DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.generated_contracts FROM authenticated;
 GRANT SELECT, INSERT, UPDATE ON public.generated_contracts TO authenticated;
 
 -- Bucket privado: download só por URL assinada gerada pelo backend.

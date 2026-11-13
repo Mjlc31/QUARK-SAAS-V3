@@ -67,7 +67,7 @@ Formatação: estilos, numeração, cabeçalhos, rodapés, tema, fontes, timbrad
 
 ## Como testar passo a passo
 
-1. Aplique a migration (ver pendência 1) e suba o Gotenberg: `docker compose up -d gotenberg`; no `.env` do backend, `GOTENBERG_URL=http://localhost:3010`.
+1. Migration já aplicada. Suba o Gotenberg: `docker compose up -d gotenberg`; no `.env` do backend, `GOTENBERG_URL=http://localhost:3010`.
 2. `npm --prefix backend install` e reinicie o backend (`npm run server`), que agora monta `/api/contratos`.
 3. `npm --prefix backend test` → 30/30.
 4. `npx playwright test` → E2E do harness.
@@ -77,7 +77,7 @@ Formatação: estilos, numeração, cabeçalhos, rodapés, tema, fontes, timbrad
 
 ## O que depende de você
 
-1. 🛑 **Aplicar `supabase/migrations/20261113_generated_contracts.sql` em produção** (não apliquei). Sem ela as rotas respondem erro de tabela/bucket inexistente.
+1. ✅ **Migration aplicada em produção em 2026-11-13** com sua aprovação (`generated_contracts_20261113` + `generated_contracts_revoke_destructive_20261113`, que tira DELETE/TRUNCATE do `authenticated` herdados dos default privileges). Verificado: RLS ativa, 4 policies na tabela, 3 no Storage, 3 triggers, bucket privado, grants `INSERT,SELECT,UPDATE` para `authenticated` e nenhum para `anon`. Não rodei teste de escrita em produção.
 2. 🛑 **Merge e deploy**: PR aberto, nada mergeado.
 3. Subir o Gotenberg na máquina do backend e definir `GOTENBERG_URL` (sem isso, só DOCX).
 4. Conta de equipe de teste para rodar `e2e/contratos-real.spec.ts` (não existe hoje).
