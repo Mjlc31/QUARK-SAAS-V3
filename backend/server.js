@@ -23,6 +23,7 @@ import prospectingRouter from './routes/prospecting.js';
 import clientsRouter from './routes/clients.js';
 import opportunitiesRouter from './routes/opportunities.js';
 import proposalsRouter from './routes/proposals.js';
+import contratosRouter from './routes/contratos.js';
 import socialRouter, { initSocialCronWorker } from './routes/social.js';
 import { supabase } from './services/supabase.js';
 import { requireTeam, requireUser, socketRequireTeam, requireWebhookSecret } from './middleware/auth.js';
@@ -550,6 +551,7 @@ app.use('/api/prospeccao', requireTeam, prospectingRouter);
 app.use('/api/clients', requireTeam, clientsRouter);
 app.use('/api/opportunities', requireTeam, opportunitiesRouter);
 app.use('/api/proposals', requireTeam, proposalsRouter);
+app.use('/api/contratos', requireTeam, contratosRouter);
 // Webhook e callback OAuth da Meta são chamados sem sessão
 const SOCIAL_PUBLIC_PATHS = new Set(['/webhook', '/callback/instagram']);
 app.use('/api/social', (req, res, next) => (SOCIAL_PUBLIC_PATHS.has(req.path) ? next() : requireTeam(req, res, next)), socialRouter);
