@@ -79,7 +79,7 @@ Formatação: estilos, numeração, cabeçalhos, rodapés, tema, fontes, timbrad
 
 1. ✅ **Migration aplicada em produção em 2026-11-13** com sua aprovação (`generated_contracts_20261113` + `generated_contracts_revoke_destructive_20261113`, que tira DELETE/TRUNCATE do `authenticated` herdados dos default privileges). Verificado: RLS ativa, 4 policies na tabela, 3 no Storage, 3 triggers, bucket privado, grants `INSERT,SELECT,UPDATE` para `authenticated` e nenhum para `anon`. Não rodei teste de escrita em produção.
 2. 🛑 **Merge e deploy**: PR aberto, nada mergeado.
-3. Subir o Gotenberg na máquina do backend e definir `GOTENBERG_URL` (sem isso, só DOCX).
+3. ✅ Gotenberg rodando (`docker compose up -d gotenberg`, saúde ok em `localhost:3010`), `GOTENBERG_URL` no `backend/.env` e backend reiniciado com `/api/contratos` (2026-11-13). PDF da Yulia gerado pelo Gotenberg conferido visualmente contra o original: mesmas 6 páginas, timbrado, fontes e rodapé; muda só o que está na lista de correções.
 4. Conta de equipe de teste para rodar `e2e/contratos-real.spec.ts` (não existe hoje).
 5. Revisão do jurídico: 8.2/8.4, ANEEL 482, item "Projeto:" e as 6 correções da regressão acima (principalmente a nova redação da 3.1 e a linha de data).
 6. Há alterações não commitadas de outra frente em `src/components/FinancialProlabore.tsx` e `src/services/storageService.ts` que hoje quebram o `tsc` (erros nesses arquivos, não nesta branch); também `CRM.tsx`, `Financial.tsx` e arquivos de proposta/pricing. Não toquei nem commitei.
