@@ -1,0 +1,20 @@
+{
+  "cliente": {
+    "nome": "Padaria Exemplo LTDA",
+    "documento": "11.222.333/0001-81",
+    "endereco": "Av. Fernandes Lima, 1000, CEP: 57055-000 - Farol - Maceió - AL"
+  },
+  "sistema": {
+    "qtd_modulos": 40,
+    "potencia_modulo_wp": 585,
+    "qtd_inversores": 2,
+    "inversor_marca": "Growatt",
+    "inversor_potencia_kw": 10
+  },
+  "tipo_estrutura": "solo",
+  "valor_total": 98500.50,
+  "pagamentos": [
+    { "tipo": "pix", "valor": 18500.50 },
+    { "tipo": "financiamento", "valor": 80000, "banco": "Banco do Nordeste" }
+  ]
+}
