@@ -46,7 +46,7 @@ function mapearPropostaParaContrato(proposta, { oportunidade = null, anterior = 
       qtd_inversores: num(inp.inverterQty) || 1,
       inversor_marca: texto(inp.inverterBrand),
       inversor_potencia_kw: num(inp.inverterPowerKw),
-      potencia_kwp: num(proposta.power_kwp),
+      // potencia_kwp fica de fora: o gerador calcula (módulos × Wp) e acompanha as edições do modal
     },
     tipo_estrutura: texto(inp.structureType).toLowerCase() || PADROES.tipo_estrutura,
     valor_total: valorTotal,

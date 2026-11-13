@@ -19,7 +19,7 @@ test('mapeia proposta + oportunidade sem redigitar', () => {
   assert.equal(d.cliente.endereco.logradouro, 'Rua A, 10');
   assert.equal(d.cliente.endereco.cidade, 'Maceió');
   assert.equal(d.cliente.endereco.uf, 'AL');
-  assert.deepEqual(d.sistema, { qtd_modulos: 10, potencia_modulo_wp: 550, qtd_inversores: 1, inversor_marca: 'Growatt', inversor_potencia_kw: 5, potencia_kwp: 5.5 });
+  assert.deepEqual(d.sistema, { qtd_modulos: 10, potencia_modulo_wp: 550, qtd_inversores: 1, inversor_marca: 'Growatt', inversor_potencia_kw: 5 });
   assert.equal(d.tipo_estrutura, 'telhado cerâmico');
   assert.equal(d.valor_total, 14859.28);
   assert.deepEqual(d.pagamentos, [{ tipo: 'pix', valor: 14859.28 }]);

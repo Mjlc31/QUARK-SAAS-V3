@@ -76,6 +76,10 @@ export function createContratosRouter({ db = (req) => supabaseAs(tokenOf(req)), 
       if (!(e instanceof ErroValidacao)) throw e;
       pendencias = e.message.replace(/^Dados incompletos:\n- /, '').split('\n- ');
     }
+    const kwpCalc = (dados.sistema.qtd_modulos * dados.sistema.potencia_modulo_wp) / 1000;
+    if (proposta.power_kwp && Math.abs(Number(proposta.power_kwp) - kwpCalc) > 0.01) {
+      avisos.push(`potência da proposta ${proposta.power_kwp} kWp ≠ módulos × Wp (${kwpCalc.toFixed(2)} kWp)`);
+    }
     res.json({ success: true, dados, campos, avisos, pendencias, versoes, proposta: { id: proposta.id, number: proposta.number, final_price: proposta.final_price } });
   }));
 
