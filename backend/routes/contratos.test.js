@@ -4,53 +4,10 @@ import assert from 'node:assert/strict';
 import express from 'express';
 import { createRequire } from 'module';
 import { createContratosRouter } from './contratos.js';
+import { fakeDb } from '../contratos/test/fake-supabase.mjs';
 
 const require = createRequire(import.meta.url);
 const yulia = require('../contratos/exemplos/yulia.json');
-
-function fakeDb(seed) {
-  const tables = structuredClone(seed);
-  const files = new Map();
-  let seq = 0;
-  const from = (name) => {
-    const rows = (tables[name] ||= []);
-    let filters = [], op = 'select', payload = null;
-    const match = (r) => filters.every(([k, v]) => (v === null ? r[k] == null : r[k] === v));
-    const run = () => {
-      if (op === 'insert') {
-        const list = (Array.isArray(payload) ? payload : [payload]).map((p) => {
-          const row = { id: `id-${++seq}`, token: `tok-${seq}`, ...p };
-          if (name === 'generated_contracts') row.version = rows.filter((r) => r.proposal_id === p.proposal_id).length + 1;
-          rows.push(row);
-          return row;
-        });
-        return list;
-      }
-      const found = rows.filter(match);
-      if (op === 'update') found.forEach((r) => Object.assign(r, payload));
-      return found;
-    };
-    const q = {
-      select: () => q, order: () => q,
-      eq: (k, v) => { filters.push([k, v]); return q; },
-      is: (k, v) => { filters.push([k, v]); return q; },
-      insert: (p) => { op = 'insert'; payload = p; return q; },
-      update: (p) => { op = 'update'; payload = p; return q; },
-      maybeSingle: async () => ({ data: run()[0] ?? null, error: null }),
-      single: async () => { const r = run()[0]; return r ? { data: r, error: null } : { data: null, error: new Error('no rows') }; },
-      then: (res, rej) => Promise.resolve({ data: run(), error: null }).then(res, rej),
-    };
-    return q;
-  };
-  const storage = {
-    from: (bucket) => ({
-      upload: async (path, buf) => (files.has(`${bucket}/${path}`) ? { error: new Error('exists') } : (files.set(`${bucket}/${path}`, buf), { data: { path }, error: null })),
-      download: async (path) => ({ data: new Blob([files.get(`${bucket}/${path}`)]), error: null }),
-      createSignedUrl: async (path, ttl, opts) => ({ data: { signedUrl: `https://signed/${bucket}/${path}?ttl=${ttl}&dl=${encodeURIComponent(opts.download)}` }, error: null }),
-    }),
-  };
-  return { client: { from, storage }, tables, files };
-}
 
 const PROPOSTA = { id: 'p1', status: 'aceita', final_price: 33867, client_name: 'Yulia Amaral Almeida', deleted_at: null, opportunity_id: null, lead_id: 'x', phone: '82999990000', inputs: { moduleQty: 23, modulePowerW: 710, inverterQty: 1, inverterBrand: 'SolPlanet', inverterPowerKw: 15 } };
 
