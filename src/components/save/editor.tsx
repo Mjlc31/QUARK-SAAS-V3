@@ -80,7 +80,7 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
     if (!inputs || !result) return null;
     if (isSavingRef.current) return null;
     if (!leadId) {
-      toast.error("Selecione o cliente do orçamento");
+      toast.error("Por favor, selecione o cliente do orçamento antes de salvar");
       return null;
     }
     if (!result.valid) {
@@ -90,6 +90,9 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
 
     isSavingRef.current = true;
     setSaving(true);
+    if (!opts.silent) {
+      toast.loading("Salvando orçamento S.A.V.E...", { id: "save-proposal-status" });
+    }
     // A infraestrutura por metro acompanha sempre a distância informada.
     const synced: SaveInputs = { ...inputs, extraCosts: inputs.extraCosts.map((it) => (it.key === "infra" ? { ...it, qty: inputs.distanceM, value: inputs.distanceM * it.unit } : it)) };
     try {
@@ -174,7 +177,7 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
 
       if (!saved) {
         if (!opts.silent) {
-          toast.error("Não foi possível salvar o orçamento S.A.V.E. Tente novamente.");
+          toast.error("Não foi possível salvar o orçamento S.A.V.E. Tente novamente.", { id: "save-proposal-status" });
         }
         return null;
       }
@@ -183,28 +186,31 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
       const wasNew = !current.current;
       const priceChanged = wasNew || Number(current.current?.final_price) !== Number(saved.final_price);
       current.current = saved;
+      if (saved.lead_id && saved.lead_id !== leadId) {
+        setLeadId(saved.lead_id);
+      }
       if (priceChanged) syncOpportunityAmount(saved).catch(() => {});
 
       if (wasNew) {
         try {
-          await logCrmNote(leadId, `📝 Orçamento S.A.V.E #${saved.number} criado — ${brl(saved.final_price)}`);
+          await logCrmNote(saved.lead_id || leadId, `📝 Orçamento S.A.V.E #${saved.number} criado — ${brl(saved.final_price)}`);
         } catch (_) {}
         if (lead && !lead.services.includes("save")) {
           try {
-            await sb.from("opportunities").update({ services: [...new Set([...lead.services, lead.segment || "save", "save"].filter(Boolean))], segment: lead.segment || "save" }).eq("id", lead.id);
+            await sb.from("opportunities").update({ services: [...new Set([...lead.services, lead.segment || "save", "save"].filter(Boolean))], segment: lead.segment || "save" }).eq("id", saved.opportunity_id || lead.id);
           } catch (_) {}
         }
-        toast.success(`Orçamento S.A.V.E #${saved.number} salvo com sucesso!`);
+        toast.success(`Orçamento S.A.V.E #${saved.number} salvo com sucesso!`, { id: "save-proposal-status" });
         navigate(`/propostas/${saved.id}`, { replace: true });
         reward("proposta", saved.id);
       } else if (!opts.silent) {
-        toast.success("Orçamento salvo com sucesso!");
+        toast.success("Orçamento salvo com sucesso!", { id: "save-proposal-status" });
       }
       return saved;
     } catch (err: any) {
       console.error("Erro ao salvar proposta S.A.V.E:", err);
       if (!opts.silent) {
-        toast.error(err?.message || "Erro inesperado ao salvar orçamento S.A.V.E");
+        toast.error(err?.message || "Erro inesperado ao salvar orçamento S.A.V.E", { id: "save-proposal-status" });
       }
       return null;
     } finally {
@@ -261,16 +267,25 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
             <p className="mt-0.5 flex items-center gap-1.5 text-[13px] text-zinc-400">
               {saving ? (
                 <>
-                  <Loader2 className="h-3 w-3 animate-spin" /> Salvando…
+                  <Loader2 className="h-3 w-3 animate-spin text-lime-400" /> Salvando…
                 </>
               ) : dirty ? (
-                "Alterações não salvas"
+                proposal ? (
+                  <span className="text-amber-400/90 flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                    Salvando alterações…
+                  </span>
+                ) : (
+                  <span className="text-zinc-300">
+                    Clique em <b className="text-lime-400 font-medium">Salvar orçamento</b> para gerar a proposta
+                  </span>
+                )
               ) : proposal ? (
                 <>
-                  <Check className="h-3 w-3 text-emerald-600" /> Salvo automaticamente
+                  <Check className="h-3 w-3 text-emerald-500" /> Salvo automaticamente
                 </>
               ) : (
-                "Sistema de Abastecimento de Veículo Elétrico"
+                "Sistema de Abastecimento de Veículo Elétrico • Preencha e salve"
               )}
             </p>
           </div>
