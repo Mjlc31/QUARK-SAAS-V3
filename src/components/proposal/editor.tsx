@@ -137,7 +137,7 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
 
 
   // O editor recalcula com a tabela de preços atual. Se o resultado difere do que está gravado
-  // (preço, potência ou geração), salva sozinho: senão a tela mostra um valor e a lista/CRM outro.
+  // (preço, potência ou geração), sincroniza em segundo plano sem alarmar o usuário.
   const staleChecked = useRef(false);
   useEffect(() => {
     if (staleChecked.current || !proposal || !pricing?.valid || !energy) return;
@@ -149,7 +149,9 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
       differs(proposal.power_kwp, pricing.powerKwp, 0.005) ||
       differs(proposal.monthly_generation, Math.round(energy.monthlyGeneration), 0.5)
     ) {
-      setDirty(true);
+      if (!isSavingRef.current) {
+        save({ silent: true });
+      }
     }
   }, [proposal, pricing, energy]);
 
@@ -205,18 +207,21 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
     if (!inputs || !pricing || !energy) return null;
     if (isSavingRef.current) return null;
     if (!leadId) {
-      toast.error("Selecione o cliente do orçamento");
+      toast.error("Por favor, selecione o cliente do orçamento antes de salvar");
       focusSection("sec-cliente");
       return null;
     }
     if (!pricing.valid) {
-      toast.error(pricing.error ?? "Revise os valores do orçamento");
+      toast.error(pricing.error ?? "Revise os valores do kit e formação de preço");
       focusSection(inputs.kitPrice > 0 && inputs.moduleQty > 0 ? "sec-preco" : "sec-kit");
       return null;
     }
 
     isSavingRef.current = true;
     setSaving(true);
+    if (!opts.silent) {
+      toast.loading("Salvando orçamento...", { id: "save-proposal-status" });
+    }
     try {
       const isUuid = (val?: string | null): val is string =>
         typeof val === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
@@ -299,7 +304,7 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
 
       if (!saved) {
         if (!opts.silent) {
-          toast.error("Não foi possível salvar o orçamento. Tente novamente.");
+          toast.error("Não foi possível salvar o orçamento. Tente novamente.", { id: "save-proposal-status" });
         }
         return null;
       }
@@ -308,18 +313,22 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
       const wasNew = !current.current;
       const priceChanged = wasNew || Number(current.current?.final_price) !== Number(saved.final_price);
       current.current = saved;
+      if (saved.lead_id && saved.lead_id !== leadId) {
+        setLeadId(saved.lead_id);
+      }
       if (priceChanged) syncOpportunityAmount(saved).catch(() => {});
 
       if (wasNew) {
         // Dispara efeitos secundários de histórico em background com timeout, sem travar o usuário
         Promise.resolve().then(async () => {
           const isUuid = (val?: string | null) => typeof val === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+          const targetOppId = saved?.opportunity_id || (isUuid(saved?.lead_id) ? saved.lead_id : (isUuid(leadId) ? leadId : undefined));
           try {
             await Promise.race([
               sb.from("activities").insert({ 
-                opportunity_id: isUuid(leadId) ? leadId : undefined, 
+                opportunity_id: targetOppId, 
                 type: "proposta", 
-                content: `Orçamento #${saved.number} criado — ${brl(saved.final_price)}`, 
+                content: `Orçamento #${saved?.number} criado — ${brl(saved?.final_price || 0)}`, 
                 created_by: isUuid(validUserId) ? validUserId : undefined 
               }),
               new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 1200))
@@ -327,23 +336,23 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
           } catch (_) {}
           try {
             await Promise.race([
-              logCrmNote(leadId, `📝 Orçamento solar #${saved.number} criado — ${fmtNum(saved.power_kwp, 2)} kWp · ${brl(saved.final_price)}`),
+              logCrmNote(saved?.lead_id || leadId, `📝 Orçamento solar #${saved?.number} criado — ${fmtNum(saved?.power_kwp || 0, 2)} kWp · ${brl(saved?.final_price || 0)}`),
               new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 1200))
             ]);
           } catch (_) {}
         });
 
-        toast.success(`Orçamento #${saved.number} salvo com sucesso!`);
+        toast.success(`Orçamento #${saved.number} salvo com sucesso!`, { id: "save-proposal-status" });
         navigate(`/propostas/${saved.id}`, { replace: true });
         reward("proposta", saved.id);
       } else if (!opts.silent) {
-        toast.success("Orçamento salvo com sucesso!");
+        toast.success("Orçamento salvo com sucesso!", { id: "save-proposal-status" });
       }
       return saved;
     } catch (err: any) {
       console.error("Erro ao salvar proposta:", err);
       if (!opts.silent) {
-        toast.error(err?.message || "Erro inesperado ao salvar orçamento");
+        toast.error(err?.message || "Erro inesperado ao salvar orçamento", { id: "save-proposal-status" });
       }
       return null;
     } finally {
@@ -479,16 +488,25 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
             <p className="mt-0.5 flex items-center gap-1.5 text-[13px] text-zinc-400">
               {saving ? (
                 <>
-                  <Loader2 className="h-3 w-3 animate-spin" /> Salvando…
+                  <Loader2 className="h-3 w-3 animate-spin text-lime-400" /> Salvando…
                 </>
               ) : dirty ? (
-                "Alterações não salvas"
+                proposal ? (
+                  <span className="text-amber-400/90 flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                    Salvando alterações…
+                  </span>
+                ) : (
+                  <span className="text-zinc-300">
+                    Clique em <b className="text-lime-400 font-medium">Salvar orçamento</b> para gerar a proposta
+                  </span>
+                )
               ) : proposal ? (
                 <>
                   <Check className="h-3 w-3 text-emerald-400" /> Salvo automaticamente
                 </>
               ) : (
-                "Preencha os dados e salve para gerar a proposta"
+                "Preencha os dados e clique em Salvar orçamento"
               )}
             </p>
           </div>
