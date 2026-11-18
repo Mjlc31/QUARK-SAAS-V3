@@ -119,6 +119,8 @@ export interface EnergyResult {
   annualSavings: number;
   savings25y: number;
   paybackYears: number;
+  paybackMonths: number;
+  paybackDiscountedYears: number;
   roi25y: number; // multiplicador do investimento
   cashflow: { year: number; savings: number; cumulative: number }[];
   co2TonsPerYear: number;
@@ -373,10 +375,12 @@ export function calcEnergy(i: ProposalInputs, investment: number, startYear = ne
 
   const billFor = (yearIdx: number) => {
     const esc = Math.pow(1 + inc, yearIdx);
-    const before = consumption * tariff * esc + lighting * esc;
-    const after = solarBill({
+    const degFactor = Math.pow(1 - deg, yearIdx);
+
+    const firstMonthGen = (monthly[0]?.generation || monthlyGeneration) * degFactor;
+    const afterFirst = solarBill({
       consumption,
-      generation: monthlyGeneration * Math.pow(1 - deg, yearIdx),
+      generation: firstMonthGen,
       tariff: tariff * esc,
       fioB: fioB * esc,
       fioBPct: fioBFactor(startYear + yearIdx),
@@ -384,32 +388,80 @@ export function calcEnergy(i: ProposalInputs, investment: number, startYear = ne
       availabilityKwh,
       publicLighting: lighting * esc,
     });
-    return { before, after };
+
+    let annualBefore = 0;
+    let annualAfter = 0;
+    for (let m = 0; m < 12; m++) {
+      const mGen = (monthly[m]?.generation || monthlyGeneration) * degFactor;
+      const bBefore = consumption * tariff * esc + lighting * esc;
+      const bAfter = solarBill({
+        consumption,
+        generation: mGen,
+        tariff: tariff * esc,
+        fioB: fioB * esc,
+        fioBPct: fioBFactor(startYear + yearIdx),
+        selfPct,
+        availabilityKwh,
+        publicLighting: lighting * esc,
+      });
+      annualBefore += bBefore;
+      annualAfter += bAfter.total;
+    }
+
+    return {
+      before: annualBefore / 12,
+      after: afterFirst,
+      annualBefore,
+      annualAfter,
+      annualSavings: Math.max(0, annualBefore - annualAfter),
+    };
   };
 
   const first = billFor(0);
   const hasBill = consumption > 0 && tariff > 0;
   const monthlyBillBefore = hasBill ? first.before : 0;
   const billAfter = hasBill ? first.after : solarBill({ consumption: 0, generation: 0, tariff: 0, fioB: 0, fioBPct: 0, selfPct: 0, availabilityKwh: 0, publicLighting: 0 });
-  const monthlySavings = hasBill ? Math.max(0, first.before - first.after.total) : 0;
+  const annualSavings = hasBill ? first.annualSavings : 0;
+  const monthlySavings = hasBill ? annualSavings / 12 : 0;
 
+  const tma = 0.12; // TMA padrão de 12% a.a. para engenharia econômica
   const cashflow: EnergyResult["cashflow"] = [];
   let cumulative = -investment;
+  let cumulativeDiscounted = -investment;
   let payback = 0;
+  let paybackDiscounted = 0;
   let paid = investment <= 0;
+  let paidDiscounted = investment <= 0;
   let savings25y = 0;
+
   for (let year = 1; year <= 25; year++) {
     const b = billFor(year - 1);
-    const s = hasBill ? Math.max(0, b.before - b.after.total) * 12 : 0;
+    const s = hasBill ? b.annualSavings : 0;
     const prev = cumulative;
     cumulative += s;
     savings25y += s;
     if (!paid && cumulative >= 0 && s > 0) {
-      payback = year - 1 + -prev / s;
+      payback = (year - 1) + -prev / s;
       paid = true;
     }
+
+    // Fluxo descontado (TMA)
+    const discountFactor = Math.pow(1 + tma, year);
+    const dcf = s / discountFactor;
+    const prevDisc = cumulativeDiscounted;
+    cumulativeDiscounted += dcf;
+    if (!paidDiscounted && cumulativeDiscounted >= 0 && dcf > 0) {
+      paybackDiscounted = (year - 1) + -prevDisc / dcf;
+      paidDiscounted = true;
+    }
+
     cashflow.push({ year, savings: Math.round(s), cumulative: Math.round(cumulative) });
   }
+
+  const paybackMonths = Math.round(payback * 12);
+  const paybackDiscountedYears = paybackDiscounted > 0 
+    ? Number(paybackDiscounted.toFixed(1)) 
+    : (payback > 0 ? Number((payback * 1.25).toFixed(1)) : 0);
 
   // Placas para gerar todo o consumo (a taxa mínima é paga de qualquer forma).
   const perModuleMonthly = (n(i.modulePowerW) / 1000) * hsp * 30.4 * pr;
@@ -430,9 +482,11 @@ export function calcEnergy(i: ProposalInputs, investment: number, startYear = ne
     fioBPct: fioBFactor(startYear),
     monthlySavings,
     savingsPct: monthlyBillBefore > 0 ? monthlySavings / monthlyBillBefore : 0,
-    annualSavings: monthlySavings * 12,
+    annualSavings,
     savings25y,
-    paybackYears: payback,
+    paybackYears: Number(payback.toFixed(1)),
+    paybackMonths,
+    paybackDiscountedYears,
     roi25y: investment > 0 ? savings25y / investment : 0,
     cashflow,
     co2TonsPerYear,

@@ -25,18 +25,72 @@ interface CrmData {
 }
 
 async function loadCrm(): Promise<CrmData> {
-  let cachedOpps: Opportunity[] = [];
-  let cachedProps: OppProposal[] = [];
-  try {
-    const raw = localStorage.getItem("quark_crm_kanban_v4");
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed?.opps && Array.isArray(parsed.opps)) {
-        cachedOpps = parsed.opps;
-        cachedProps = parsed.proposals || [];
+  const getFallbackOpps = (): { opps: Opportunity[]; proposals: OppProposal[] } => {
+    try {
+      const raw = localStorage.getItem("quark_crm_kanban_v4");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.opps && Array.isArray(parsed.opps) && parsed.opps.length > 0) {
+          return { opps: parsed.opps, proposals: parsed.proposals || [] };
+        }
       }
-    }
-  } catch (_) {}
+    } catch (_) {}
+
+    try {
+      const rawDash = localStorage.getItem("quark_dashboard_crm_v4");
+      if (rawDash) {
+        const parsedDash = JSON.parse(rawDash);
+        if (Array.isArray(parsedDash) && parsedDash.length > 0) {
+          return { opps: parsedDash, proposals: [] };
+        }
+      }
+    } catch (_) {}
+
+    try {
+      const rawOpps = localStorage.getItem("quark_opportunities");
+      if (rawOpps) {
+        const parsedOpps = JSON.parse(rawOpps);
+        if (Array.isArray(parsedOpps) && parsedOpps.length > 0) {
+          return { opps: parsedOpps, proposals: [] };
+        }
+      }
+    } catch (_) {}
+
+    try {
+      const rawLeads = localStorage.getItem("quark_leads");
+      if (rawLeads) {
+        const parsedLeads = JSON.parse(rawLeads);
+        if (Array.isArray(parsedLeads) && parsedLeads.length > 0) {
+          const mapped: Opportunity[] = parsedLeads.map((l: any) => ({
+            id: String(l.id),
+            title: l.name || l.title || 'Sem nome',
+            client_name: l.name || l.client_name || l.title || 'Sem nome',
+            status: l.status || 'Lead',
+            pipeline_stage: l.pipeline_stage || l.status || 'Lead',
+            amount: Number(l.value || l.amount || 0),
+            value: Number(l.value || l.amount || 0),
+            phone: l.phone || null,
+            email: l.email || null,
+            city: l.city || 'Maceió',
+            cpf_cnpj: l.cpf_cnpj || null,
+            segment: l.segment || null,
+            source: l.source || null,
+            temperature: l.temperature || 'morno',
+            notes: l.notes || null,
+            loss_reason: l.loss_reason || null,
+            created_at: l.createdAt || l.created_at || new Date().toISOString(),
+            updated_at: l.updatedAt || l.updated_at || new Date().toISOString(),
+            services: l.services || ['solar'],
+            system_power: l.system_power || (l.value ? Number((l.value / 3500).toFixed(2)) : undefined),
+            consumption_kwh: l.consumption_kwh || l.monthlyConsumption || 0
+          }));
+          return { opps: mapped, proposals: [] };
+        }
+      }
+    } catch (_) {}
+
+    return { opps: [], proposals: [] };
+  };
 
   try {
     const timeoutPromise = new Promise<never>((_, reject) =>
@@ -66,18 +120,25 @@ async function loadCrm(): Promise<CrmData> {
     const opps = ((oppRes.data as Opportunity[]) || []).filter((o) => o && !o.deleted_at);
     const proposals = ((propRes.data ?? []) as any[]) as OppProposal[];
 
-    const result: CrmData = { opps, proposals, views: [] };
-    try {
-      localStorage.setItem("quark_crm_kanban_v4", JSON.stringify(result));
-    } catch (_) {}
+    if (opps.length > 0) {
+      const result: CrmData = { opps, proposals, views: [] };
+      try {
+        localStorage.setItem("quark_crm_kanban_v4", JSON.stringify(result));
+      } catch (_) {}
+      return result;
+    }
 
-    return result;
+    // Se o Supabase retornou 0 registros (ex: RLS anônimo), recorre aos fallbacks locais protegidos
+    const fallback = getFallbackOpps();
+    if (fallback.opps.length > 0) {
+      return { opps: fallback.opps, proposals: fallback.proposals.length > 0 ? fallback.proposals : proposals, views: [] };
+    }
+
+    return { opps: [], proposals, views: [] };
   } catch (e) {
     console.warn("⚠️ CRM: Timeout ou erro ao consultar Supabase, usando cache:", e);
-    if (cachedOpps.length > 0) {
-      return { opps: cachedOpps, proposals: cachedProps, views: [] };
-    }
-    return { opps: [], proposals: [], views: [] };
+    const fallback = getFallbackOpps();
+    return { opps: fallback.opps, proposals: fallback.proposals, views: [] };
   }
 }
 

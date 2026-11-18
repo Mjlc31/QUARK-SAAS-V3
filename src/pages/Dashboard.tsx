@@ -56,6 +56,29 @@ async function loadDashboardCrm(): Promise<Opportunity[]> {
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch (_) {}
+    try {
+      const rawLeads = localStorage.getItem('quark_leads');
+      if (rawLeads) {
+        const parsedLeads = JSON.parse(rawLeads);
+        if (Array.isArray(parsedLeads) && parsedLeads.length > 0) {
+          return parsedLeads.map((l: any) => ({
+            id: String(l.id),
+            title: l.name || l.title || 'Sem nome',
+            status: l.status || 'Lead',
+            amount: Number(l.value || l.amount || 0),
+            services: l.services || ['solar'],
+            temperature: l.temperature || 'morno',
+            created_at: l.createdAt || l.created_at || new Date().toISOString(),
+            updated_at: l.updatedAt || l.updated_at || new Date().toISOString(),
+            source: l.source || null,
+            loss_reason: l.loss_reason || null,
+            city: l.city || 'Maceió',
+            system_power: l.system_power || (l.value ? Number((l.value / 3500).toFixed(2)) : undefined),
+            consumption_kwh: l.consumption_kwh || l.monthlyConsumption || 0
+          }));
+        }
+      }
+    } catch (_) {}
     return [];
   };
 

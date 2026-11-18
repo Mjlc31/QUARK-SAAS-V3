@@ -15,7 +15,7 @@ import { brl, fmtNum, pct } from "@/lib/pricing";
 import { CHARGER_OPTIONS, calcSave, mergeSave, type SaveCostItem, type SaveInputs } from "@/lib/save";
 import { duplicateProposal, syncOpportunityAmount } from "@/lib/proposal-actions";
 import { supabase } from "@/lib/supabase/client";
-import { logCrmNote, useCrmLeads } from "@/lib/crm-leads";
+import { logCrmNote, useCrmLeads, saveQuickLead, type CrmLead } from "@/lib/crm-leads";
 import { NewLeadModal } from "@/components/proposal/NewLeadModal";
 import { ViewsPill } from "@/components/ProposalViews";
 import type { Proposal } from "@/lib/types";
@@ -27,6 +27,7 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
 
   const [inputs, setInputs] = useState<SaveInputs | null>(proposal ? mergeSave(proposal.inputs as Partial<SaveInputs>) : null);
   const [leadId, setLeadId] = useState<string | null>(proposal?.lead_id ?? initialLeadId ?? null);
+  const [typedClientName, setTypedClientName] = useState("");
   const [title, setTitle] = useState(proposal?.title ?? "");
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -79,8 +80,41 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
   async function save(opts: { silent?: boolean; extra?: Partial<Proposal> } = {}): Promise<Proposal | null> {
     if (!inputs || !result) return null;
     if (isSavingRef.current) return null;
-    if (!leadId) {
-      toast.error("Por favor, selecione o cliente do orçamento antes de salvar");
+
+    let activeLeadId = leadId;
+    if (!activeLeadId && typedClientName.trim()) {
+      const match = leads?.find((l) => l.name.toLowerCase().trim() === typedClientName.trim().toLowerCase());
+      if (match) {
+        activeLeadId = match.id;
+        setLeadId(match.id);
+      } else {
+        const quickLead: CrmLead = {
+          id: `lead_quick_${Date.now()}`,
+          name: typedClientName.trim(),
+          phone: null,
+          email: null,
+          city: "Maceió",
+          state: "AL",
+          address: null,
+          document: null,
+          status: "Lead",
+          amount: 0,
+          avg_bill: 450,
+          consumption_kwh: 400,
+          tariff: 1.10,
+          connection_type: "bi",
+          roof_type: "Telhado cerâmico",
+          segment: "save",
+          services: ["save"],
+        };
+        saveQuickLead(quickLead);
+        activeLeadId = quickLead.id;
+        setLeadId(quickLead.id);
+      }
+    }
+
+    if (!activeLeadId) {
+      toast.error("Por favor, digite ou selecione o cliente do orçamento antes de salvar");
       return null;
     }
     if (!result.valid) {
@@ -98,24 +132,25 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
     try {
       const isUuid = (val?: string | null): val is string =>
         typeof val === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
-      const oppId = leadId && isUuid(leadId) ? leadId : null;
+      const oppId = activeLeadId && isUuid(activeLeadId) ? activeLeadId : null;
       const validUserId = isUuid(user?.id) ? user.id : (isUuid(current.current?.user_id) ? current.current.user_id : "7dacc88f-9ebd-4710-a1be-0647841db24a");
 
+      const effectiveClientName = lead?.name || typedClientName.trim() || "Cliente";
       const row = {
-        lead_id: leadId,
+        lead_id: activeLeadId,
         opportunity_id: oppId,
         user_id: validUserId,
         created_by: validUserId,
-        title: title || (lead?.name ? `Proposta S.A.V.E — ${lead.name}` : null),
-        client_name: lead?.name || "Cliente",
+        title: title || (effectiveClientName ? `Proposta S.A.V.E — ${effectiveClientName}` : null),
+        client_name: effectiveClientName,
         city: lead?.city || null,
         phone: lead?.phone || null,
         inputs: synced,
         data: {
           ...((current.current as any)?.data || {}),
           inputs: synced,
-          title: title || (lead?.name ? `Proposta S.A.V.E — ${lead.name}` : null),
-          lead: lead ? { id: lead.id, name: lead.name, city: lead.city, phone: lead.phone } : undefined,
+          title: title || (effectiveClientName ? `Proposta S.A.V.E — ${effectiveClientName}` : null),
+          lead: lead ? { id: lead.id, name: lead.name, city: lead.city, phone: lead.phone } : { id: activeLeadId, name: effectiveClientName },
         },
         power_kwp: inputs.chargerPowerKw,
         system_size_kw: inputs.chargerPowerKw,
@@ -137,11 +172,11 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
         ...row,
       };
 
-      // 1. Persistência via RPC save_proposal com timeout de segurança (4000ms)
+      // 1. Persistência via RPC save_proposal com timeout de segurança (3000ms)
       try {
         const rpcPromise = sb.rpc("save_proposal", { p_proposal: payloadToSave });
         const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) =>
-          setTimeout(() => resolve({ data: null, error: new Error("save_proposal_timeout") }), 4000)
+          setTimeout(() => resolve({ data: null, error: new Error("save_proposal_timeout") }), 3000)
         );
         const { data: rpcData, error: rpcErr } = await Promise.race([rpcPromise, timeoutPromise]);
         if (!rpcErr && rpcData && typeof rpcData === "object" && (rpcData as any).id) {
@@ -161,7 +196,7 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
             : sb.from("proposals").insert(row).select("*").maybeSingle();
 
           const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) =>
-            setTimeout(() => resolve({ data: null, error: new Error("direct_save_timeout") }), 4000)
+            setTimeout(() => resolve({ data: null, error: new Error("direct_save_timeout") }), 3000)
           );
           const res = await Promise.race([directPromise, timeoutPromise]);
 
@@ -178,6 +213,8 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
       if (!saved) {
         if (!opts.silent) {
           toast.error("Não foi possível salvar o orçamento S.A.V.E. Tente novamente.", { id: "save-proposal-status" });
+        } else {
+          toast.dismiss("save-proposal-status");
         }
         return null;
       }
@@ -192,14 +229,27 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
       if (priceChanged) syncOpportunityAmount(saved).catch(() => {});
 
       if (wasNew) {
-        try {
-          await logCrmNote(saved.lead_id || leadId, `📝 Orçamento S.A.V.E #${saved.number} criado — ${brl(saved.final_price)}`);
-        } catch (_) {}
-        if (lead && !lead.services.includes("save")) {
+        // Dispara efeitos secundários em background sem travar a navegação do usuário
+        Promise.resolve().then(async () => {
           try {
-            await sb.from("opportunities").update({ services: [...new Set([...lead.services, lead.segment || "save", "save"].filter(Boolean))], segment: lead.segment || "save" }).eq("id", saved.opportunity_id || lead.id);
+            await Promise.race([
+              logCrmNote(saved?.lead_id || leadId, `📝 Orçamento S.A.V.E #${saved?.number} criado — ${brl(saved?.final_price || 0)}`),
+              new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 1200))
+            ]);
           } catch (_) {}
-        }
+          if (lead && !lead.services.includes("save")) {
+            try {
+              await Promise.race([
+                sb.from("opportunities").update({ 
+                  services: [...new Set([...lead.services, lead.segment || "save", "save"].filter(Boolean))], 
+                  segment: lead.segment || "save" 
+                }).eq("id", saved?.opportunity_id || lead.id),
+                new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 1200))
+              ]);
+            } catch (_) {}
+          }
+        });
+
         toast.success(`Orçamento S.A.V.E #${saved.number} salvo com sucesso!`, { id: "save-proposal-status" });
         navigate(`/propostas/${saved.id}`, { replace: true });
         reward("proposta", saved.id);
@@ -211,11 +261,16 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
       console.error("Erro ao salvar proposta S.A.V.E:", err);
       if (!opts.silent) {
         toast.error(err?.message || "Erro inesperado ao salvar orçamento S.A.V.E", { id: "save-proposal-status" });
+      } else {
+        toast.dismiss("save-proposal-status");
       }
       return null;
     } finally {
       isSavingRef.current = false;
       setSaving(false);
+      if (opts.silent) {
+        toast.dismiss("save-proposal-status");
+      }
     }
   }
 
@@ -350,6 +405,7 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
                     setLeadId(id);
                     setDirty(true);
                   }}
+                  onTypedNameChange={setTypedClientName}
                   onNew={() => setShowNewLead(true)}
                 />
               </Field>

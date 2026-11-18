@@ -241,11 +241,16 @@ export const storageService = {
       const localStr = safeLocalStorage.getItem('quark_leads');
       const localData: Lead[] = localStr ? JSON.parse(localStr) : [];
 
-      // Cloud empty but local has data → sync local to cloud in background non-blocking
+      // Cloud empty but local has data → sync local to cloud in background non-blocking ONLY if authenticated
       if (cloudLeads.length === 0 && localData.length > 0) {
-        Promise.allSettled(
-          localData.map(lead => supabase.from('leads').upsert({ id: lead.id, data: lead, updated_at: lead.updatedAt }))
-        ).catch(() => {});
+        try {
+          supabase.auth.getSession().then(({ data: sessionData }) => {
+            if (sessionData?.session) {
+              const batch = localData.map(lead => ({ id: lead.id, data: lead, updated_at: lead.updatedAt }));
+              Promise.resolve(supabase.from('leads').upsert(batch)).catch(() => {});
+            }
+          }).catch(() => {});
+        } catch (_) {}
         return localData;
       }
 
@@ -276,10 +281,16 @@ export const storageService = {
       console.warn('⚠️ Falha ao salvar lead no cache local:', localErr);
     }
 
-    // 2. Sincroniza com Supabase
+    // 2. Sincroniza com Supabase apenas se houver sessão autenticada ativa
     try {
+      const { data: sessionData } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+      if (!sessionData?.session) {
+        // Offline / não autenticado: dados já salvos no cache local com sucesso
+        return { success: true };
+      }
+
       const { data: userAuth } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
-      const currentUserId = userAuth?.user?.id || '7dacc88f-9ebd-4710-a1be-0647841db24a';
+      const currentUserId = userAuth?.user?.id || sessionData.session.user.id || '7dacc88f-9ebd-4710-a1be-0647841db24a';
 
       const { error } = await supabase.from('leads').upsert({
         id: lead.id,
@@ -341,9 +352,14 @@ export const storageService = {
       const localData: Task[] = localStr ? JSON.parse(localStr) : [];
 
       if ((!data || data.length === 0) && localData.length > 0) {
-        Promise.allSettled(
-          localData.map(task => supabase.from('tasks').upsert({ id: task.id, data: task, updated_at: new Date() }))
-        ).catch(() => {});
+        try {
+          supabase.auth.getSession().then(({ data: sessionData }) => {
+            if (sessionData?.session) {
+              const batch = localData.map(task => ({ id: task.id, data: task, updated_at: new Date() }));
+              Promise.resolve(supabase.from('tasks').upsert(batch)).catch(() => {});
+            }
+          }).catch(() => {});
+        } catch (_) {}
         return localData;
       }
 

@@ -385,8 +385,9 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
                 </div>
               </div>
               <Explain title="O retorno do investimento" className="mt-5">
-                A economia de cada mês “paga” o sistema. Depois de {fmtNum(energy.paybackYears, 1)} anos o valor investido está recuperado, e a economia dos anos seguintes é
-                ganho líquido — sem imposto de renda. O cálculo considera reajuste da tarifa de {fmtNum(inputs.tariffIncrease, 1)}% ao ano e a regra de transição do fio B.
+                A economia de cada mês “paga” o sistema. Depois de {fmtNum(energy.paybackYears, 1)} anos o valor investido está recuperado
+                {energy.paybackDiscountedYears > 0 ? ` (${fmtNum(energy.paybackDiscountedYears, 1)} anos no payback descontado considerando o valor do dinheiro no tempo pela TMA de 12% a.a.)` : ""}, e a economia dos anos seguintes é
+                ganho líquido — sem imposto de renda. O cálculo considera a variação sazonal da irradiação, reajuste da tarifa de {fmtNum(inputs.tariffIncrease, 1)}% ao ano e a regra de transição do Fio B da Lei 14.300/2022.
               </Explain>
             </Section>
           )}

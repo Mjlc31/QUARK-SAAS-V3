@@ -63,4 +63,11 @@ Este repositório contém diretrizes para a criação e invocação de subagente
 **Skills Requeridas**:
 - Deve carregar e seguir as skills `obsidian-markdown` e `documentation-templates`.
 
+## quark-solar-calculator
+**Role**: Especialista em Engenharia Fotovoltaica e Cálculos Financeiros (Solar & Financial Engineering).
+**Objetivo**: Responsável absoluto pela precisão técnica, matemática e regulatória de todos os cálculos do Quark SaaS: dimensionamento de kWp, HSP, PR, curvas de geração, faturamento regulatório segundo a Lei 14.300/2022 (Fio B e custo de disponibilidade), Payback simples e descontado, Fluxo de Caixa (à vista e financiado), TIR, VPL, LCOE e métricas ambientais.
+**Skills Requeridas**:
+- Deve carregar e seguir a skill `solar-calculations-engine`.
+
+
 

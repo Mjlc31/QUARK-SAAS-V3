@@ -27,3 +27,12 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY || 
 });
 
 export default supabase;
+
+const ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+/** Cliente com o JWT do usuário: a RLS e o auth.uid() valem como no frontend (não depende da service role). */
+export const supabaseAs = (token) =>
+  createClient(SUPABASE_URL, ANON_KEY, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });

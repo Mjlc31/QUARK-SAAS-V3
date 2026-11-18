@@ -124,7 +124,63 @@ export const FinancialProlabore: React.FC<FinancialProlaboreProps> = ({ filterMo
                 projectsDbPromise
             ]);
 
-            const opps = oppsRes.data || [];
+            let opps = oppsRes.data || [];
+            if (opps.length === 0) {
+                try {
+                    const dashRaw = localStorage.getItem('quark_dashboard_crm_v4');
+                    if (dashRaw) {
+                        const dashParsed = JSON.parse(dashRaw);
+                        if (Array.isArray(dashParsed)) {
+                            opps = dashParsed.filter((o: any) => o.status === 'Ganho' || o.pipeline_stage === 'Fechado' || o.pipeline_stage === 'Ganho');
+                        }
+                    }
+                } catch (_) {}
+                if (opps.length === 0) {
+                    try {
+                        const kanbanRaw = localStorage.getItem('quark_crm_kanban_v4');
+                        if (kanbanRaw) {
+                            const kanbanParsed = JSON.parse(kanbanRaw);
+                            if (Array.isArray(kanbanParsed?.opps)) {
+                                opps = kanbanParsed.opps.filter((o: any) => o.status === 'Ganho' || o.pipeline_stage === 'Fechado' || o.pipeline_stage === 'Ganho');
+                            }
+                        }
+                    } catch (_) {}
+                }
+                if (opps.length === 0) {
+                    try {
+                        const oppsRaw = localStorage.getItem('quark_opportunities');
+                        if (oppsRaw) {
+                            const oppsParsed = JSON.parse(oppsRaw);
+                            if (Array.isArray(oppsParsed)) {
+                                opps = oppsParsed.filter((o: any) => o.status === 'Ganho' || o.pipeline_stage === 'Fechado' || o.pipeline_stage === 'Ganho');
+                            }
+                        }
+                    } catch (_) {}
+                }
+                if (opps.length === 0) {
+                    try {
+                        const leadsRaw = localStorage.getItem('quark_leads');
+                        if (leadsRaw) {
+                            const leadsParsed = JSON.parse(leadsRaw);
+                            if (Array.isArray(leadsParsed)) {
+                                opps = leadsParsed
+                                    .filter((l: any) => l.status === 'Ganho' || l.pipeline_stage === 'Fechado' || l.pipeline_stage === 'Ganho')
+                                    .map((l: any) => ({
+                                        id: String(l.id),
+                                        title: l.name || l.title || 'Sem nome',
+                                        client_name: l.name || l.client_name || l.title || 'Sem nome',
+                                        amount: Number(l.value || l.amount || 0),
+                                        system_power: l.system_power || (l.value ? Number((l.value / 3500).toFixed(2)) : undefined),
+                                        city: l.city || 'Maceió',
+                                        phone: l.phone || '',
+                                        created_at: l.createdAt || l.created_at || new Date().toISOString(),
+                                        updated_at: l.updatedAt || l.updated_at || new Date().toISOString()
+                                    }));
+                            }
+                        }
+                    } catch (_) {}
+                }
+            }
             const clients = clientsRes.data || [];
             const dbProjects = projDbRes.data || [];
 
@@ -344,6 +400,22 @@ export const FinancialProlabore: React.FC<FinancialProlaboreProps> = ({ filterMo
         };
     }, [scopedProjects]);
 
+    const monthlyCount = useMemo(() => {
+        if (!filterMonth || !filterYear) return 0;
+        const targetPrefix = `${filterYear}-${String(filterMonth).padStart(2, '0')}`;
+        return projects.filter(p => p.settlementDate && p.settlementDate.startsWith(targetPrefix)).length;
+    }, [projects, filterMonth, filterYear]);
+
+    const hasAutoAdjustedScope = React.useRef(false);
+    useEffect(() => {
+        if (!hasAutoAdjustedScope.current && !loading && projects.length > 0) {
+            hasAutoAdjustedScope.current = true;
+            if (monthlyCount === 0 && periodScope === 'month') {
+                setPeriodScope('all');
+            }
+        }
+    }, [loading, projects.length, monthlyCount, periodScope]);
+
     const CustomTooltip = ({ active, payload }: any) => {
         if (active && payload && payload.length) {
             return (
@@ -356,12 +428,6 @@ export const FinancialProlabore: React.FC<FinancialProlaboreProps> = ({ filterMo
         }
         return null;
     };
-
-    const monthlyCount = useMemo(() => {
-        if (!filterMonth || !filterYear) return 0;
-        const targetPrefix = `${filterYear}-${String(filterMonth).padStart(2, '0')}`;
-        return projects.filter(p => p.settlementDate && p.settlementDate.startsWith(targetPrefix)).length;
-    }, [projects, filterMonth, filterYear]);
 
     return (
         <div className="space-y-6 animate-enter">
@@ -462,7 +528,20 @@ export const FinancialProlabore: React.FC<FinancialProlaboreProps> = ({ filterMo
                                 </p>
                             )}
                             {!loading && filteredProjects.length === 0 && (
-                                <p className="text-sm text-slate-500 text-center py-8">Nenhum fechamento encontrado.</p>
+                                <div className="text-center py-8 px-4 flex flex-col items-center gap-2">
+                                    <p className="text-sm text-slate-400">
+                                        Nenhum fechamento encontrado {periodScope === 'month' && filterMonth ? `em ${MONTHS_NAMES[filterMonth - 1]}` : ''}.
+                                    </p>
+                                    {projects.length > 0 && periodScope === 'month' && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setPeriodScope('all')}
+                                            className="text-xs text-lime-400 hover:text-lime-300 underline font-semibold transition-colors"
+                                        >
+                                            Ver todos os {projects.length} contratos no Acumulado Geral
+                                        </button>
+                                    )}
+                                </div>
                             )}
                             {filteredProjects.map((p) => {
                                 const pF = p.finance;

@@ -1,0 +1,29 @@
+{
+  "cliente": {
+    "nome": "Yulia Amaral Almeida",
+    "documento": "075.716.334-35",
+    "genero": "f",
+    "endereco": {
+      "logradouro": "R. João Rodrigues Sampaio",
+      "numero": "50",
+      "complemento": "QD I",
+      "cep": "57046-085",
+      "bairro": "Barro Duro",
+      "cidade": "Maceió",
+      "uf": "AL"
+    }
+  },
+  "sistema": {
+    "qtd_modulos": 23,
+    "potencia_modulo_wp": 710,
+    "qtd_inversores": 1,
+    "inversor_marca": "SolPlanet",
+    "inversor_potencia_kw": 15
+  },
+  "valor_total": 33867,
+  "pagamentos": [
+    { "tipo": "cartao", "valor": 23867, "parcelas": 18, "juros": true },
+    { "tipo": "pix", "valor": 10000 }
+  ],
+  "data_assinatura": "2026-11-13"
+}

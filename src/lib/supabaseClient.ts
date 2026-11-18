@@ -7,8 +7,9 @@ const envKey = import.meta.env?.VITE_SUPABASE_ANON_KEY;
 const FALLBACK_URL = 'https://sumydaewtszecrvdgoku.supabase.co';
 const FALLBACK_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1bXlkYWV3dHN6ZWNydmRnb2t1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg4NDgxNTQsImV4cCI6MjA4NDQyNDE1NH0.2eP2iBsyq6q-zuhaL0zVFgjSmxkJgfZC8qbx5Q9QTso';
 
+const isJwtKey = (k?: string) => typeof k === 'string' && k.startsWith('eyJ');
 const finalUrl = (envUrl && envUrl.length > 5) ? envUrl : FALLBACK_URL;
-const finalKey = (envKey && envKey.length > 5) ? envKey : FALLBACK_KEY;
+const finalKey = (envKey && isJwtKey(envKey)) ? envKey : FALLBACK_KEY;
 
 // Detect localStorage availability (some mobile browsers in private mode block it)
 const isLocalStorageAvailable = (() => {
@@ -61,3 +62,7 @@ export const supabase = createClient(finalUrl, finalKey, {
     },
   }
 });
+
+if (typeof window !== 'undefined') {
+  (window as any).supabase = supabase;
+}

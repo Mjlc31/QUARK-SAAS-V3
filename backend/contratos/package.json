@@ -1,0 +1,10 @@
+{
+  "name": "quark-contratos",
+  "private": true,
+  "description": "Gerador de contratos Quark Energia (CommonJS; dependências docxtemplater/pizzip vêm do package.json do backend)",
+  "type": "commonjs",
+  "main": "lib/contrato.js",
+  "scripts": {
+    "gerar": "node gerar-contrato.js"
+  }
+}

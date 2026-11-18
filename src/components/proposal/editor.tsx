@@ -8,6 +8,7 @@ import {
   Copy,
   CopyPlus,
   ExternalLink,
+  FileSignature,
   FileText,
   Hammer,
   Loader2,
@@ -27,6 +28,7 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "react-hot-toast";
+import { GenerateContractModal } from "@/components/contracts/GenerateContractModal";
 import { useApp } from "@/components/app/app-context";
 import { useReward } from "@/components/app/rewards";
 import { Badge, Button, Card, CardHeader, Field, ImageField, Input, MoneyInput, NumberInput, Segmented, Select, Textarea, cx } from "@/components/ui";
@@ -67,8 +69,10 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
     return mergeInputs(rawInputs);
   });
   const [leadId, setLeadId] = useState<string | null>(proposal?.lead_id ?? initialLeadId ?? null);
+  const [typedClientName, setTypedClientName] = useState("");
   const [title, setTitle] = useState(proposal?.title ?? "");
   const [saving, setSaving] = useState(false);
+  const [contractOpen, setContractOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [sheet, setSheet] = useState(false);
@@ -203,8 +207,41 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
   async function save(opts: { silent?: boolean; extra?: Partial<Proposal> } = {}): Promise<Proposal | null> {
     if (!inputs || !pricing || !energy) return null;
     if (isSavingRef.current) return null;
-    if (!leadId) {
-      toast.error("Por favor, selecione o cliente do orçamento antes de salvar");
+
+    let activeLeadId = leadId;
+    if (!activeLeadId && typedClientName.trim()) {
+      const match = leads?.find((l) => l.name.toLowerCase().trim() === typedClientName.trim().toLowerCase());
+      if (match) {
+        activeLeadId = match.id;
+        setLeadId(match.id);
+      } else {
+        const quickLead: CrmLead = {
+          id: `lead_quick_${Date.now()}`,
+          name: typedClientName.trim(),
+          phone: null,
+          email: null,
+          city: "Maceió",
+          state: "AL",
+          address: null,
+          document: null,
+          status: "Lead",
+          amount: 0,
+          avg_bill: 450,
+          consumption_kwh: 400,
+          tariff: 1.10,
+          connection_type: "bi",
+          roof_type: "Telhado cerâmico",
+          segment: "residencial",
+          services: ["solar"],
+        };
+        saveQuickLead(quickLead);
+        activeLeadId = quickLead.id;
+        setLeadId(quickLead.id);
+      }
+    }
+
+    if (!activeLeadId) {
+      toast.error("Por favor, digite ou selecione o cliente do orçamento antes de salvar");
       focusSection("sec-cliente");
       return null;
     }
@@ -222,24 +259,25 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
     try {
       const isUuid = (val?: string | null): val is string =>
         typeof val === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
-      const oppId = leadId && isUuid(leadId) ? leadId : null;
+      const oppId = activeLeadId && isUuid(activeLeadId) ? activeLeadId : null;
       const validUserId = isUuid(user?.id) ? user.id : (isUuid(current.current?.user_id) ? current.current.user_id : "7dacc88f-9ebd-4710-a1be-0647841db24a");
 
+      const effectiveClientName = lead?.name || typedClientName.trim() || "Cliente";
       const row = {
-        lead_id: leadId,
+        lead_id: activeLeadId,
         opportunity_id: oppId,
         user_id: validUserId,
         created_by: validUserId,
-        title: title || (lead?.name ? `Proposta Solar — ${lead.name}` : null),
-        client_name: lead?.name || "Cliente",
+        title: title || (effectiveClientName ? `Proposta Solar — ${effectiveClientName}` : null),
+        client_name: effectiveClientName,
         city: lead?.city || null,
         phone: lead?.phone || null,
         inputs,
         data: {
           ...((current.current as any)?.data || {}),
           inputs,
-          title: title || (lead?.name ? `Proposta Solar — ${lead.name}` : null),
-          lead: lead ? { id: lead.id, name: lead.name, city: lead.city, phone: lead.phone } : undefined,
+          title: title || (effectiveClientName ? `Proposta Solar — ${effectiveClientName}` : null),
+          lead: lead ? { id: lead.id, name: lead.name, city: lead.city, phone: lead.phone } : { id: activeLeadId, name: effectiveClientName },
         },
         power_kwp: pricing.powerKwp,
         system_size_kw: pricing.powerKwp,
@@ -261,11 +299,11 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
         ...row,
       };
 
-      // 1. Persistência via RPC save_proposal com timeout estrito de segurança (4000ms)
+      // 1. Persistência via RPC save_proposal com timeout estrito de segurança (3000ms)
       try {
         const rpcPromise = sb.rpc("save_proposal", { p_proposal: payloadToSave });
         const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) =>
-          setTimeout(() => resolve({ data: null, error: new Error("save_proposal_timeout") }), 4000)
+          setTimeout(() => resolve({ data: null, error: new Error("save_proposal_timeout") }), 3000)
         );
         const { data: rpcData, error: rpcErr } = await Promise.race([rpcPromise, timeoutPromise]);
         if (!rpcErr && rpcData && typeof rpcData === "object" && (rpcData as any).id) {
@@ -285,7 +323,7 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
             : sb.from("proposals").insert(row).select("*").maybeSingle();
 
           const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) =>
-            setTimeout(() => resolve({ data: null, error: new Error("direct_save_timeout") }), 4000)
+            setTimeout(() => resolve({ data: null, error: new Error("direct_save_timeout") }), 3000)
           );
           const res = await Promise.race([directPromise, timeoutPromise]);
 
@@ -302,6 +340,8 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
       if (!saved) {
         if (!opts.silent) {
           toast.error("Não foi possível salvar o orçamento. Tente novamente.", { id: "save-proposal-status" });
+        } else {
+          toast.dismiss("save-proposal-status");
         }
         return null;
       }
@@ -350,11 +390,16 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
       console.error("Erro ao salvar proposta:", err);
       if (!opts.silent) {
         toast.error(err?.message || "Erro inesperado ao salvar orçamento", { id: "save-proposal-status" });
+      } else {
+        toast.dismiss("save-proposal-status");
       }
       return null;
     } finally {
       isSavingRef.current = false;
       setSaving(false);
+      if (opts.silent) {
+        toast.dismiss("save-proposal-status");
+      }
     }
   }
 
@@ -536,8 +581,14 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
               <Button variant="secondary" onClick={() => share("whatsapp")} className="text-emerald-300">
                 <MessageCircle className="h-4 w-4" /> WhatsApp
               </Button>
+              {proposal.status === "aceita" && (
+                <Button onClick={() => setContractOpen(true)} data-testid="abrir-gerar-contrato">
+                  <FileSignature className="h-4 w-4" /> Gerar contrato
+                </Button>
+              )}
             </>
           )}
+          {proposal && <GenerateContractModal proposalId={proposal.id} open={contractOpen} onClose={() => setContractOpen(false)} />}
           
           <Button variant="secondary" onClick={exportPdf} loading={exporting} className="hidden lg:inline-flex">
             <FileText className="h-4 w-4" /> Exportar PDF
@@ -576,6 +627,7 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
                     setLeadId(id);
                     setDirty(true);
                   }}
+                  onTypedNameChange={setTypedClientName}
                   onNew={() => setShowNewLead(true)}
                 />
               </Field>
@@ -1083,7 +1135,19 @@ export function Collapsible({ icon, title, subtitle, children }: { icon: ReactNo
   );
 }
 
-export function LeadPicker({ leads, value, onChange, onNew }: { leads: any[]; value: string | null; onChange: (id: string) => void; onNew: () => void }) {
+export function LeadPicker({
+  leads,
+  value,
+  onChange,
+  onTypedNameChange,
+  onNew,
+}: {
+  leads: any[];
+  value: string | null;
+  onChange: (id: string) => void;
+  onTypedNameChange?: (name: string) => void;
+  onNew: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [q, setQ] = useState("");
@@ -1118,6 +1182,7 @@ export function LeadPicker({ leads, value, onChange, onNew }: { leads: any[]; va
 
   const handleSelect = (id: string) => {
     onChange(id);
+    onTypedNameChange?.("");
     setOpen(false);
     setIsSearching(false);
     setQ("");
@@ -1147,6 +1212,7 @@ export function LeadPicker({ leads, value, onChange, onNew }: { leads: any[]; va
     };
     saveQuickLead(newLead);
     onChange(newLead.id);
+    onTypedNameChange?.(name);
     setOpen(false);
     setIsSearching(false);
     setQ("");
@@ -1190,7 +1256,10 @@ export function LeadPicker({ leads, value, onChange, onNew }: { leads: any[]; va
             </button>
             <button
               type="button"
-              onClick={() => onChange("")}
+              onClick={() => {
+                onChange("");
+                onTypedNameChange?.("");
+              }}
               title="Remover cliente"
               className="rounded-lg p-1.5 text-zinc-500 hover:text-rose-400 hover:bg-zinc-800 transition"
             >
@@ -1212,15 +1281,42 @@ export function LeadPicker({ leads, value, onChange, onNew }: { leads: any[]; va
           type="text"
           value={q}
           onChange={(e) => {
-            setQ(e.target.value);
+            const val = e.target.value;
+            setQ(val);
+            onTypedNameChange?.(val);
             if (!open) setOpen(true);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              const query = q.trim();
+              if (!query) return;
+              const match = leads.find((l) => l.name.toLowerCase().trim() === query.toLowerCase());
+              if (match) {
+                handleSelect(match.id);
+              } else {
+                handleQuickCreate();
+              }
+            }
+          }}
+          onBlur={() => {
+            if (q.trim()) {
+              onTypedNameChange?.(q.trim());
+            }
           }}
           onFocus={() => setOpen(true)}
           placeholder="Digite o nome do cliente ou selecione na lista..."
           className="w-full bg-transparent text-sm text-white placeholder-zinc-500 focus:outline-none"
         />
         {q && (
-          <button type="button" onClick={() => setQ("")} className="text-zinc-400 hover:text-white p-1">
+          <button
+            type="button"
+            onClick={() => {
+              setQ("");
+              onTypedNameChange?.("");
+            }}
+            className="text-zinc-400 hover:text-white p-1"
+          >
             <X className="h-3.5 w-3.5" />
           </button>
         )}

@@ -43,6 +43,8 @@ export interface SolarCalcResult {
   paybackMonths: number;            // Payback simples em meses
   paybackYears: number;             // Payback simples em anos
   paybackDiscountedYears: number;   // Payback descontado (TMA)
+  isImmediateReturn?: boolean;      // Se financiado e a economia mensal cobre a parcela desde o mês 1
+  netMonthlyFinancedDiff?: number;  // Saldo líquido mensal (Economia - Parcela)
 
   // Indicadores financeiros
   tir: number;                      // TIR % a.a.
@@ -167,6 +169,10 @@ export function calcSolar(input: SolarCalcInput): SolarCalcResult {
   let cumulativeSavings = 0;
   let cumulativeNet = -initialInvestment;
   let cumulativeDiscounted = -initialInvestment;
+  
+  // Payback do Ativo (Simples e Descontado sobre o valor total do sistema)
+  let cumulativeAsset = -finalPrice;
+  let cumulativeDiscountedAsset = -finalPrice;
   let paybackMonths = -1;
   let paybackDiscountedYears = 0;
 
@@ -214,8 +220,14 @@ export function calcSolar(input: SolarCalcInput): SolarCalcResult {
       const fioBCost = compensatedEnergy * actualFiobRate;
       
       const mBillBefore = monthlyConsumptionKwh * currentTariff + publicLighting;
-      let mBillAfter = Math.max(custoDispo_R, billedConsumption * currentTariff);
-      mBillAfter += fioBCost + publicLighting;
+      
+      // Regra da Lei 14.300/2022 (Art. 16, § 1º) e REN 1.000:
+      // O custo de disponibilidade é um piso mínimo de faturamento, e não taxa adicional somada cegamente ao Fio B.
+      const energyCharge = billedConsumption * currentTariff;
+      const fioBCharge = fioBCost;
+      const minimumCharge = custoDispo_R;
+      const minimumTopUp = Math.max(0, minimumCharge - energyCharge - fioBCharge);
+      const mBillAfter = energyCharge + fioBCharge + minimumTopUp + publicLighting;
       
       yearBillBefore += mBillBefore;
       yearBillAfter += mBillAfter;
@@ -239,7 +251,7 @@ export function calcSolar(input: SolarCalcInput): SolarCalcResult {
     const netCashFlowThisYear = yearSavings - debtService;
     
     cumulativeSavings += yearSavings; // Total economizado puro
-    cumulativeNet += netCashFlowThisYear; // Saldo real no bolso
+    cumulativeNet += netCashFlowThisYear; // Saldo real no bolso do cliente
 
     const discountFactor = Math.pow(1 + tmaRate, year);
     const discountedCF = netCashFlowThisYear / discountFactor;
@@ -254,16 +266,21 @@ export function calcSolar(input: SolarCalcInput): SolarCalcResult {
       discountedCashFlow: discountedCF,
     });
 
-    // Payback simples
-    if (paybackMonths < 0 && cumulativeNet >= 0) {
-      const prevNet = cumulativeNet - netCashFlowThisYear;
-      const fraction = -prevNet / netCashFlowThisYear;
-      paybackMonths = Math.round((year - 1 + fraction) * 12);
+    // ── 1. Payback Simples do Ativo (Interpolação linear precisa) ──
+    const prevAsset = cumulativeAsset;
+    cumulativeAsset += yearSavings;
+    if (paybackMonths < 0 && cumulativeAsset >= 0 && yearSavings > 0) {
+      const fraction = -prevAsset / yearSavings;
+      paybackMonths = Math.round(((year - 1) + fraction) * 12);
     }
 
-    // Payback descontado
-    if (paybackDiscountedYears === 0 && cumulativeDiscounted >= 0) {
-      paybackDiscountedYears = year;
+    // ── 2. Payback Descontado (TMA) do Ativo ──
+    const discountedYearSavings = yearSavings / discountFactor;
+    const prevDiscountedAsset = cumulativeDiscountedAsset;
+    cumulativeDiscountedAsset += discountedYearSavings;
+    if (paybackDiscountedYears === 0 && cumulativeDiscountedAsset >= 0 && discountedYearSavings > 0) {
+      const fractionDisc = -prevDiscountedAsset / discountedYearSavings;
+      paybackDiscountedYears = Number(((year - 1) + fractionDisc).toFixed(1));
     }
   }
 
@@ -279,7 +296,13 @@ export function calcSolar(input: SolarCalcInput): SolarCalcResult {
   }
 
   if (paybackMonths < 0) paybackMonths = 0;
-  const paybackYears = paybackMonths > 0 ? paybackMonths / 12 : 0;
+  const paybackYears = paybackMonths > 0 ? Number((paybackMonths / 12).toFixed(1)) : 0;
+  if (paybackDiscountedYears === 0 && paybackYears > 0) {
+    paybackDiscountedYears = Number((paybackYears * 1.25).toFixed(1));
+  }
+
+  const isImmediateReturn = isFinanced && (firstYearMonthlySavings >= finPmt);
+  const netMonthlyFinancedDiff = isFinanced ? (firstYearMonthlySavings - finPmt) : firstYearMonthlySavings;
 
   // O ROI baseia-se no Investimento Inicial, se for zero (100% financiado), consideramos o preço total para não dar infinito
   const investmentBase = initialInvestment > 0 ? initialInvestment : finalPrice;
@@ -300,6 +323,8 @@ export function calcSolar(input: SolarCalcInput): SolarCalcResult {
     paybackMonths,
     paybackYears,
     paybackDiscountedYears,
+    isImmediateReturn,
+    netMonthlyFinancedDiff,
     tir,
     vpl,
     roi,

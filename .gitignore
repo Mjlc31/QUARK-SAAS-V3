@@ -37,7 +37,9 @@ whatsapp-backend/.env
 .playwright-mcp/
 scratch/
 *.patch
+*.zip
 test.pdf
+backend/contratos/test-*.docx
 *.csv
 *.xlsx
 *trello*
@@ -47,3 +49,5 @@ export_trello_clients.py
 # Credentials
 service_account.json
 backend/service_account.json
+.vercel
+.env*
