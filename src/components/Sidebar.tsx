@@ -1,5 +1,19 @@
 import React from 'react';
-import { LayoutDashboard, Users, Calculator, CheckSquare, LogOut, PieChart, X, HardHat, MessageSquare, DollarSign, FileText, Instagram, MapPin, Headphones, Brain, Wrench, Bell, Bot, ShoppingCart, Table, FolderCog, Trophy, Sparkles, UserCheck, ScrollText, Receipt } from 'lucide-react';
+import {
+  LayoutDashboard,
+  Users,
+  CheckSquare,
+  LogOut,
+  PieChart,
+  X,
+  HardHat,
+  MessageSquare,
+  DollarSign,
+  FileText,
+  Headphones,
+  Wrench,
+  ScrollText,
+} from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -24,7 +38,7 @@ const BottomNav: React.FC = () => {
   const items = [
     { id: '/', icon: LayoutDashboard, label: 'Home' },
     { id: '/crm', icon: Users, label: 'CRM' },
-    { id: '/tasks', icon: CheckSquare, label: 'Tarefas' },
+    { id: '/propostas', icon: FileText, label: 'Propostas' },
     { id: '/engineering', icon: HardHat, label: 'Obras' },
     { id: '/financeiro', icon: DollarSign, label: 'Finanças' },
   ];
@@ -59,35 +73,21 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const commercialItems = [
     { id: 'dashboard', label: 'Visão Geral', icon: LayoutDashboard, path: '/' },
     { id: 'crm', label: 'Leads & CRM', icon: Users, path: '/crm' },
-    { id: 'ranking', label: 'Ranking / Arena', icon: Trophy, path: '/ranking' },
-    { id: 'orcamento-rapido', label: 'Oferta Rápida', icon: Sparkles, path: '/orcamento-rapido' },
-    { id: 'prospeccao', label: 'Prospecção', icon: MapPin, path: '/prospeccao' },
     { id: 'conversations', label: 'WhatsApp & IA', icon: MessageSquare, path: '/conversations' },
-    { id: 'social-studio', label: 'Social Studio', icon: Instagram, path: '/social-studio' },
     { id: 'propostas', label: 'Propostas', icon: FileText, path: '/propostas' },
-    { id: 'contratos', label: 'Contratos', icon: ScrollText, path: '/contratos' },
-    { id: 'price-list', label: 'Tabela de Preços', icon: Table, path: '/price-list' },
-    { id: 'calculator', label: 'Calculadora', icon: Calculator, path: '/calculator' },
   ];
 
   const operationsItems = [
-    { id: 'equipe', label: 'Equipe & Metas', icon: UserCheck, path: '/equipe' },
+    { id: 'contratos', label: 'Contratos & Minutas', icon: ScrollText, path: '/contratos' },
     { id: 'engineering', label: 'Acompanhamento de Obras', icon: HardHat, path: '/engineering' },
     { id: 'tasks', label: 'Tarefas', icon: CheckSquare, path: '/tasks' },
-    { id: 'clientes', label: 'Clientes', icon: Users, path: '/clientes' },
-    { id: 'maintenance', label: 'Manutenção', icon: Wrench, path: '/maintenance' },
-    { id: 'ecommerce', label: 'E-commerce', icon: ShoppingCart, path: '/ecommerce' },
-    { id: 'ferramentas', label: 'Ferramentas', icon: FolderCog, path: '/ferramentas' },
+    { id: 'maintenance', label: 'Manutenção & Pós-Venda', icon: Wrench, path: '/maintenance' },
   ];
 
   const financeAdminItems = [
-    { id: 'financeiro', label: 'Financeiro', icon: DollarSign, path: '/financeiro' },
-    { id: 'recibos', label: 'Recibos A4', icon: Receipt, path: '/recibos' },
-    { id: 'utility-robot', label: 'Robô Faturas', icon: Bot, path: '/utility-robot' },
-    { id: 'reports', label: 'Intelligence', icon: PieChart, path: '/reports' },
-    { id: 'intelligence', label: 'CRM Inteligência', icon: Brain, path: '/intelligence' },
-    { id: 'tickets', label: 'Tickets', icon: Headphones, path: '/tickets' },
-    { id: 'maintenance-alerts', label: 'Alertas', icon: Bell, path: '/maintenance-alerts' },
+    { id: 'financeiro', label: 'Financeiro & DRE', icon: DollarSign, path: '/financeiro' },
+    { id: 'reports', label: 'Relatórios & BI', icon: PieChart, path: '/reports' },
+    { id: 'tickets', label: 'Tickets & Suporte', icon: Headphones, path: '/tickets' },
   ];
 
   const NavItem = ({ item }: { item: MenuItem }) => (

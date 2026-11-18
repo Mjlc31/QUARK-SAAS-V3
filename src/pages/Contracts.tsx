@@ -20,7 +20,10 @@ import {
   Eye,
   Sparkles,
   Check,
-  Download
+  Download,
+  FileDown,
+  FileText,
+  Printer
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useContracts, useCreateContract, useUpdateContractStatus, useDeleteContract, type ContractRow } from '../hooks/useContracts';
@@ -29,6 +32,8 @@ import { contractKwp, type ContratoData, defaultContrato, type Equipment, contra
 import { formatBrl } from '../lib/receipt';
 import { DocumentView } from '../components/docs/document-view';
 import { supabase } from '../lib/supabaseClient';
+import { downloadContractPdf, type ContractPdfData } from '../lib/contractPdfGenerator';
+import { numberInWords, moneyInWords, dateInWords, formatDoc, formatCep, digits } from '../lib/br';
 
 type FilterType = 'todos' | 'rascunho' | 'enviado' | 'assinado';
 
@@ -89,15 +94,22 @@ export default function ContractsPage() {
   const [modalTab, setModalTab] = useState<'form' | 'preview'>('form');
   const [previewMode, setPreviewMode] = useState<'visual' | 'texto'>('visual');
 
-  // Form State para Novo Contrato
+  // Form State para Novo Contrato Limpo (REQ-01)
   const [selectedLeadId, setSelectedLeadId] = useState('');
   const [clientName, setClientName] = useState('');
+  const [clientDocType, setClientDocType] = useState<'CPF' | 'CNPJ'>('CPF');
   const [clientDoc, setClientDoc] = useState('');
   const [clientPhone, setClientPhone] = useState('');
-  const [clientAddress, setClientAddress] = useState('');
+  
+  // Endereço Estruturado do Contratante
+  const [clientStreet, setClientStreet] = useState('');
+  const [clientNumber, setClientNumber] = useState('');
+  const [clientComplement, setClientComplement] = useState('');
+  const [clientNeighborhood, setClientNeighborhood] = useState('');
   const [clientCity, setClientCity] = useState('Maceió');
   const [clientState, setClientState] = useState('AL');
   const [clientCep, setClientCep] = useState('');
+  const [clientAddress, setClientAddress] = useState('');
 
   // Equipamentos
   const [moduleBrand, setModuleBrand] = useState('Canadian Solar');
@@ -108,13 +120,14 @@ export default function ContractsPage() {
   const [inverterBrand, setInverterBrand] = useState('Deye');
   const [inverterModel] = useState('SUN-8K-G');
   const [inverterPower, setInverterPower] = useState(8);
-  const [inverterQty] = useState(1);
+  const [inverterQty, setInverterQty] = useState(1);
 
-  const [structureType, setStructureType] = useState('Telhado Cerâmico');
-  const [supplierName, setSupplierName] = useState('Fortlev Solar');
+  const [structureType, setStructureType] = useState('telhado cerâmico');
+  const [supplierName, setSupplierName] = useState('FORTLEV SOLAR');
   const [utilityName, setUtilityName] = useState('Equatorial AL');
   const [forumCity, setForumCity] = useState('Maceió');
-  const [forumState] = useState('Alagoas');
+  const [forumState, setForumState] = useState('Alagoas');
+  const [contractDate, setContractDate] = useState(() => new Date().toISOString().split('T')[0]);
 
   // Financeiro e Pagamento
   const [totalPrice, setTotalPrice] = useState(28900);
@@ -123,6 +136,8 @@ export default function ContractsPage() {
   const [withInterest, setWithInterest] = useState(true);
   const [entryPrice, setEntryPrice] = useState(0);
   const [customPaymentText, setCustomPaymentText] = useState('');
+  const [paymentConditionText, setPaymentConditionText] = useState('');
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   // Separação de Leads fechados
   const closedLeads = useMemo(() => leads.filter(isClosedDeal), [leads]);
@@ -185,6 +200,35 @@ export default function ContractsPage() {
     return sum + (c.data?.equipment ? contractKwp(c.data) : 0);
   }, 0);
 
+  // Cálculos automáticos de extensos e potência (REQ-02)
+  const powerKwpCalculated = useMemo(() => {
+    const q = Number(moduleQty) || 0;
+    const w = Number(modulePower) || 0;
+    return (q * w) / 1000;
+  }, [moduleQty, modulePower]);
+
+  const moduleQtyExtenso = useMemo(() => numberInWords(Number(moduleQty) || 0), [moduleQty]);
+  const inverterQtyExtenso = useMemo(() => numberInWords(Number(inverterQty) || 1), [inverterQty]);
+  const totalPriceExtenso = useMemo(() => moneyInWords(Number(totalPrice) || 0), [totalPrice]);
+  const contractDateText = useMemo(() => dateInWords(contractDate), [contractDate]);
+
+  // Endereço completo estruturado
+  const computedClientAddress = useMemo(() => {
+    const parts = [
+      clientStreet ? `${clientStreet}${clientNumber ? `, nº ${clientNumber}` : ''}${clientComplement ? ` (${clientComplement})` : ''}` : clientAddress,
+      clientNeighborhood ? `Bairro ${clientNeighborhood}` : '',
+      clientCity ? `${clientCity} - ${clientState}` : '',
+      clientCep ? `CEP ${formatCep(clientCep)}` : ''
+    ].filter(Boolean);
+    return parts.join(', ');
+  }, [clientStreet, clientNumber, clientComplement, clientNeighborhood, clientAddress, clientCity, clientState, clientCep]);
+
+  // Texto sugerido/padrão da Cláusula 3.1
+  const defaultPaymentCondition = useMemo(() => {
+    const totalFmt = formatBrl(totalPrice).replace('R$', '').trim();
+    return `O CONTRATANTE pagará o valor de R$ ${totalFmt} (${totalPriceExtenso}) à vista, via PIX, diretamente para a CONTRATADA, no ato da assinatura deste contrato.`;
+  }, [totalPrice, totalPriceExtenso]);
+
   // Monta objeto ContratoData em tempo real para a Pré-visualização ao Vivo
   const liveContratoData = useMemo<ContratoData>(() => {
     const equipments: Equipment[] = [
@@ -222,20 +266,20 @@ export default function ContractsPage() {
         repNationality: 'brasileiro',
         repMarital: '',
       },
-      place: `${clientCity || 'Maceió'}/${clientState || 'AL'}`,
+      place: `${forumCity || 'Maceió'}/${forumState || 'Alagoas'}`,
     });
 
     base.client = {
-      kind: clientDoc.replace(/\D/g, '').length === 14 ? 'pj' : 'pf',
+      kind: clientDocType === 'CNPJ' || digits(clientDoc).length === 14 ? 'pj' : 'pf',
       name: clientName || '',
-      doc: clientDoc || '',
+      doc: formatDoc(clientDoc) || clientDoc || '',
       rg: '',
       nationality: 'brasileiro(a)',
       marital: 'solteiro(a)',
       profession: 'Empresário(a) / Autônomo(a)',
       repName: '',
       repDoc: '',
-      address: clientAddress || '',
+      address: computedClientAddress || clientAddress || '',
       city: clientCity || 'Maceió',
       state: clientState || 'AL',
       cep: clientCep || '',
@@ -246,7 +290,7 @@ export default function ContractsPage() {
     base.equipment = equipments;
     base.structure = structureType;
     base.supplier = {
-      name: supplierName || 'Fortlev Solar',
+      name: supplierName || 'FORTLEV SOLAR',
       doc: '',
     };
     base.utility = utilityName || 'Equatorial AL';
@@ -254,27 +298,164 @@ export default function ContractsPage() {
     base.forum = forumCity || 'Maceió';
     base.forumState = forumState || 'Alagoas';
     base.payment = {
-      method: paymentMethod,
+      method: 'personalizado',
       installments: Number(installments) || 12,
       withInterest: Boolean(withInterest),
       multipleCards: true,
       entry: Number(entryPrice) || 0,
       balanceWhen: 'na conclusão da instalação',
       bank: '',
-      custom: customPaymentText || '',
+      custom: paymentConditionText.trim() || defaultPaymentCondition,
     };
 
     return base;
   }, [
-    clientName, clientDoc, clientAddress, clientCity, clientState, clientCep, clientPhone,
+    clientName, clientDocType, clientDoc, computedClientAddress, clientAddress, clientCity, clientState, clientCep, clientPhone,
     moduleBrand, moduleModel, modulePower, moduleQty,
     inverterBrand, inverterModel, inverterPower, inverterQty,
     structureType, supplierName, utilityName, forumCity, forumState, totalPrice, paymentMethod,
-    installments, withInterest, entryPrice, customPaymentText
+    installments, withInterest, entryPrice, paymentConditionText, defaultPaymentCondition
   ]);
 
-  const liveKwp = useMemo(() => contractKwp(liveContratoData), [liveContratoData]);
+  const liveKwp = useMemo(() => {
+    return powerKwpCalculated > 0 ? powerKwpCalculated : contractKwp(liveContratoData);
+  }, [powerKwpCalculated, liveContratoData]);
+
   const liveBlocks = useMemo(() => contratoBlocks(liveContratoData), [liveContratoData]);
+
+  // Função para abrir modal 100% limpo do zero (REQ-01)
+  const resetForm = () => {
+    setSelectedLeadId('');
+    setLeadSearchText('');
+    setClientName('');
+    setClientDocType('CPF');
+    setClientDoc('');
+    setClientPhone('');
+    setClientStreet('');
+    setClientNumber('');
+    setClientComplement('');
+    setClientNeighborhood('');
+    setClientCity('Maceió');
+    setClientState('AL');
+    setClientCep('');
+    setClientAddress('');
+    setModuleBrand('Canadian Solar');
+    setModulePower(550);
+    setModuleQty(14);
+    setInverterBrand('Deye');
+    setInverterPower(8);
+    setInverterQty(1);
+    setStructureType('telhado cerâmico');
+    setSupplierName('FORTLEV SOLAR');
+    setUtilityName('Equatorial AL');
+    setForumCity('Maceió');
+    setForumState('Alagoas');
+    setContractDate(new Date().toISOString().split('T')[0]);
+    setTotalPrice(28900);
+    setPaymentConditionText('');
+  };
+
+  // Gerar e Baixar PDF oficial diretamente (REQ-04 + REQ-05)
+  const handleDownloadPdfDirect = async () => {
+    if (!clientName.trim()) {
+      toast.error('Por favor, informe o nome do contratante.');
+      return;
+    }
+    if (Number(totalPrice) <= 0) {
+      toast.error('Informe um valor total válido para o contrato.');
+      return;
+    }
+
+    setIsGeneratingPdf(true);
+    try {
+      const pdfData: ContractPdfData = {
+        clientName: clientName.trim(),
+        clientDoc: formatDoc(clientDoc) || clientDoc,
+        clientDocType: clientDocType,
+        clientAddress: computedClientAddress || `${clientCity} - ${clientState}`,
+        powerKwp: liveKwp,
+        moduleQty: Number(moduleQty) || 0,
+        moduleQtyExtenso,
+        modulePowerWp: Number(modulePower) || 0,
+        moduleBrand,
+        inverterQty: Number(inverterQty) || 1,
+        inverterQtyExtenso,
+        inverterBrand,
+        inverterPowerKw: Number(inverterPower) || 0,
+        structureType,
+        utilityName,
+        totalPrice: Number(totalPrice) || 0,
+        totalPriceExtenso,
+        paymentConditionText: paymentConditionText.trim() || defaultPaymentCondition,
+        supplierName,
+        forumCity,
+        forumState,
+        contractDateText
+      };
+
+      // Dispara o download imediato do arquivo PDF oficial no navegador
+      downloadContractPdf(pdfData);
+
+      // Salva o registro no histórico para re-download e rastreabilidade (REQ-05)
+      await createContract.mutateAsync({
+        title: `Contrato Solar - ${clientName.trim()}`,
+        lead_id: selectedLeadId || null,
+        data: liveContratoData,
+      });
+
+      toast.success('Contrato emitido com sucesso! O arquivo PDF foi baixado.');
+      setIsModalOpen(false);
+    } catch (err: any) {
+      console.error('Erro na geração do PDF:', err);
+      toast.error('Erro ao gerar o PDF: ' + (err?.message || 'Tente novamente.'));
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
+  // Baixar PDF a partir de um contrato já existente na listagem (REQ-06)
+  const handleDownloadExistingContractPdf = (c: ContractRow) => {
+    try {
+      const d = c.data;
+      const modEq = d.equipment?.find((e) => e.kind === 'modulo');
+      const invEq = d.equipment?.find((e) => e.kind === 'inversor' || e.kind === 'microinversor');
+      const kwp = d.equipment ? contractKwp(d) : 0;
+      const priceVal = Number(d.price) || 0;
+      const modQtd = Number(modEq?.qty) || 10;
+      const invQtd = Number(invEq?.qty) || 1;
+
+      const pdfData: ContractPdfData = {
+        clientName: d.client?.name || c.title.replace('Contrato Solar - ', ''),
+        clientDoc: formatDoc(d.client?.doc) || d.client?.doc || '',
+        clientDocType: d.client?.kind === 'pj' || (d.client?.doc && digits(d.client.doc).length === 14) ? 'CNPJ' : 'CPF',
+        clientAddress: [d.client?.address, d.client?.city, d.client?.state].filter(Boolean).join(', ') || 'Maceió - AL',
+        powerKwp: kwp,
+        moduleQty: modQtd,
+        moduleQtyExtenso: numberInWords(modQtd),
+        modulePowerWp: Number(modEq?.power) || 550,
+        moduleBrand: modEq?.brand || 'Canadian Solar',
+        inverterQty: invQtd,
+        inverterQtyExtenso: numberInWords(invQtd),
+        inverterBrand: invEq?.brand || 'Deye',
+        inverterPowerKw: invEq?.power || 8,
+        structureType: d.structure || 'telhado cerâmico',
+        utilityName: d.utility || 'Equatorial AL',
+        totalPrice: priceVal,
+        totalPriceExtenso: moneyInWords(priceVal),
+        paymentConditionText: d.payment?.custom || `O CONTRATANTE pagará o valor de ${formatBrl(priceVal)} (${moneyInWords(priceVal)}) à vista, via PIX, diretamente para a CONTRATADA, no ato da assinatura deste contrato.`,
+        supplierName: d.supplier?.name || 'FORTLEV SOLAR',
+        forumCity: d.forum || 'Maceió',
+        forumState: d.forumState || 'Alagoas',
+        contractDateText: dateInWords(new Date(c.created_at).toISOString().split('T')[0])
+      };
+
+      downloadContractPdf(pdfData);
+      toast.success(`Baixando PDF de ${pdfData.clientName}...`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Erro ao baixar PDF: ' + err.message);
+    }
+  };
 
   // Manipular seleção de lead
   const handleSelectLead = async (leadId: string) => {
@@ -413,6 +594,7 @@ export default function ContractsPage() {
 
           <button
             onClick={() => {
+              resetForm();
               setLeadFilterMode(closedLeads.length > 0 ? 'fechados' : 'todos');
               setIsModalOpen(true);
             }}
@@ -427,6 +609,7 @@ export default function ContractsPage() {
       {/* Banner de Chamada para Ação */}
       <div
         onClick={() => {
+          resetForm();
           setLeadFilterMode(closedLeads.length > 0 ? 'fechados' : 'todos');
           setIsModalOpen(true);
         }}
@@ -632,7 +815,16 @@ export default function ContractsPage() {
                 </div>
 
                 {/* Ações */}
-                <div className="flex items-center gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-white/5 shrink-0">
+                <div className="flex items-center gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-white/5 shrink-0 flex-wrap">
+                  <button
+                    onClick={() => handleDownloadExistingContractPdf(d)}
+                    title="Baixar Contrato Oficial em PDF"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-lime-500/10 hover:bg-lime-500/20 text-lime-400 border border-lime-500/30 text-xs font-bold transition shadow-sm"
+                  >
+                    <FileDown className="w-3.5 h-3.5" />
+                    Baixar PDF
+                  </button>
+
                   {clientSigner?.token && (
                     <>
                       <button
@@ -905,98 +1097,159 @@ export default function ContractsPage() {
                   )}
                 </div>
 
-                {/* 2. Dados do Cliente / Contratante */}
+                {/* 2. Dados do Cliente / Contratante (REQ-01) */}
                 <div className="p-3.5 rounded-xl bg-zinc-900/60 border border-white/5 space-y-3">
-                  <p className="text-xs font-bold text-zinc-200 flex items-center gap-1.5">
-                    <User className="w-3.5 h-3.5 text-lime-400" /> Dados do Contratante
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-zinc-200 flex items-center gap-1.5">
+                      <User className="w-3.5 h-3.5 text-lime-400" /> Dados do Contratante
+                    </p>
+
+                    {/* Alternador PF / PJ */}
+                    <div className="flex items-center gap-1 bg-zinc-950 p-0.5 rounded-lg border border-zinc-800 text-[10px]">
+                      <button
+                        type="button"
+                        onClick={() => setClientDocType('CPF')}
+                        className={`px-2.5 py-0.5 rounded font-bold transition ${
+                          clientDocType === 'CPF'
+                            ? 'bg-lime-500/20 text-lime-400 border border-lime-500/30'
+                            : 'text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        Pessoa Física (CPF)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setClientDocType('CNPJ')}
+                        className={`px-2.5 py-0.5 rounded font-bold transition ${
+                          clientDocType === 'CNPJ'
+                            ? 'bg-lime-500/20 text-lime-400 border border-lime-500/30'
+                            : 'text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        Pessoa Jurídica (CNPJ)
+                      </button>
+                    </div>
+                  </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
-                        Nome do Contratante *
+                        {clientDocType === 'PJ' ? 'Razão Social / Nome Fantasia *' : 'Nome do Contratante *'}
                       </label>
                       <input
                         type="text"
                         required
                         value={clientName}
                         onChange={(e) => setClientName(e.target.value)}
-                        placeholder="Nome completo ou Razão Social"
+                        placeholder={clientDocType === 'PJ' ? 'Ex.: Silva & Cia Ltda' : 'Nome completo do cliente'}
                         className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-lime-500/50"
                       />
                     </div>
 
                     <div>
                       <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
-                        CPF ou CNPJ
+                        {clientDocType === 'PJ' ? 'CNPJ' : 'CPF'}
                       </label>
                       <input
                         type="text"
                         value={clientDoc}
                         onChange={(e) => setClientDoc(e.target.value)}
-                        placeholder="000.000.000-00"
-                        className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-lime-500/50"
+                        placeholder={clientDocType === 'PJ' ? '00.000.000/0001-00' : '000.000.000-00'}
+                        className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-lime-500/50 font-mono"
                       />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="sm:col-span-2">
-                      <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
-                        Endereço de Instalação
-                      </label>
-                      <input
-                        type="text"
-                        value={clientAddress}
-                        onChange={(e) => setClientAddress(e.target.value)}
-                        placeholder="Rua, número, bairro"
-                        className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-lime-500/50"
-                      />
+                  {/* Endereço Estruturado */}
+                  <div className="pt-1 border-t border-white/5 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                        Endereço de Instalação do Sistema
+                      </span>
+                      {clientPhone && (
+                        <span className="text-[10px] text-zinc-500 font-mono">
+                          WhatsApp: {clientPhone}
+                        </span>
+                      )}
                     </div>
-                    <div>
-                      <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
-                        Telefone WhatsApp
-                      </label>
-                      <input
-                        type="text"
-                        value={clientPhone}
-                        onChange={(e) => setClientPhone(e.target.value)}
-                        placeholder="(82) 99999-9999"
-                        className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-lime-500/50"
-                      />
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-[11px] text-zinc-400 mb-1">Cidade</label>
-                      <input
-                        type="text"
-                        value={clientCity}
-                        onChange={(e) => setClientCity(e.target.value)}
-                        placeholder="Maceió"
-                        className="w-full px-2.5 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-white"
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      <div className="sm:col-span-2">
+                        <label className="block text-[10px] text-zinc-400 mb-0.5">Rua / Logradouro</label>
+                        <input
+                          type="text"
+                          value={clientStreet}
+                          onChange={(e) => setClientStreet(e.target.value)}
+                          placeholder="Ex: Rua das Flores"
+                          className="w-full px-2.5 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-zinc-400 mb-0.5">Número</label>
+                        <input
+                          type="text"
+                          value={clientNumber}
+                          onChange={(e) => setClientNumber(e.target.value)}
+                          placeholder="Ex: 123 ou S/N"
+                          className="w-full px-2.5 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-white"
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-[11px] text-zinc-400 mb-1">Estado (UF)</label>
-                      <input
-                        type="text"
-                        value={clientState}
-                        onChange={(e) => setClientState(e.target.value)}
-                        placeholder="AL"
-                        className="w-full px-2.5 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-white"
-                      />
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-[10px] text-zinc-400 mb-0.5">Complemento / Quadra</label>
+                        <input
+                          type="text"
+                          value={clientComplement}
+                          onChange={(e) => setClientComplement(e.target.value)}
+                          placeholder="Ex: Apto 201, Quadra B"
+                          className="w-full px-2.5 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-zinc-400 mb-0.5">Bairro</label>
+                        <input
+                          type="text"
+                          value={clientNeighborhood}
+                          onChange={(e) => setClientNeighborhood(e.target.value)}
+                          placeholder="Ex: Farol, Ponta Verde"
+                          className="w-full px-2.5 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-white"
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-[11px] text-zinc-400 mb-1">CEP</label>
-                      <input
-                        type="text"
-                        value={clientCep}
-                        onChange={(e) => setClientCep(e.target.value)}
-                        placeholder="57000-000"
-                        className="w-full px-2.5 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-white"
-                      />
+
+                    <div className="grid grid-cols-3 gap-2.5">
+                      <div>
+                        <label className="block text-[10px] text-zinc-400 mb-0.5">Cidade</label>
+                        <input
+                          type="text"
+                          value={clientCity}
+                          onChange={(e) => setClientCity(e.target.value)}
+                          placeholder="Maceió"
+                          className="w-full px-2.5 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-zinc-400 mb-0.5">Estado (UF)</label>
+                        <input
+                          type="text"
+                          value={clientState}
+                          onChange={(e) => setClientState(e.target.value)}
+                          placeholder="AL"
+                          className="w-full px-2.5 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-zinc-400 mb-0.5">CEP</label>
+                        <input
+                          type="text"
+                          value={clientCep}
+                          onChange={(e) => setClientCep(e.target.value)}
+                          placeholder="57000-000"
+                          className="w-full px-2.5 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-white font-mono"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1014,7 +1267,7 @@ export default function ContractsPage() {
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                     <div>
-                      <label className="block text-[11px] text-zinc-400 mb-1">Módulos (Marca)</label>
+                      <label className="block text-[10px] text-zinc-400 mb-1">Módulos (Marca)</label>
                       <input
                         type="text"
                         value={moduleBrand}
@@ -1024,16 +1277,18 @@ export default function ContractsPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] text-zinc-400 mb-1">Potência (W)</label>
+                      <label className="block text-[10px] text-zinc-400 mb-1">Potência (W)</label>
                       <input
                         type="number"
                         value={modulePower}
                         onChange={(e) => setModulePower(Number(e.target.value))}
-                        className="w-full px-2.5 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-white"
+                        className="w-full px-2.5 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-white font-mono"
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] text-zinc-400 mb-1">Qtd. Módulos</label>
+                      <label className="block text-[10px] text-zinc-400 mb-1">
+                        Qtd. Módulos <span className="text-zinc-500 font-normal">({moduleQtyExtenso})</span>
+                      </label>
                       <input
                         type="number"
                         value={moduleQty}
@@ -1042,7 +1297,7 @@ export default function ContractsPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] text-zinc-400 mb-1">Inversor (kW)</label>
+                      <label className="block text-[10px] text-zinc-400 mb-1">Inversor (kW)</label>
                       <input
                         type="number"
                         value={inverterPower}
@@ -1054,7 +1309,9 @@ export default function ContractsPage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                     <div>
-                      <label className="block text-[11px] text-zinc-400 mb-1">Marca Inversor</label>
+                      <label className="block text-[10px] text-zinc-400 mb-1">
+                        Marca Inversor <span className="text-zinc-500 font-normal">({inverterQtyExtenso})</span>
+                      </label>
                       <input
                         type="text"
                         value={inverterBrand}
@@ -1064,151 +1321,116 @@ export default function ContractsPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] text-zinc-400 mb-1">Tipo de Estrutura</label>
+                      <label className="block text-[10px] text-zinc-400 mb-1">Tipo de Estrutura</label>
                       <input
                         type="text"
                         value={structureType}
                         onChange={(e) => setStructureType(e.target.value)}
-                        placeholder="Telhado Cerâmico / Metálico / Laje"
+                        placeholder="telhado cerâmico / metálico / laje"
                         className="w-full px-2.5 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-white"
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] text-zinc-400 mb-1">Distribuidora / Fornecedor</label>
+                      <label className="block text-[10px] text-zinc-400 mb-1">Distribuidora / Fornecedor</label>
                       <input
                         type="text"
                         value={supplierName}
                         onChange={(e) => setSupplierName(e.target.value)}
-                        placeholder="Fortlev Solar / Sou Energy"
+                        placeholder="FORTLEV SOLAR / SOU ENERGY"
                         className="w-full px-2.5 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-white"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* 4. Valores e Forma de Pagamento */}
+                {/* 4. Valores e Forma de Pagamento (REQ-01 / REQ-02) */}
                 <div className="p-3.5 rounded-xl bg-zinc-900/60 border border-white/5 space-y-3">
                   <p className="text-xs font-bold text-zinc-200 flex items-center gap-1.5">
-                    <DollarSign className="w-3.5 h-3.5 text-lime-400" /> Valores e Forma de Pagamento
+                    <DollarSign className="w-3.5 h-3.5 text-lime-400" /> Valores e Condições de Pagamento
                   </p>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
-                        Valor Total do Contrato (R$) *
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        required
-                        value={totalPrice}
-                        onChange={(e) => setTotalPrice(Number(e.target.value))}
-                        className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-lime-400 font-bold focus:outline-none focus:border-lime-500/50"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
-                        Forma de Pagamento
-                      </label>
-                      <select
-                        value={paymentMethod}
-                        onChange={(e) => setPaymentMethod(e.target.value as any)}
-                        className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-lime-500/50"
-                      >
-                        <option value="pix">PIX / Transferência À Vista</option>
-                        <option value="cartao">Cartão de Crédito Parcelado</option>
-                        <option value="entrada">Entrada + Saldo na Conclusão</option>
-                        <option value="financiamento">Financiamento Solar Bancário</option>
-                        <option value="personalizado">Condição Personalizada</option>
-                      </select>
-                    </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
+                      Valor Total do Contrato (R$) *
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      value={totalPrice}
+                      onChange={(e) => setTotalPrice(Number(e.target.value))}
+                      className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-lime-400 font-bold focus:outline-none focus:border-lime-500/50"
+                    />
+                    <p className="text-[11px] text-zinc-400 mt-1 italic">
+                      Por extenso: <b className="text-zinc-200">{totalPriceExtenso}</b>
+                    </p>
                   </div>
 
-                  {paymentMethod === 'cartao' && (
-                    <div className="grid grid-cols-2 gap-3 p-2.5 rounded-lg bg-zinc-950 border border-zinc-800 text-xs">
-                      <div>
-                        <label className="block text-[10px] text-zinc-400 mb-1">Parcelas (Vezes)</label>
-                        <input
-                          type="number"
-                          value={installments}
-                          onChange={(e) => setInstallments(Number(e.target.value))}
-                          className="w-full px-2 py-1 bg-zinc-900 border border-zinc-800 rounded text-xs text-white"
-                        />
-                      </div>
-                      <div className="flex items-center gap-2 pt-4">
-                        <input
-                          type="checkbox"
-                          id="withInterest"
-                          checked={withInterest}
-                          onChange={(e) => setWithInterest(e.target.checked)}
-                          className="rounded border-zinc-800 bg-zinc-900 text-lime-500 focus:ring-0"
-                        />
-                        <label htmlFor="withInterest" className="text-zinc-300 text-[11px]">
-                          Com juros da máquina
-                        </label>
-                      </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[11px] font-semibold text-zinc-300">
+                        Cláusula 3.1 — Condições de Pagamento (Texto Livre)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setPaymentConditionText(defaultPaymentCondition)}
+                        className="text-[10px] text-lime-400 hover:underline"
+                      >
+                        Inserir texto padrão à vista
+                      </button>
                     </div>
-                  )}
+                    <textarea
+                      rows={3}
+                      value={paymentConditionText || defaultPaymentCondition}
+                      onChange={(e) => setPaymentConditionText(e.target.value)}
+                      placeholder="Redija exatamente as condições negociadas (PIX, parcelas no cartão, entrada, financiamento)..."
+                      className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-lime-500/50 leading-relaxed custom-scrollbar"
+                    />
+                  </div>
+                </div>
 
-                  {paymentMethod === 'entrada' && (
-                    <div className="grid grid-cols-2 gap-3 p-2.5 rounded-lg bg-zinc-950 border border-zinc-800 text-xs">
-                      <div>
-                        <label className="block text-[10px] text-zinc-400 mb-1">Valor da Entrada (R$)</label>
-                        <input
-                          type="number"
-                          value={entryPrice}
-                          onChange={(e) => setEntryPrice(Number(e.target.value))}
-                          placeholder="Ex: 10000"
-                          className="w-full px-2 py-1 bg-zinc-900 border border-zinc-800 rounded text-xs text-white"
-                        />
-                      </div>
-                      <div className="text-[11px] text-zinc-400 pt-3">
-                        Saldo restante: <b className="text-lime-400">{formatBrl(Math.max(0, totalPrice - entryPrice))}</b>
-                      </div>
-                    </div>
-                  )}
-
-                  {paymentMethod === 'personalizado' && (
+                {/* 5. Concessionária, Foro e Data de Assinatura */}
+                <div className="p-3.5 rounded-xl bg-zinc-900/60 border border-white/5 space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                     <div>
-                      <label className="block text-[10px] text-zinc-400 mb-1">Texto da Condição Personalizada</label>
-                      <textarea
-                        rows={2}
-                        value={customPaymentText}
-                        onChange={(e) => setCustomPaymentText(e.target.value)}
-                        placeholder="Ex: R$ 10.000 de entrada via PIX e saldo em 18x no boleto..."
+                      <label className="block text-[10px] text-zinc-400 mb-1">
+                        Concessionária Local
+                      </label>
+                      <input
+                        type="text"
+                        value={utilityName}
+                        onChange={(e) => setUtilityName(e.target.value)}
+                        placeholder="Equatorial AL"
                         className="w-full px-2.5 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-white"
                       />
                     </div>
-                  )}
-                </div>
-
-                {/* 5. Concessionária & Foro */}
-                <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-zinc-900/60 border border-white/5">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
-                      Concessionária Local
-                    </label>
-                    <input
-                      type="text"
-                      value={utilityName}
-                      onChange={(e) => setUtilityName(e.target.value)}
-                      placeholder="Equatorial AL"
-                      className="w-full px-2.5 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-white"
-                    />
+                    <div>
+                      <label className="block text-[10px] text-zinc-400 mb-1">
+                        Comarca do Foro (Cidade)
+                      </label>
+                      <input
+                        type="text"
+                        value={forumCity}
+                        onChange={(e) => setForumCity(e.target.value)}
+                        placeholder="Maceió"
+                        className="w-full px-2.5 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-zinc-400 mb-1">
+                        Data de Assinatura
+                      </label>
+                      <input
+                        type="date"
+                        value={contractDate}
+                        onChange={(e) => setContractDate(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-white font-mono"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
-                      Comarca do Foro
-                    </label>
-                    <input
-                      type="text"
-                      value={forumCity}
-                      onChange={(e) => setForumCity(e.target.value)}
-                      placeholder="Maceió"
-                      className="w-full px-2.5 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-white"
-                    />
-                  </div>
+                  <p className="text-[10px] text-zinc-400">
+                    Data por extenso: <b className="text-zinc-300">{contractDateText}</b>
+                  </p>
                 </div>
               </div>
 

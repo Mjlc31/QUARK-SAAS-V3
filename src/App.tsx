@@ -88,37 +88,40 @@ const MainLayout: React.FC = () => {
       <main className="lg:ml-72 p-4 pt-[72px] pb-24 lg:pb-10 lg:pt-10 lg:p-10 relative z-10 h-[100dvh] overflow-y-auto custom-scrollbar">
         <Suspense fallback={<SkeletonLoader />}>
           <AnimatePresence mode="wait"><Routes location={location} key={location.pathname}>
+            {/* Core 11 Routes */}
             <Route path="/" element={<PageWrapper><Dashboard /></PageWrapper>} />
             <Route path="/crm" element={<PageWrapper><CRM /></PageWrapper>} />
-            <Route path="/ranking" element={<PageWrapper><Ranking /></PageWrapper>} />
-            <Route path="/orcamento-rapido" element={<PageWrapper><QuickQuoteStudio /></PageWrapper>} />
-            <Route path="/equipe" element={<PageWrapper><TeamManagement /></PageWrapper>} />
             <Route path="/conversations" element={<PageWrapper><Conversations /></PageWrapper>} />
-            <Route path="/social-studio" element={<PageWrapper><SocialStudio /></PageWrapper>} />
-            <Route path="/calculator" element={<PageWrapper><Calculator /></PageWrapper>} />
-            <Route path="/price-list" element={<PageWrapper><PriceList /></PageWrapper>} />
             <Route path="/propostas" element={<PageWrapper><Proposals /></PageWrapper>} />
             <Route path="/propostas/nova" element={<PageWrapper><ProposalEditorPage /></PageWrapper>} />
             <Route path="/propostas/:id" element={<PageWrapper><ProposalEditorPage /></PageWrapper>} />
-            <Route path="/proposals" element={<Navigate to="/propostas" replace />} />
+            <Route path="/contratos" element={<PageWrapper><Contracts /></PageWrapper>} />
             <Route path="/engineering" element={<PageWrapper><Engineering /></PageWrapper>} />
             <Route path="/tasks" element={<PageWrapper><Tasks /></PageWrapper>} />
-            <Route path="/products" element={<PageWrapper><Products /></PageWrapper>} />
-            <Route path="/ecommerce" element={<PageWrapper><Products /></PageWrapper>} />
-            <Route path="/follow-up" element={<Navigate to="/engineering" replace />} />
-            <Route path="/reports" element={<PageWrapper><Reports /></PageWrapper>} />
-            <Route path="/financeiro" element={<PageWrapper><Financial /></PageWrapper>} />
-            <Route path="/recibos" element={<PageWrapper><Receipts /></PageWrapper>} />
-            <Route path="/contratos" element={<PageWrapper><Contracts /></PageWrapper>} />
-            <Route path="/prospeccao" element={<PageWrapper><Prospeccao /></PageWrapper>} />
-            <Route path="/clientes" element={<PageWrapper><ClientCatalog /></PageWrapper>} />
-            <Route path="/ferramentas" element={<PageWrapper><Tools /></PageWrapper>} />
-
-            {/* Admin Routes */}
-            <Route path="/tickets" element={<PageWrapper><TicketAdmin /></PageWrapper>} />
-            <Route path="/intelligence" element={<PageWrapper><ClientIntelligence /></PageWrapper>} />
             <Route path="/maintenance" element={<PageWrapper><Maintenance /></PageWrapper>} />
-            <Route path="/maintenance-alerts" element={<PageWrapper><MaintenanceAlerts /></PageWrapper>} />
+            <Route path="/financeiro" element={<PageWrapper><Financial /></PageWrapper>} />
+            <Route path="/reports" element={<PageWrapper><Reports /></PageWrapper>} />
+            <Route path="/tickets" element={<PageWrapper><TicketAdmin /></PageWrapper>} />
+
+            {/* Redirecionamentos Transparentes (Fusão e Descontinuação de Abas) */}
+            <Route path="/calculator" element={<Navigate to="/propostas/nova" replace />} />
+            <Route path="/clientes" element={<Navigate to="/crm" replace />} />
+            <Route path="/intelligence" element={<Navigate to="/reports" replace />} />
+            <Route path="/maintenance-alerts" element={<Navigate to="/maintenance" replace />} />
+            <Route path="/ecommerce" element={<Navigate to="/price-list" replace />} />
+            <Route path="/products" element={<Navigate to="/price-list" replace />} />
+            <Route path="/proposals" element={<Navigate to="/propostas" replace />} />
+            <Route path="/follow-up" element={<Navigate to="/engineering" replace />} />
+
+            {/* Módulos Secundários (Acessíveis diretamente por link/modal, sem poluir a barra lateral) */}
+            <Route path="/ranking" element={<PageWrapper><Ranking /></PageWrapper>} />
+            <Route path="/orcamento-rapido" element={<PageWrapper><QuickQuoteStudio /></PageWrapper>} />
+            <Route path="/equipe" element={<PageWrapper><TeamManagement /></PageWrapper>} />
+            <Route path="/price-list" element={<PageWrapper><PriceList /></PageWrapper>} />
+            <Route path="/recibos" element={<PageWrapper><Receipts /></PageWrapper>} />
+            <Route path="/ferramentas" element={<PageWrapper><Tools /></PageWrapper>} />
+            <Route path="/prospeccao" element={<PageWrapper><Prospeccao /></PageWrapper>} />
+            <Route path="/social-studio" element={<PageWrapper><SocialStudio /></PageWrapper>} />
             <Route path="/utility-robot" element={<PageWrapper><UtilityRobot /></PageWrapper>} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
