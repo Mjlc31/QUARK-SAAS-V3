@@ -201,6 +201,9 @@ export interface ROIContent {
   finalPrice: number;
   paybackYears: number;
   paybackMonths: number;
+  paybackDiscountedYears?: number;
+  isImmediateReturn?: boolean;
+  netMonthlyFinancedDiff?: number;
   tir: number;
   vpl: number;
   roi: number;

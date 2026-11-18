@@ -1,0 +1,10 @@
+.git
+node_modules
+dist
+.agents
+specs
+supabase
+*.zip
+*.log
+playwright-report
+test-results

@@ -342,6 +342,17 @@ const Financial: React.FC = () => {
         });
     }, [allYearTx]);
 
+    const mostRecentMonthWithData = useMemo(() => {
+        if (!allYearTx || allYearTx.length === 0) return 10;
+        const validMonths = allYearTx
+            .map(t => {
+                const parts = (t.date || '').split('-');
+                return parts.length >= 2 ? Number(parts[1]) : 0;
+            })
+            .filter(m => m >= 1 && m <= 12);
+        return validMonths.length > 0 ? Math.max(...validMonths) : 10;
+    }, [allYearTx]);
+
     // ─── Pie chart: top spending categories ─────────────────────────────────
     const pieData = useMemo(() => {
         const groups: Record<string, number> = {};
@@ -717,6 +728,43 @@ const Financial: React.FC = () => {
                 </div>
             ) : (
                 <>
+                    {/* ─── Contextual Banner for Empty Period ──────────────────────── */}
+                    {viewMode === 'monthly' && transactions.length === 0 && !loading && (
+                        <div className="mb-6 p-4 bg-zinc-900/80 border border-white/10 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                    <Calendar size={18} />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-semibold text-white">
+                                        Nenhum lançamento financeiro registrado em {MONTHS[filterMonth - 1]} de {filterYear}.
+                                    </p>
+                                    <p className="text-xs text-slate-400 mt-0.5">
+                                        Você pode conferir os lançamentos recentes de {MONTHS[mostRecentMonthWithData - 1]} ou visualizar o consolidado anual.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                                {mostRecentMonthWithData !== filterMonth && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setFilterMonth(mostRecentMonthWithData)}
+                                        className="px-3.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-semibold text-white transition-colors"
+                                    >
+                                        Ver {MONTHS[mostRecentMonthWithData - 1]}
+                                    </button>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => setViewMode('ytd')}
+                                    className="px-3.5 py-1.5 bg-lime-500 hover:bg-lime-400 text-slate-950 rounded-xl text-xs font-bold transition-colors"
+                                >
+                                    Ver Acumulado {filterYear}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     {/* ─── KPI Cards ─────────────────────────────────────────────── */}
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                         {[

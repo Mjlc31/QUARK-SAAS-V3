@@ -159,6 +159,8 @@ const Calculator: React.FC = () => {
 
     let cumulativeGridCost = 0;
     let paybackYear = 0;
+    let cumulativeAsset = -totalInvestment;
+    let assetPaybackYear = 0;
 
     cashFlow.push({
       year: 0,
@@ -189,8 +191,17 @@ const Calculator: React.FC = () => {
       const previousBalance = cumulativeBalance;
       cumulativeBalance += netCashFlow;
 
+      // Payback do ativo (independente de financiamento)
+      const prevAsset = cumulativeAsset;
+      cumulativeAsset += (yearSavings - opex);
+      if (assetPaybackYear === 0 && prevAsset < 0 && cumulativeAsset >= 0) {
+        const netAssetFlow = yearSavings - opex;
+        assetPaybackYear = (year - 1) + (Math.abs(prevAsset) / (netAssetFlow === 0 ? 1 : netAssetFlow));
+      }
+
+      // Payback do fluxo do cliente (corrigido: (year - 1) + fraction para evitar off-by-one)
       if (paybackYear === 0 && previousBalance < 0 && cumulativeBalance >= 0) {
-        paybackYear = year + (Math.abs(previousBalance) / (netCashFlow === 0 ? 1 : netCashFlow));
+        paybackYear = (year - 1) + (Math.abs(previousBalance) / (netCashFlow === 0 ? 1 : netCashFlow));
       }
 
       cashFlow.push({
@@ -209,6 +220,10 @@ const Calculator: React.FC = () => {
     const treesPlanted = Math.floor((annualGen * 25 * 0.4) / 150);
 
     const roi25 = (cumulativeBalance / totalInvestment) * 100;
+
+    // Se financiado sem entrada, o payback do cliente seria imediato (ou zero no bolso);
+    // Para efeito de apresentação técnica do ativo, usamos o assetPaybackYear.
+    const calculatedPayback = (paybackYear > 0) ? paybackYear : (assetPaybackYear > 0 ? assetPaybackYear : 0);
 
     // --- Data for Bill Comparison Chart ---
     const oldBill = consumption * tariff;
@@ -231,7 +246,7 @@ const Calculator: React.FC = () => {
       monthlyGeneration: currentGenerationMonthlyAvg,
       monthlySavings: currentGenerationMonthlyAvg * tariff,
       annualSavings: currentGenerationMonthlyAvg * 12 * tariff,
-      paybackYears: paybackYear > 25 ? 25 : Number(paybackYear.toFixed(1)),
+      paybackYears: calculatedPayback > 25 ? 25 : Number(calculatedPayback.toFixed(1)),
       totalInvestment: totalInvestment,
       roi25Years: roi25,
       co2SavedTons: Number(co2SavedTons.toFixed(1)),
