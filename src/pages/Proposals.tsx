@@ -13,7 +13,7 @@ import { must, useLive } from "@/lib/live";
 import { brl, fmtNum } from "@/lib/pricing";
 import { downloadCsv, today } from "@/lib/csv";
 import { Mantra } from "@/components/app/mantra";
-import { supabase, filterRealProposals } from "@/lib/supabase/client";
+import { supabase, supabaseAnon, filterRealProposals } from "@/lib/supabase/client";
 import { ViewsPill } from "@/components/ProposalViews";
 import { fetchProposalViews, type ProposalView } from "@/lib/proposal-tracking";
 import type { Product, Proposal, ProposalStatus } from "@/lib/types";
@@ -61,12 +61,34 @@ function Proposals() {
         }
       } catch (_) {}
 
+      // Fallback via supabaseAnon (se houver 401 ou token expirado na sessão)
       if (rawProposals.length === 0) {
-        const res = await supabase().from("proposals").select("*").is("deleted_at", null).order("updated_at", { ascending: false }).limit(100);
-        if (res.error) throw res.error;
-        rawProposals = res.data || [];
+        try {
+          const { data: anonData, error: anonErr } = await supabaseAnon().rpc("get_proposals", { p_limit: 100 });
+          if (!anonErr && Array.isArray(anonData) && anonData.length > 0) {
+            rawProposals = anonData;
+          }
+        } catch (_) {}
+      }
+
+      if (rawProposals.length === 0) {
+        try {
+          const res = await supabase().from("proposals").select("*").is("deleted_at", null).order("updated_at", { ascending: false }).limit(100);
+          if (res?.data) rawProposals = res.data;
+        } catch (_) {
+          try {
+            const anonRes = await supabaseAnon().from("proposals").select("*").is("deleted_at", null).order("updated_at", { ascending: false }).limit(100);
+            if (anonRes?.data) rawProposals = anonRes.data;
+          } catch (_) {}
+        }
       }
       const proposals = filterRealProposals(rawProposals);
+      // Garante que o orçamento editado mais recentemente fique rigorosamente no topo
+      proposals.sort((a, b) => {
+        const timeA = new Date(a.updated_at || a.created_at || 0).getTime();
+        const timeB = new Date(b.updated_at || b.created_at || 0).getTime();
+        return timeB - timeA;
+      });
       const leadIds = [...new Set(proposals.map((p) => p.lead_id).filter(Boolean))];
       
       const [leadsRes, views] = await Promise.all([

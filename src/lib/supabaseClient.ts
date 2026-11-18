@@ -8,8 +8,8 @@ const FALLBACK_URL = 'https://sumydaewtszecrvdgoku.supabase.co';
 const FALLBACK_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1bXlkYWV3dHN6ZWNydmRnb2t1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg4NDgxNTQsImV4cCI6MjA4NDQyNDE1NH0.2eP2iBsyq6q-zuhaL0zVFgjSmxkJgfZC8qbx5Q9QTso';
 
 const isJwtKey = (k?: string) => typeof k === 'string' && k.startsWith('eyJ');
-const finalUrl = (envUrl && envUrl.length > 5) ? envUrl : FALLBACK_URL;
-const finalKey = (envKey && isJwtKey(envKey)) ? envKey : FALLBACK_KEY;
+export const finalUrl = (envUrl && envUrl.length > 5) ? envUrl : FALLBACK_URL;
+export const finalKey = (envKey && isJwtKey(envKey)) ? envKey : FALLBACK_KEY;
 
 // Detect localStorage availability (some mobile browsers in private mode block it)
 const isLocalStorageAvailable = (() => {
@@ -25,7 +25,7 @@ const isLocalStorageAvailable = (() => {
 
 // In-memory fallback storage for when localStorage is unavailable
 const memoryStorage: Record<string, string> = {};
-const safeStorage = {
+export const safeStorage = {
   getItem: (key: string) => {
     if (isLocalStorageAvailable) return localStorage.getItem(key);
     return memoryStorage[key] ?? null;
@@ -47,6 +47,42 @@ console.log(
   'background: #84cc16; color: black; padding: 2px 6px; border-radius: 4px; font-weight: bold;'
 );
 
+/**
+ * Fetch resiliente com auto-recuperação de sessão:
+ * Se qualquer chamada retornar 401 Unauthorized por causa de token expirado ou inválido,
+ * remove o token corrompido do armazenamento e reexecuta imediatamente com a chave anônima (anon).
+ */
+const authRecoveryFetch: typeof fetch = async (input, init) => {
+  const res = await fetch(input, init);
+  if (res.status === 401 || res.status === 400) {
+    try {
+      const clone = res.clone();
+      const text = await clone.text();
+      const isAuthProblem =
+        text.includes('JWT expired') ||
+        text.includes('invalid JWT') ||
+        text.includes('PGRST301') ||
+        text.includes('Refresh Token Not Found') ||
+        text.includes('invalid_grant');
+
+      if (isAuthProblem) {
+        console.warn('⚠️ [Supabase] Sessão expirada ou token inválido detectado. Recuperando com credenciais anônimas limpas...');
+        try {
+          safeStorage.removeItem('quark-auth-token');
+          safeStorage.removeItem('sb-sumydaewtszecrvdgoku-auth-token');
+        } catch (_) {}
+
+        if (init?.headers) {
+          const headers = new Headers(init.headers);
+          headers.set('apikey', finalKey);
+          headers.set('Authorization', `Bearer ${finalKey}`);
+          return fetch(input, { ...init, headers });
+        }
+      }
+    } catch (_) {}
+  }
+  return res;
+};
 
 export const supabase = createClient(finalUrl, finalKey, {
   auth: {
@@ -60,9 +96,22 @@ export const supabase = createClient(finalUrl, finalKey, {
     lock: async (_name: string, _acquireTimeout: number, fn: () => Promise<any>) => {
       return await fn();
     },
-  }
+  },
+  global: {
+    fetch: authRecoveryFetch,
+  },
+});
+
+/** Cliente puro sem autenticação de usuário (sempre anônimo e imune a tokens corrompidos) */
+export const supabaseAnon = createClient(finalUrl, finalKey, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false,
+  },
 });
 
 if (typeof window !== 'undefined') {
   (window as any).supabase = supabase;
+  (window as any).supabaseAnon = supabaseAnon;
 }

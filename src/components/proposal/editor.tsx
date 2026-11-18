@@ -40,7 +40,7 @@ import { MACEIO_TARIFF, effectiveTariff, mergeInputs, toStoredSettings, type Kit
 import { addDays, formatPhone, whatsappUrl } from "@/lib/format";
 import { brl, calcEnergy, calcPricing, fmtNum, type AmountMode, type PriceComponent, type ProposalInputs } from "@/lib/pricing";
 import { duplicateProposal, syncOpportunityAmount } from "@/lib/proposal-actions";
-import { supabase } from "@/lib/supabase/client";
+import { supabase, supabaseAnon } from "@/lib/supabase/client";
 import type { Proposal } from "@/lib/types";
 import { BillPreview, Checkout, StepNav } from "./checkout";
 import { NewLeadModal } from "./NewLeadModal";
@@ -299,11 +299,11 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
         ...row,
       };
 
-      // 1. Persistência via RPC save_proposal com timeout estrito de segurança (3000ms)
+      // 1. Persistência via RPC save_proposal com timeout resiliente (8000ms)
       try {
         const rpcPromise = sb.rpc("save_proposal", { p_proposal: payloadToSave });
         const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) =>
-          setTimeout(() => resolve({ data: null, error: new Error("save_proposal_timeout") }), 3000)
+          setTimeout(() => resolve({ data: null, error: new Error("save_proposal_timeout") }), 8000)
         );
         const { data: rpcData, error: rpcErr } = await Promise.race([rpcPromise, timeoutPromise]);
         if (!rpcErr && rpcData && typeof rpcData === "object" && (rpcData as any).id) {
@@ -315,7 +315,19 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
         console.warn("[ProposalEditor] save_proposal RPC failed, fallback to direct query:", rpcEx);
       }
 
-      // 2. Fallback resiliente caso a RPC falhe ou sofra timeout
+      // 1.1 Fallback via supabaseAnon (garante persistência mesmo com sessão expirada ou 401)
+      if (!saved) {
+        try {
+          const { data: anonData, error: anonErr } = await supabaseAnon().rpc("save_proposal", { p_proposal: payloadToSave });
+          if (!anonErr && anonData && typeof anonData === "object" && (anonData as any).id) {
+            saved = anonData as Proposal;
+          }
+        } catch (anonEx) {
+          console.warn("[ProposalEditor] save_proposal via supabaseAnon falhou:", anonEx);
+        }
+      }
+
+      // 2. Fallback resiliente caso as chamadas RPC falhem
       if (!saved) {
         try {
           const directPromise = current.current
@@ -323,7 +335,7 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
             : sb.from("proposals").insert(row).select("*").maybeSingle();
 
           const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) =>
-            setTimeout(() => resolve({ data: null, error: new Error("direct_save_timeout") }), 3000)
+            setTimeout(() => resolve({ data: null, error: new Error("direct_save_timeout") }), 8000)
           );
           const res = await Promise.race([directPromise, timeoutPromise]);
 
@@ -345,6 +357,20 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
         }
         return null;
       }
+
+      // Atualiza o cache local imediatamente para a proposta subir ao topo na lista
+      try {
+        const cacheKey = "quark_proposals_list";
+        const raw = localStorage.getItem(cacheKey);
+        if (raw) {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) {
+            const idx = list.findIndex((item: any) => item.id === saved.id || String(item.number) === String(saved.number));
+            const updatedList = idx >= 0 ? [saved, ...list.filter((_, i) => i !== idx)] : [saved, ...list];
+            localStorage.setItem(cacheKey, JSON.stringify(updatedList));
+          }
+        }
+      } catch (_) {}
 
       setDirty(false);
       const wasNew = !current.current;

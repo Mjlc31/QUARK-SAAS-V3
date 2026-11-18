@@ -1,4 +1,4 @@
-import { supabase as _supabase } from "../../lib/supabaseClient";
+import { supabase as _supabase, supabaseAnon as _supabaseAnon } from "../../lib/supabaseClient";
 import type { Proposal } from "../types";
 
 export interface StoredProposal extends Proposal {
@@ -45,3 +45,4 @@ export function filterRealProposals(list: any[]): StoredProposal[] {
 
 /** Cliente Supabase. Propostas vêm sempre do banco — sem cache local nem JSON do backend. */
 export const supabase = () => _supabase;
+export const supabaseAnon = () => _supabaseAnon;
