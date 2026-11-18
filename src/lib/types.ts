@@ -76,6 +76,9 @@ export interface Proposal {
   accepted_by: string | null;
   user_id?: string | null;
   opportunity_id?: string | null;
+  client_name?: string | null;
+  city?: string | null;
+  phone?: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

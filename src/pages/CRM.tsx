@@ -12,7 +12,7 @@ import { useLive } from "../lib/live";
 import { brl, fmtNum } from "../lib/pricing";
 import type { ProposalView } from "../lib/proposal-tracking";
 import { SERVICES, servicesOf, type ServiceId } from "../lib/services";
-import { supabase } from "../lib/supabaseClient";
+import { supabase, supabaseAnon } from "../lib/supabaseClient";
 import { DEFAULT_CADENCE, renderCopy } from "../lib/cadence";
 import { recordXpEvent } from "../lib/gamification";
 
@@ -108,17 +108,41 @@ async function loadCrm(): Promise<CrmData> {
       Promise.resolve(
         supabase
           .from("proposals")
-          .select("id, number, lead_id, status, final_price, power_kwp, public_token, created_at, updated_at")
+          .select("id, number, lead_id, opportunity_id, client_name, title, status, final_price, power_kwp, public_token, created_at, updated_at")
           .is("deleted_at", null)
           .order("updated_at", { ascending: false })
           .limit(100)
       ),
     ]);
 
-    const [oppRes, propRes] = await Promise.race([queryPromise, timeoutPromise]);
+    let [oppRes, propRes] = await Promise.race([queryPromise, timeoutPromise]);
 
-    const opps = ((oppRes.data as Opportunity[]) || []).filter((o) => o && !o.deleted_at);
-    const proposals = ((propRes.data ?? []) as any[]) as OppProposal[];
+    let opps = ((oppRes?.data as Opportunity[]) || []).filter((o) => o && !o.deleted_at);
+    let proposals = ((propRes?.data ?? []) as any[]) as OppProposal[];
+
+    if (opps.length === 0 || proposals.length === 0) {
+      try {
+        const [anonOppRes, anonPropRes] = await Promise.all([
+          supabaseAnon
+            .from("opportunities")
+            .select("id, title, client_name, status, pipeline_stage, amount, value, phone, email, city, cpf_cnpj, segment, source, temperature, notes, loss_reason, created_at, updated_at, services, system_power, consumption_kwh")
+            .is("deleted_at", null)
+            .order("created_at", { ascending: false }),
+          supabaseAnon
+            .from("proposals")
+            .select("id, number, lead_id, opportunity_id, client_name, title, status, final_price, power_kwp, public_token, created_at, updated_at")
+            .is("deleted_at", null)
+            .order("updated_at", { ascending: false })
+            .limit(100),
+        ]);
+        if (anonOppRes?.data && anonOppRes.data.length > 0) {
+          opps = anonOppRes.data.filter((o: any) => o && !o.deleted_at);
+        }
+        if (anonPropRes?.data && anonPropRes.data.length > 0) {
+          proposals = anonPropRes.data as OppProposal[];
+        }
+      } catch (_) {}
+    }
 
     if (opps.length > 0) {
       const result: CrmData = { opps, proposals, views: [] };
@@ -256,17 +280,36 @@ const CRM: React.FC = () => {
   const byLead = useMemo(() => {
     const map = new Map<string, { proposal: OppProposal; count: number; views: ProposalView[] }>();
     for (const p of data?.proposals ?? []) {
-      if (!p.lead_id) continue;
-      const cur = map.get(String(p.lead_id));
+      const keys = new Set<string>();
+      if (p.lead_id) keys.add(String(p.lead_id));
+      if (p.opportunity_id) keys.add(String(p.opportunity_id));
+      if (p.client_name) keys.add(String(p.client_name).trim().toLowerCase());
+      if (p.title) {
+        const cleanTitle = String(p.title).replace(/^Proposta Solar\s*—\s*/i, "").replace(/^Proposta S\.A\.V\.E\s*—\s*/i, "").trim().toLowerCase();
+        if (cleanTitle) keys.add(cleanTitle);
+      }
+      if (keys.size === 0) continue;
       const views = (data?.views ?? []).filter((v) => v.proposal_id === String(p.id));
-      if (!cur) map.set(String(p.lead_id), { proposal: p, count: 1, views });
-      else {
-        cur.count += 1;
-        cur.views = [...cur.views, ...views].sort((a, b) => b.viewed_at.localeCompare(a.viewed_at));
+      for (const k of keys) {
+        const cur = map.get(k);
+        if (!cur) {
+          map.set(k, { proposal: p, count: 1, views });
+        } else {
+          cur.count += 1;
+          cur.views = [...cur.views, ...views].sort((a, b) => b.viewed_at.localeCompare(a.viewed_at));
+        }
       }
     }
     return map;
   }, [data]);
+
+  const getOppProposalInfo = (opp: Opportunity) => {
+    return (
+      byLead.get(opp.id) ||
+      (opp.title ? byLead.get(opp.title.trim().toLowerCase()) : undefined) ||
+      (opp.client_name ? byLead.get(opp.client_name.trim().toLowerCase()) : undefined)
+    );
+  };
 
   const filtered = useMemo(() => {
     const q = searchTerm.toLowerCase().trim();
@@ -278,7 +321,7 @@ const CRM: React.FC = () => {
         (opp.city ?? "").toLowerCase().includes(q) ||
         (opp.source ?? "").toLowerCase().includes(q);
       const matchesService = serviceFilter === "todos" || servicesOf(opp).some((s) => s.id === serviceFilter);
-      const matchesHot = !showOnlyHot || leadScore(opp, byLead.get(opp.id)?.views.length ?? 0) >= 75;
+      const matchesHot = !showOnlyHot || leadScore(opp, getOppProposalInfo(opp)?.views.length ?? 0) >= 75;
       return matchesSearch && matchesService && matchesHot;
     });
   }, [opportunities, searchTerm, serviceFilter, showOnlyHot, byLead]);
@@ -322,7 +365,7 @@ const CRM: React.FC = () => {
     const closed = won.length + lost.length;
     const open = opportunities.filter((o) => !isWon(o.status) && !isLost(o.status));
     const weighted = open.reduce((acc, o) => acc + (o.amount || 0) * (OPPORTUNITY_STAGES.find((s) => s.id === o.status)?.weight ?? 0.1), 0);
-    const viewedNotClosed = open.filter((o) => (byLead.get(o.id)?.views.length ?? 0) > 0).length;
+    const viewedNotClosed = open.filter((o) => (getOppProposalInfo(o)?.views.length ?? 0) > 0).length;
     const totalCount = opportunities.length;
 
     // Taxa de conversão considerando oportunidades qualificadas (Qualificado + Proposta -> Ganho como venda fechada)
@@ -356,7 +399,7 @@ const CRM: React.FC = () => {
     if (status === "Ganho" && (!resolvedAmount || resolvedAmount <= 0)) {
       const linkedProps = data?.proposals?.filter((p) => p.lead_id === opp.id || (p as any).opportunity_id === opp.id) || [];
       const acceptedProp = linkedProps.find(p => p.status === 'aceita');
-      const linkedProp = acceptedProp || byLead.get(opp.id)?.proposal || linkedProps[0];
+      const linkedProp = acceptedProp || getOppProposalInfo(opp)?.proposal || linkedProps[0];
 
       if (linkedProp && linkedProp.final_price) {
         resolvedAmount = Number(linkedProp.final_price);
@@ -742,7 +785,7 @@ const CRM: React.FC = () => {
                       <OppCard
                         key={opp.id}
                         opp={opp}
-                        info={byLead.get(opp.id)}
+                        info={getOppProposalInfo(opp)}
                         dragging={draggedOpp === opp.id}
                         isSelected={selectedLeadIds.has(opp.id)}
                         onToggleSelect={handleToggleSelectLead}
@@ -774,7 +817,18 @@ const CRM: React.FC = () => {
         <OpportunityDetailsPanel
           opportunity={selected}
           stages={OPPORTUNITY_STAGES as unknown as { id: string; name: string }[]}
-          proposals={(data?.proposals ?? []).filter((p) => String(p.lead_id) === selected.id)}
+          proposals={(data?.proposals ?? []).filter((p) => {
+            const pLead = String(p.lead_id);
+            const pOpp = String(p.opportunity_id || "");
+            const pClient = p.client_name?.trim().toLowerCase();
+            const oppTitle = selected.title?.trim().toLowerCase();
+            const oppClient = selected.client_name?.trim().toLowerCase();
+            return (
+              pLead === selected.id ||
+              pOpp === selected.id ||
+              (Boolean(pClient) && (pClient === oppTitle || pClient === oppClient))
+            );
+          })}
           views={data?.views ?? []}
           onClose={() => setSelectedId(null)}
           onSave={(u) => handleSaveEdit(selected.id, u)}
@@ -1112,7 +1166,7 @@ function OppTable({
         <tbody className="divide-y divide-white/5">
           {opps.map((o) => {
             const stage = OPPORTUNITY_STAGES.find((s) => s.id === o.status) ?? OPPORTUNITY_STAGES[0];
-            const info = byLead.get(o.id);
+            const info = byLead.get(o.id) || (o.title ? byLead.get(o.title.trim().toLowerCase()) : undefined) || (o.client_name ? byLead.get(o.client_name.trim().toLowerCase()) : undefined);
             const isSelected = selectedLeadIds.has(o.id);
             return (
               <tr 

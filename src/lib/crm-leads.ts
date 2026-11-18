@@ -1,6 +1,6 @@
 import { useLive } from "./live";
 import type { ConnectionType } from "./pricing";
-import { supabase } from "./supabaseClient";
+import { supabase, supabaseAnon } from "./supabaseClient";
 import { SAMPLE_CLIENTS } from "../hooks/useClients";
 
 /** Cliente do CRM (tabela `client_portal_users` ou `opportunities`) no formato usado pelos editores de orçamento. */
@@ -217,7 +217,27 @@ export function useCrmLeads() {
           oppsData = oppsRes.value.data;
         }
       } catch (e) {
-        // Continua com fallbacks locais
+        // Continua com fallbacks
+      }
+
+      // 1. Fallback via supabaseAnon (garante leitura pública dos leads ativos mesmo se JWT do usuário expirou)
+      if (clientsData.length === 0 || oppsData.length === 0) {
+        try {
+          const [anonClientsRes, anonOppsRes] = await Promise.allSettled([
+            clientsData.length === 0
+              ? supabaseAnon.from("client_portal_users").select("*").is("deleted_at", null).order("name", { ascending: true }).limit(1000)
+              : Promise.resolve({ data: clientsData }),
+            oppsData.length === 0
+              ? supabaseAnon.from("opportunities").select("*").is("deleted_at", null).order("created_at", { ascending: false }).limit(1000)
+              : Promise.resolve({ data: oppsData }),
+          ]);
+          if (clientsData.length === 0 && anonClientsRes.status === "fulfilled" && (anonClientsRes.value as any)?.data) {
+            clientsData = (anonClientsRes.value as any).data;
+          }
+          if (oppsData.length === 0 && anonOppsRes.status === "fulfilled" && (anonOppsRes.value as any)?.data) {
+            oppsData = (anonOppsRes.value as any).data;
+          }
+        } catch (_) {}
       }
 
       // Se clientes remotos vazios, tenta buscar do backend
@@ -260,18 +280,19 @@ export function useCrmLeads() {
         } catch (_) {}
       }
 
-      // Montagem do mapa unificado com desduplicação inteligente
+      // Montagem do mapa unificado com indexação por ID e desduplicação por chave
       const leadsMap = new Map<string, CrmLead>();
       const seenKeys = new Set<string>();
 
       const addUnique = (lead: CrmLead) => {
         if (!lead || !lead.name) return;
+        // Sempre indexa pelo ID exato do lead (essencial para resolver URLs como ?lead=opp_...)
+        leadsMap.set(lead.id, lead);
         const normName = lead.name.toLowerCase().trim().replace(/[^a-z0-9]/g, "");
         const normDoc = lead.document ? lead.document.replace(/\D/g, "") : "";
         const key = (normDoc && normDoc.length >= 11) ? normDoc : normName;
         if (seenKeys.has(key)) return;
         seenKeys.add(key);
-        leadsMap.set(lead.id, lead);
       };
 
       // 1. Clientes reais remotos (client_portal_users)

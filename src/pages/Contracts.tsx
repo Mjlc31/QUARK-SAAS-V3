@@ -1134,27 +1134,27 @@ export default function ContractsPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
-                        {clientDocType === 'PJ' ? 'Razão Social / Nome Fantasia *' : 'Nome do Contratante *'}
+                        {clientDocType === 'CNPJ' ? 'Razão Social / Nome Fantasia *' : 'Nome do Contratante *'}
                       </label>
                       <input
                         type="text"
                         required
                         value={clientName}
                         onChange={(e) => setClientName(e.target.value)}
-                        placeholder={clientDocType === 'PJ' ? 'Ex.: Silva & Cia Ltda' : 'Nome completo do cliente'}
+                        placeholder={clientDocType === 'CNPJ' ? 'Ex.: Silva & Cia Ltda' : 'Nome completo do cliente'}
                         className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-lime-500/50"
                       />
                     </div>
 
                     <div>
                       <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
-                        {clientDocType === 'PJ' ? 'CNPJ' : 'CPF'}
+                        {clientDocType === 'CNPJ' ? 'CNPJ' : 'CPF'}
                       </label>
                       <input
                         type="text"
                         value={clientDoc}
                         onChange={(e) => setClientDoc(e.target.value)}
-                        placeholder={clientDocType === 'PJ' ? '00.000.000/0001-00' : '000.000.000-00'}
+                        placeholder={clientDocType === 'CNPJ' ? '00.000.000/0001-00' : '000.000.000-00'}
                         className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-lime-500/50 font-mono"
                       />
                     </div>
@@ -1567,14 +1567,28 @@ export default function ContractsPage() {
                   type="button"
                   onClick={handleCreateContract}
                   disabled={createContract.isPending || !clientName.trim() || totalPrice <= 0}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-lime-500 hover:bg-lime-400 text-zinc-950 font-bold text-xs transition disabled:opacity-50 shadow-lg shadow-lime-500/20"
+                  className="hidden sm:inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-semibold text-xs transition disabled:opacity-50"
+                  title="Criar contrato e gerar link de assinatura digital"
                 >
                   {createContract.isPending ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
-                    <ShieldCheck className="w-4 h-4" />
+                    <ShieldCheck className="w-4 h-4 text-lime-400" />
                   )}
-                  Gerar Contrato & Criar Link
+                  Link de Assinatura
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadPdfDirect}
+                  disabled={isGeneratingPdf || !clientName.trim() || totalPrice <= 0}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-lime-500 hover:bg-lime-400 text-zinc-950 font-bold text-xs transition disabled:opacity-50 shadow-lg shadow-lime-500/20"
+                >
+                  {isGeneratingPdf ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <FileDown className="w-4 h-4" />
+                  )}
+                  Gerar e Baixar PDF
                 </button>
               </div>
             </div>

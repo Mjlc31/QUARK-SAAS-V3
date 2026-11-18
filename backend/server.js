@@ -705,12 +705,26 @@ app.get('/api/img', async (req, res) => {
 app.post('/api/public/proposal/:token', async (req, res) => {
   try {
     const { token } = req.params;
-    const { action, name } = req.body;
+    const { action, name, kind, detail, value, device } = req.body;
     
     const sb = supabase;
 
+    if (action === 'event') {
+      if (!['open', 'section', 'time', 'click'].includes(String(kind))) {
+        return res.status(400).json({ error: 'invalid kind' });
+      }
+      await sb.rpc('track_proposal_event', {
+        p_token: token,
+        p_kind: kind,
+        p_detail: String(detail || '').slice(0, 60),
+        p_value: Math.round(Number(value) || 0),
+        p_device: String(device || '').slice(0, 20),
+      });
+      return res.json({ ok: true });
+    }
+
     if (action === 'view') {
-      await sb.from('proposals').update({ status: 'visto' }).eq('public_token', token).eq('status', 'enviada');
+      await sb.rpc('track_proposal_view', { p_token: token });
       return res.json({ ok: true });
     }
     
@@ -722,7 +736,7 @@ app.post('/api/public/proposal/:token', async (req, res) => {
     
     res.status(400).json({ error: 'Ação inválida' });
   } catch (e) {
-    console.error(e);
+    console.error('[API Proposal Error]:', e);
     res.status(500).json({ error: 'Erro no servidor' });
   }
 });

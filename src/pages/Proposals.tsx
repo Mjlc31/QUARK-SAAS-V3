@@ -15,6 +15,7 @@ import { downloadCsv, today } from "@/lib/csv";
 import { Mantra } from "@/components/app/mantra";
 import { supabase, supabaseAnon, filterRealProposals } from "@/lib/supabase/client";
 import { ViewsPill } from "@/components/ProposalViews";
+import { ViewStatus } from "@/components/proposal/ViewStatus";
 import { fetchProposalViews, type ProposalView } from "@/lib/proposal-tracking";
 import type { Product, Proposal, ProposalStatus } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthContext";
@@ -89,22 +90,46 @@ function Proposals() {
         const timeB = new Date(b.updated_at || b.created_at || 0).getTime();
         return timeB - timeA;
       });
-      const leadIds = [...new Set(proposals.map((p) => p.lead_id).filter(Boolean))];
+      const leadIds = [...new Set(proposals.map((p) => p.lead_id || (p as any).opportunity_id).filter(Boolean))];
       
-      const [leadsRes, views] = await Promise.all([
-        leadIds.length > 0 ? supabase().from("opportunities").select("id, title, city, phone").in("id", leadIds) : Promise.resolve({ data: [] }),
-        fetchProposalViews(proposals.map((p) => String(p.id)))
-      ]);
+      let leadsData: any[] = [];
+      if (leadIds.length > 0) {
+        try {
+          const res = await supabase().from("opportunities").select("id, title, client_name, city, phone").in("id", leadIds);
+          if (res?.data) leadsData = res.data;
+        } catch (_) {
+          try {
+            const anonRes = await supabaseAnon().from("opportunities").select("id, title, client_name, city, phone").in("id", leadIds);
+            if (anonRes?.data) leadsData = anonRes.data;
+          } catch (_) {}
+        }
+      }
 
-      const leadsMap = new Map((leadsRes.data || []).map((l: any) => [l.id, l]));
+      let views: ProposalView[] = [];
+      try {
+        views = await fetchProposalViews(proposals.map((p) => String(p.id)));
+      } catch (_) {}
+
+      const leadsMap = new Map((leadsData || []).map((l: any) => [l.id, l]));
 
       return proposals.map((p: any) => {
-        const linkedLead = leadsMap.get(p.lead_id);
-        const name = p.client_name || p.title || linkedLead?.title || p.data?.clientName || 'Sem nome';
+        const linkedLead = leadsMap.get(p.lead_id) || leadsMap.get(p.opportunity_id);
+        const name =
+          p.client_name ||
+          p.lead?.name ||
+          linkedLead?.title ||
+          linkedLead?.client_name ||
+          p.data?.lead?.name ||
+          p.data?.clientName ||
+          (p.title ? p.title.replace(/^Proposta Solar\s*—\s*/i, "") : "") ||
+          'Cliente';
+        const city = p.city || p.lead?.city || linkedLead?.city || p.data?.lead?.city || p.data?.city || null;
+        const phone = p.phone || p.lead?.phone || linkedLead?.phone || p.data?.lead?.phone || p.data?.phone || null;
         return {
           ...p,
+          client_name: name,
           views: views.filter((v) => v.proposal_id === String(p.id)),
-          lead: p.lead || { name, city: p.city || linkedLead?.city || p.data?.city, phone: p.phone || linkedLead?.phone }
+          lead: { id: p.lead_id || p.opportunity_id || linkedLead?.id, name, city, phone }
         };
       }) as Proposal[];
     },
@@ -121,7 +146,7 @@ function Proposals() {
       scoped.filter(
         (p) =>
           (filter === "todas" || p.status === filter) &&
-          `${p.number} ${p.lead?.name ?? ""} ${p.title ?? ""} ${p.lead?.city ?? ""}`.toLowerCase().includes(q.toLowerCase()),
+          `${p.number} ${p.lead?.name ?? ""} ${p.client_name ?? ""} ${(p as any).data?.lead?.name ?? ""} ${p.title ?? ""} ${p.lead?.city ?? ""}`.toLowerCase().includes(q.toLowerCase()),
       ),
     [scoped, q, filter],
   );
@@ -192,7 +217,7 @@ function Proposals() {
                   rows.map((p) => [
                     p.number,
                     PRODUCTS[productOf(p.inputs)].short,
-                    p.lead?.name,
+                    p.client_name || p.lead?.name || "—",
                     proposalSummary(p),
                     PROPOSAL_STATUS[p.status]?.label,
                     Number(p.final_price),
@@ -374,11 +399,19 @@ function ProposalRow({ p, idx, onDuplicate, onDelete }: { p: Proposal; idx: numb
     recusada: "bg-rose-500",
   };
 
-  const initials = (p.lead?.name ?? "?")
+  const clientName =
+    p.lead?.name ||
+    p.client_name ||
+    (p as any).data?.lead?.name ||
+    (p as any).data?.clientName ||
+    (p.title ? p.title.replace(/^Proposta Solar\s*—\s*/i, "").replace(/^Proposta S\.A\.V\.E\s*—\s*/i, "") : "") ||
+    "—";
+
+  const initials = (clientName === "—" ? "?" : clientName)
     .split(" ")
     .filter(Boolean)
     .slice(0, 2)
-    .map((w) => w[0])
+    .map((w: string) => w[0])
     .join("")
     .toUpperCase();
 
@@ -396,10 +429,14 @@ function ProposalRow({ p, idx, onDuplicate, onDelete }: { p: Proposal; idx: numb
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="tnum mr-1 text-[11px] font-bold text-zinc-500 sm:hidden">#{p.number}</span>
-          <p className="truncate font-semibold text-white">{p.lead?.name ?? "—"}</p>
+          <p className="truncate font-semibold text-white">{clientName}</p>
           <Badge className={PROPOSAL_STATUS[p.status || "rascunho"]?.cls}>{PROPOSAL_STATUS[p.status || "rascunho"]?.label}</Badge>
           {productOf(p.inputs) === "save" && <Badge className={PRODUCTS.save?.cls}>⚡ S.A.V.E</Badge>}
-          {p.status !== "rascunho" && <span className="hidden sm:inline-flex"><ViewsPill views={(p as Proposal & { views?: ProposalView[] }).views ?? []} align="left" /></span>}
+          {p.status !== "rascunho" && (
+            <span className="hidden sm:inline-flex">
+              <ViewStatus id={p.id} />
+            </span>
+          )}
         </div>
         <p className="mt-0.5 truncate text-[13px] text-zinc-400">
           <span className="hidden sm:inline tnum text-zinc-500 font-medium">#{p.number} · </span>

@@ -2,6 +2,7 @@
 
 import { Check, CheckCircle2, Clock, Download, Info, Mail, MapPin, MessageCircle, Phone, ShieldCheck } from "lucide-react";
 import { trackProposalView } from "@/lib/proposal-tracking";
+import { useProposalTracking } from "./tracking";
 import { supabase } from "@/lib/supabase/client";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "react-hot-toast";
@@ -23,8 +24,11 @@ export interface PublicProposal {
     inputs: Partial<ProposalInputs> & { product?: "solar" | "save"; [key: string]: unknown };
     final_price: number;
     power_kwp: number;
+    monthly_generation?: number;
     valid_until: string | null;
     created_at: string;
+    last_viewed_at?: string | null;
+    view_count?: number;
     accepted_at: string | null;
     accepted_by: string | null;
   };
@@ -45,22 +49,31 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
   const s = mergeSettings(data.settings);
   const rawInputs = data.proposal.inputs || (data.proposal as any).data?.inputs;
   const inputs = mergeInputs(rawInputs);
-  const price = Number(data.proposal.final_price);
+  const price = Number(data.proposal.final_price) || 0;
   const startYear = new Date(data.proposal.created_at).getFullYear();
+  const { click } = useProposalTracking(token);
   const [accepted, setAccepted] = useState<{ at: string; by: string } | null>(
     data.proposal.accepted_at ? { at: data.proposal.accepted_at, by: data.proposal.accepted_by ?? "" } : null,
   );
   const [acceptOpen, setAcceptOpen] = useState(false);
 
-  
   useEffect(() => {
     if (window.location.search.includes("print=1")) {
       setTimeout(() => window.print(), 1500);
     }
   }, []);
 
-  const kwp = (inputs.modulePowerW * inputs.moduleQty) / 1000;
-  const energy = useMemo(() => calcEnergy(inputs, price, startYear), [inputs, price, startYear]);
+  const kwp = ((inputs.modulePowerW * inputs.moduleQty) / 1000) || Number(data.proposal.power_kwp) || 0;
+  const energy = useMemo(() => {
+    const res = calcEnergy(inputs, price, startYear);
+    if ((!res.monthlyGeneration || res.monthlyGeneration === 0) && data.proposal.monthly_generation) {
+      res.monthlyGeneration = Number(data.proposal.monthly_generation);
+    }
+    if ((!res.monthlyGeneration || res.monthlyGeneration === 0) && kwp > 0) {
+      res.monthlyGeneration = Math.round(kwp * 125);
+    }
+    return res;
+  }, [inputs, price, startYear, data.proposal.monthly_generation, kwp]);
   const financing = useMemo(() => calcFinancing(price, inputs.financingRate, inputs.financingTerms), [price, inputs.financingRate, inputs.financingTerms]);
   const tir = useMemo(() => irr(price, energy.cashflow.map((c) => c.savings)), [price, energy]);
   const cardInstallment = inputs.cardInstallments > 0 ? pmt(price, inputs.cardRate, inputs.cardInstallments) : 0;
@@ -125,11 +138,11 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
 
       {/* Barra de ações flutuante com glassmorphism */}
       <div className="no-print fixed top-4 right-4 z-40 hidden items-center gap-2 rounded-2xl border border-white/20 bg-white/90 px-3 py-2 shadow-[0_8px_32px_rgba(0,0,0,0.12)] backdrop-blur-xl sm:flex">
-        <Button variant="secondary" size="sm" onClick={() => window.print()}>
+        <Button variant="secondary" size="sm" onClick={() => { click("pdf"); window.print(); }}>
           <Download className="h-4 w-4" /> Baixar PDF
         </Button>
         {!accepted && !expired && token && (
-          <Button size="sm" onClick={() => setAcceptOpen(true)} style={CTA_STYLE}>
+          <Button size="sm" onClick={() => { click("aceitar"); setAcceptOpen(true); }} style={CTA_STYLE}>
             <Check className="h-4 w-4" /> Aceitar proposta
           </Button>
         )}
@@ -138,7 +151,7 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
       <div className="mx-auto max-w-[1040px] sm:px-6 sm:py-10 print:max-w-none print:p-0">
         <article className="overflow-hidden bg-white shadow-[0_30px_80px_-30px_rgba(14,42,71,0.35)] sm:rounded-2xl print:rounded-none print:shadow-none">
           {/* ============================================================ CAPA */}
-          <header className="relative flex min-h-[640px] flex-col overflow-hidden text-white print:min-h-[297mm]">
+          <header data-track="capa" className="relative flex min-h-[640px] flex-col overflow-hidden text-white print:min-h-[297mm]">
             <Photo src={s.proposal.coverImage || DEFAULT_COVER} className="absolute inset-0 h-full w-full" fallback={<CoverFallback />} />
             <div className="absolute inset-0 bg-gradient-to-r from-[#120B24]/95 via-[#120B24]/75 to-[#120B24]/20" />
             <div className="absolute inset-0 bg-gradient-to-t from-[#120B24] via-transparent to-transparent" />
@@ -189,7 +202,7 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
           )}
 
           {/* ======================================================= RESUMO */}
-          <Section num={num()} kicker="Resumo" title={`${firstName}, este é o seu projeto em números`}>
+          <Section trackId="resumo" num={num()} kicker="Resumo" title={`${firstName}, este é o seu projeto em números`}>
             <p className="max-w-3xl text-[15px] leading-relaxed text-slate-600">
               Dimensionamos um sistema de <b className="text-slate-900">{fmtNum(kwp, 2)} kWp</b>, com {inputs.moduleQty} módulos fotovoltaicos
               {inputs.moduleBrand && ` ${inputs.moduleBrand}`} e inversor{inputs.inverterBrand && ` ${inputs.inverterBrand}`}, capaz de gerar em média{" "}
@@ -224,7 +237,7 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
 
           {/* ================================================= COMO FUNCIONA */}
           {show.howItWorks && (
-            <Section num={num()} kicker="Como funciona" title="Do sol à sua tomada, em quatro etapas" tone="paper">
+            <Section trackId="etapas" num={num()} kicker="Como funciona" title="Do sol à sua tomada, em quatro etapas" tone="paper">
               <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
                 <SystemDiagram brand={inputs.inverterBrand} className="min-w-[760px]" />
               </div>
@@ -249,7 +262,7 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
 
           {/* ======================================================== FATURA */}
           {hasBill && show.bill && (
-            <Section num={num()} kicker="Sua conta de luz" title="Como fica a sua fatura, item por item">
+            <Section trackId="fatura" num={num()} kicker="Sua conta de luz" title="Como fica a sua fatura, item por item">
               <div className="grid gap-6 md:grid-cols-[1.5fr_1fr]">
                 <div className="self-start overflow-x-auto rounded-xl border border-slate-200">
                   <table className="w-full text-sm">
@@ -291,7 +304,7 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
 
           {/* ================================================= EQUIPAMENTOS */}
           {show.equipment && (
-            <Section num={num()} kicker="Equipamentos" title="O que será instalado no seu imóvel" tone="paper">
+            <Section trackId="equipamentos" num={num()} kicker="Equipamentos" title="O que será instalado no seu imóvel" tone="paper">
               <div className="grid gap-5 md:grid-cols-2">
                 <Product
                   image={moduleImg}
@@ -331,7 +344,7 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
 
           {/* ======================================================= GERAÇÃO */}
           {show.generation && (
-            <Section num={num()} kicker="Desempenho" title="Geração estimada ao longo do ano">
+            <Section trackId="desempenho" num={num()} kicker="Desempenho" title="Geração estimada ao longo do ano">
               <div className="grid gap-6 md:grid-cols-[1fr_280px]">
                 <div className="self-start rounded-xl border border-slate-200 p-5 sm:p-6">
                   <GenerationChart data={energy.monthly} />
@@ -349,7 +362,7 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
 
           {/* ===================================================== FINANCEIRO */}
           {energy.monthlySavings > 0 && show.payback && (
-            <Section num={num()} kicker="Análise financeira" title="Um investimento que se paga e continua rendendo" tone="paper">
+            <Section trackId="fluxo-caixa" num={num()} kicker="Análise financeira" title="Um investimento que se paga e continua rendendo" tone="paper">
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                 <Stat label="Retorno do investimento" value={`${fmtNum(energy.paybackYears, 1)} anos`} accent />
                 <Stat label="Economia em 25 anos" value={brl(energy.savings25y, 0)} />
@@ -394,7 +407,7 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
 
           {/* ===================================================== GARANTIAS */}
           {show.warranties && (
-            <Section num={num()} kicker="Garantias" title="Proteção de longo prazo, por contrato">
+            <Section trackId="garantias" num={num()} kicker="Garantias" title="Proteção de longo prazo, por contrato">
               <div className="grid gap-px overflow-hidden rounded-xl border border-slate-200 bg-slate-200 sm:grid-cols-5">
                 <Warranty years={s.warranty_modules_performance_years} title="Eficiência dos módulos" text="Produção mínima de 80% ao fim do período" />
                 <Warranty years={s.warranty_modules_years} title="Módulos" text="Contra defeitos de fabricação" />
@@ -407,7 +420,7 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
 
           {/* ====================================================== OBRA */}
           {show.timeline && (
-            <Section num={num()} kicker="Cronograma" title={`Da assinatura ao sistema ligado: cerca de ${lastDay} dias`} tone="paper">
+            <Section trackId="cronograma" num={num()} kicker="Cronograma" title={`Da assinatura ao sistema ligado: cerca de ${lastDay} dias`} tone="paper">
               <ol className="grid gap-x-5 gap-y-8 sm:grid-cols-2 md:grid-cols-4">
                 {steps.map((st, i) => {
                   const last = i === steps.length - 1;
@@ -430,7 +443,7 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
 
           {/* ===================================================== OBRAS */}
           {s.proposal.gallery.length > 0 && (
-            <Section num={num()} kicker="Portfólio" title="Obras realizadas pela nossa equipe">
+            <Section trackId="portfolio" num={num()} kicker="Portfólio" title="Obras realizadas pela nossa equipe">
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {s.proposal.gallery.slice(0, 6).map((src, i) => (
                   <div key={src} className={cx("overflow-hidden rounded-xl bg-slate-100", i === 0 && "col-span-2 row-span-2")}>
@@ -443,7 +456,7 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
 
           {/* ===================================================== PLANETA */}
           {show.planet && (
-            <Section num={num()} kicker="Sustentabilidade" title="Impacto ambiental positivo">
+            <Section trackId="sustentabilidade" num={num()} kicker="Sustentabilidade" title="Impacto ambiental positivo">
               <div className="grid gap-px overflow-hidden rounded-xl border border-slate-200 bg-slate-200 sm:grid-cols-3">
                 <MiniSpec label="CO₂ evitado por ano" value={`${fmtNum(energy.co2TonsPerYear, 2)} toneladas`} sub={`${fmtNum(energy.co2TonsPerYear * 25, 1)} t em 25 anos`} />
                 <MiniSpec label="Equivale ao plantio de" value={`${fmtNum(energy.treesEquivalent)} árvores`} sub="por ano de operação" />
@@ -453,7 +466,7 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
           )}
 
           {/* ================================================= INVESTIMENTO */}
-          <section className="print-break relative overflow-hidden px-6 py-14 text-white sm:px-14 sm:py-16 print:min-h-[297mm]" style={{ background: NAVY }}>
+          <section data-track="investimento" className="print-break relative overflow-hidden px-6 py-14 text-white sm:px-14 sm:py-16 print:min-h-[297mm]" style={{ background: NAVY }}>
             <LeafMark className="right-[-8%] bottom-[-12%] w-[420px] opacity-[0.07]" />
             <BrandRule className="absolute inset-x-0 top-0" />
             <SectionTitle num={num()} kicker="Investimento" title="Condições comerciais" dark />
@@ -521,7 +534,7 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
 
           {/* ========================================================= FAQ */}
           {show.faq && (
-            <Section num={num()} kicker="Dúvidas frequentes" title="Respostas diretas">
+            <Section trackId="faq" num={num()} kicker="Dúvidas frequentes" title="Respostas diretas">
               <dl className="grid gap-x-10 gap-y-6 sm:grid-cols-2">
                 {faq.map((f) => (
                   <div key={f.q} className="border-t border-slate-200 pt-4">
@@ -535,7 +548,7 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
 
           {/* ======================================================= SOBRE */}
           {show.about && (
-            <Section num={num()} kicker="Sobre nós" title={s.company_name} tone="paper">
+            <Section trackId="sobre" num={num()} kicker="Sobre nós" title={s.company_name} tone="paper">
               <div className="grid gap-8 sm:grid-cols-[1.4fr_1fr]">
                 <p className="leading-relaxed text-slate-600">{s.about}</p>
                 <div className="grid content-start gap-3 text-sm">
@@ -578,18 +591,18 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
                 {!accepted && !expired && token && (
-                  <Button size="lg" onClick={() => setAcceptOpen(true)} style={CTA_STYLE}>
+                  <Button size="lg" onClick={() => { click("aceitar"); setAcceptOpen(true); }} style={CTA_STYLE}>
                     <Check className="h-5 w-5" /> Aceitar proposta
                   </Button>
                 )}
                 {contactPhone && (
-                  <a href={whatsappUrl(contactPhone, waText)} target="_blank" rel="noreferrer">
+                  <a href={whatsappUrl(contactPhone, waText)} target="_blank" rel="noreferrer" onClick={() => click("whatsapp")}>
                     <Button size="lg" variant="secondary" className="w-full">
                       <MessageCircle className="h-5 w-5 text-emerald-600" /> WhatsApp
                     </Button>
                   </a>
                 )}
-                <Button size="lg" variant="secondary" onClick={() => window.print()} className="sm:hidden">
+                <Button size="lg" variant="secondary" onClick={() => { click("pdf"); window.print(); }} className="sm:hidden">
                   <Download className="h-5 w-5" /> PDF
                 </Button>
               </div>
@@ -623,7 +636,7 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
                 </Button>
               </a>
             )}
-            <Button className="flex-1" style={CTA_STYLE} onClick={() => setAcceptOpen(true)}>
+            <Button className="flex-1" style={CTA_STYLE} onClick={() => { click("aceitar"); setAcceptOpen(true); }}>
               <Check className="h-4 w-4" /> Aceitar
             </Button>
           </div>
@@ -638,6 +651,7 @@ export function ProposalDocument({ data, token }: { data: PublicProposal; token:
           defaultName={data.lead.name}
           days={lastDay}
           onAccepted={(by) => {
+            click("aceite");
             setAccepted({ at: new Date().toISOString(), by });
             setAcceptOpen(false);
           }}
@@ -731,9 +745,9 @@ export function SectionTitle({ num, kicker, title, dark }: { num: string; kicker
   );
 }
 
-export function Section({ num, kicker, title, children, tone }: { num: string; kicker: string; title: ReactNode; children: ReactNode; tone?: "paper" }) {
+export function Section({ num, kicker, title, children, tone, trackId }: { num: string; kicker: string; title: ReactNode; children: ReactNode; tone?: "paper"; trackId?: string }) {
   return (
-    <section className={cx("avoid-break px-6 py-14 sm:px-14 sm:py-16", tone === "paper" && "bg-[#F6F5FA]/70")}>
+    <section data-track={trackId} className={cx("avoid-break px-6 py-14 sm:px-14 sm:py-16", tone === "paper" && "bg-[#F6F5FA]/70")}>
       <SectionTitle num={num} kicker={kicker} title={title} />
       <div className="mt-8">{children}</div>
     </section>

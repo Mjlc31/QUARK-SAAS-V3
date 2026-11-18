@@ -19,10 +19,10 @@ export function isProxyHost(url: string) {
   }
 }
 
-/** Endereço para usar no <img>: imagens de lojas externas passam pelo proxy do app. */
+/** Endereço para usar no <img>: retorna a URL direta dos equipamentos com fallback resiliente */
 export function productImg(url: string | null | undefined) {
   if (!url) return "";
-  return isProxyHost(url) ? `/api/img?u=${encodeURIComponent(url)}` : url;
+  return url;
 }
 
 export const moduleImageOf = (...fallbacks: (string | null | undefined)[]) => FIXED_MODULE_IMAGE || fallbacks.find(Boolean) || "";

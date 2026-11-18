@@ -231,6 +231,17 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
         return null;
       }
 
+      const enrichedSaved: Proposal = {
+        ...saved,
+        client_name: saved.client_name || effectiveClientName,
+        lead: {
+          id: saved.lead_id || saved.opportunity_id || activeLeadId || "",
+          name: effectiveClientName,
+          city: lead?.city || (saved as any).city || null,
+          phone: lead?.phone || (saved as any).phone || null,
+        },
+      };
+
       // Atualiza o cache local imediatamente para a proposta subir ao topo na lista
       try {
         const cacheKey = "quark_proposals_list";
@@ -238,9 +249,48 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
         if (raw) {
           const list = JSON.parse(raw);
           if (Array.isArray(list)) {
-            const idx = list.findIndex((item: any) => item.id === saved.id || String(item.number) === String(saved.number));
-            const updatedList = idx >= 0 ? [saved, ...list.filter((_, i) => i !== idx)] : [saved, ...list];
+            const idx = list.findIndex((item: any) => item.id === enrichedSaved.id || String(item.number) === String(enrichedSaved.number));
+            const updatedList = idx >= 0 ? [enrichedSaved, ...list.filter((_, i) => i !== idx)] : [enrichedSaved, ...list];
             localStorage.setItem(cacheKey, JSON.stringify(updatedList));
+          }
+        }
+      } catch (_) {}
+
+      // Atualiza o cache local do CRM imediatamente para o lead mostrar a proposta vinculada
+      try {
+        const crmKey = "quark_crm_kanban_v4";
+        const rawCrm = localStorage.getItem(crmKey);
+        if (rawCrm) {
+          const crmData = JSON.parse(rawCrm);
+          if (crmData && Array.isArray(crmData.proposals)) {
+            const oppProp = {
+              id: enrichedSaved.id,
+              number: enrichedSaved.number,
+              lead_id: enrichedSaved.lead_id || enrichedSaved.opportunity_id || activeLeadId,
+              opportunity_id: enrichedSaved.opportunity_id || activeLeadId,
+              client_name: effectiveClientName,
+              title: enrichedSaved.title,
+              status: enrichedSaved.status || "enviada",
+              final_price: Number(enrichedSaved.final_price) || 0,
+              power_kwp: Number(enrichedSaved.power_kwp) || 0,
+              public_token: enrichedSaved.public_token || "",
+              created_at: enrichedSaved.created_at || new Date().toISOString(),
+              updated_at: enrichedSaved.updated_at || new Date().toISOString(),
+            };
+            const pIdx = crmData.proposals.findIndex((p: any) => p.id === enrichedSaved.id || String(p.number) === String(enrichedSaved.number));
+            crmData.proposals = pIdx >= 0 ? [oppProp, ...crmData.proposals.filter((_: any, i: number) => i !== pIdx)] : [oppProp, ...crmData.proposals];
+
+            if (crmData.opps && Array.isArray(crmData.opps)) {
+              const oppIdx = crmData.opps.findIndex((o: any) => o.id === activeLeadId || o.id === enrichedSaved.lead_id || o.id === enrichedSaved.opportunity_id || (o.title && o.title.toLowerCase().trim() === effectiveClientName.toLowerCase().trim()));
+              if (oppIdx >= 0) {
+                crmData.opps[oppIdx] = {
+                  ...crmData.opps[oppIdx],
+                  amount: Number(enrichedSaved.final_price) || crmData.opps[oppIdx].amount,
+                  system_power: Number(enrichedSaved.power_kwp) || crmData.opps[oppIdx].system_power,
+                };
+              }
+            }
+            localStorage.setItem(crmKey, JSON.stringify(crmData));
           }
         }
       } catch (_) {}

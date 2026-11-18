@@ -4,7 +4,7 @@ import { Loader2 } from "lucide-react";
 import { ProposalDocument, type PublicProposal } from "@/components/proposal/document";
 import { SaveDocument } from "@/components/save/document";
 import { productOf } from "@/lib/constants";
-import { supabase } from "@/lib/supabase/client";
+import { supabase, supabaseAnon } from "@/lib/supabase/client";
 
 export default function PublicProposalPage() {
   const { token } = useParams();
@@ -18,9 +18,19 @@ export default function PublicProposalPage() {
       if (!token) return;
       setLoading(true);
 
-      // Fonte única: RPC pública do banco
+      // Fonte única: RPC pública do banco (com fallback para anon se sessão estiver corrompida)
       try {
-        const { data: res } = await supabase().rpc("get_public_proposal", { p_token: token });
+        let res: any = null;
+        try {
+          const rpcRes = await supabase().rpc("get_public_proposal", { p_token: token });
+          if (rpcRes.data) res = rpcRes.data;
+        } catch (_) {}
+
+        if (!res) {
+          const anonRes = await supabaseAnon().rpc("get_public_proposal", { p_token: token });
+          if (anonRes.data) res = anonRes.data;
+        }
+
         if (res && isMounted) {
           setData(res as PublicProposal);
         }

@@ -54,11 +54,15 @@ export interface OppProposal {
   id: string;
   number: number;
   lead_id: string;
+  opportunity_id?: string | null;
+  client_name?: string | null;
+  title?: string | null;
   status: string;
   final_price: number;
   power_kwp: number | null;
   public_token: string;
   created_at: string;
+  updated_at?: string | null;
   inputs?: { product?: string } | null;
 }
 
