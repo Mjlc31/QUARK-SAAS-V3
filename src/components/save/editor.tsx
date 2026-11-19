@@ -14,8 +14,8 @@ import { addDays, whatsappUrl } from "@/lib/format";
 import { brl, fmtNum, pct } from "@/lib/pricing";
 import { CHARGER_OPTIONS, calcSave, mergeSave, type SaveCostItem, type SaveInputs } from "@/lib/save";
 import { duplicateProposal, syncOpportunityAmount } from "@/lib/proposal-actions";
-import { supabase, supabaseAnon } from "@/lib/supabase/client";
-import { logCrmNote, useCrmLeads, saveQuickLead, type CrmLead } from "@/lib/crm-leads";
+import { supabase } from "@/lib/supabase/client";
+import { logCrmNote, useCrmLeads, findLead, saveQuickLead, type CrmLead } from "@/lib/crm-leads";
 import { NewLeadModal } from "@/components/proposal/NewLeadModal";
 import { ViewsPill } from "@/components/ProposalViews";
 import type { Proposal } from "@/lib/types";
@@ -38,7 +38,7 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
 
   const { data: leads } = useCrmLeads();
   const [showNewLead, setShowNewLead] = useState(false);
-  const lead = leads?.find((l) => l.id === leadId) ?? null;
+  const lead = findLead(leads, leadId) ?? null;
 
   useEffect(() => {
     if (proposal || inputs || !settingsLoaded) return;
@@ -186,18 +186,6 @@ export function SaveEditor({ proposal, initialLeadId }: { proposal?: Proposal; i
         }
       } catch (rpcEx) {
         console.warn("[SaveEditor] save_proposal RPC failed, fallback to direct query:", rpcEx);
-      }
-
-      // 1.1 Fallback via supabaseAnon (garante persistência mesmo com sessão expirada ou 401)
-      if (!saved) {
-        try {
-          const { data: anonData, error: anonErr } = await supabaseAnon().rpc("save_proposal", { p_proposal: payloadToSave });
-          if (!anonErr && anonData && typeof anonData === "object" && (anonData as any).id) {
-            saved = anonData as Proposal;
-          }
-        } catch (anonEx) {
-          console.warn("[SaveEditor] save_proposal via supabaseAnon falhou:", anonEx);
-        }
       }
 
       // 2. Fallback resiliente caso as chamadas RPC falhem

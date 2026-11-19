@@ -5,7 +5,7 @@ import { SaveEditor } from "@/components/save/editor";
 import { productOf } from "@/lib/constants";
 import { Empty } from "@/components/ui";
 import { must, useLive } from "@/lib/live";
-import { supabase, supabaseAnon } from "@/lib/supabase/client";
+import { supabase } from "@/lib/supabase/client";
 import type { Proposal } from "@/lib/types";
 
 export default function ProposalEditorPage() {
@@ -40,34 +40,11 @@ export default function ProposalEditorPage() {
         }
       } catch (_) {}
 
-      // 1.1 Fallback via supabaseAnon (se houver 401 ou token expirado na sessão)
-      if (!p || !p.inputs) {
-        try {
-          const { data: anonData, error: anonErr } = await supabaseAnon().rpc("get_proposal_by_id", { p_id: id });
-          if (!anonErr && anonData && typeof anonData === "object" && (anonData as any).id) {
-            p = anonData;
-          }
-        } catch (_) {}
-      }
-
       // 2. Fallbacks diretos
       if (!p) {
         try {
           const direct = await supabase().from("proposals").select("*").eq("id", id).maybeSingle();
           if (direct?.data) p = direct.data;
-          else {
-            const anonDirect = await supabaseAnon().from("proposals").select("*").eq("id", id).maybeSingle();
-            if (anonDirect?.data) p = anonDirect.data;
-          }
-        } catch (_) {}
-      }
-
-      if (!p) {
-        try {
-          const { data: list } = await supabaseAnon().rpc("get_proposals", { p_limit: 100 });
-          if (Array.isArray(list)) {
-            p = list.find((item: any) => item.id === id || String(item.number) === id || item.public_token === id);
-          }
         } catch (_) {}
       }
 

@@ -13,7 +13,7 @@ import { must, useLive } from "@/lib/live";
 import { brl, fmtNum } from "@/lib/pricing";
 import { downloadCsv, today } from "@/lib/csv";
 import { Mantra } from "@/components/app/mantra";
-import { supabase, supabaseAnon, filterRealProposals } from "@/lib/supabase/client";
+import { supabase, filterRealProposals } from "@/lib/supabase/client";
 import { ViewsPill } from "@/components/ProposalViews";
 import { ViewStatus } from "@/components/proposal/ViewStatus";
 import { fetchProposalViews, type ProposalView } from "@/lib/proposal-tracking";
@@ -62,26 +62,11 @@ function Proposals() {
         }
       } catch (_) {}
 
-      // Fallback via supabaseAnon (se houver 401 ou token expirado na sessão)
-      if (rawProposals.length === 0) {
-        try {
-          const { data: anonData, error: anonErr } = await supabaseAnon().rpc("get_proposals", { p_limit: 100 });
-          if (!anonErr && Array.isArray(anonData) && anonData.length > 0) {
-            rawProposals = anonData;
-          }
-        } catch (_) {}
-      }
-
       if (rawProposals.length === 0) {
         try {
           const res = await supabase().from("proposals").select("*").is("deleted_at", null).order("updated_at", { ascending: false }).limit(100);
           if (res?.data) rawProposals = res.data;
-        } catch (_) {
-          try {
-            const anonRes = await supabaseAnon().from("proposals").select("*").is("deleted_at", null).order("updated_at", { ascending: false }).limit(100);
-            if (anonRes?.data) rawProposals = anonRes.data;
-          } catch (_) {}
-        }
+        } catch (_) {}
       }
       const proposals = filterRealProposals(rawProposals);
       // Garante que o orçamento editado mais recentemente fique rigorosamente no topo
@@ -97,12 +82,7 @@ function Proposals() {
         try {
           const res = await supabase().from("opportunities").select("id, title, client_name, city, phone").in("id", leadIds);
           if (res?.data) leadsData = res.data;
-        } catch (_) {
-          try {
-            const anonRes = await supabaseAnon().from("opportunities").select("id, title, client_name, city, phone").in("id", leadIds);
-            if (anonRes?.data) leadsData = anonRes.data;
-          } catch (_) {}
-        }
+        } catch (_) {}
       }
 
       let views: ProposalView[] = [];

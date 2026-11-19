@@ -50,4 +50,7 @@ Exercite só as linhas cujo gatilho aparece no diff. Em cada uma: sem erro em `r
 ## 5. Armadilhas conhecidas
 
 - O worktree costuma ter mudanças não commitadas do Arthur: verifique o diff inteiro, mas não reverta nada que não seja seu.
+- `useLive` (`src/lib/live.ts`) guarda resultados no localStorage: para comparar antes/depois, limpe o localStorage (mantendo `quark_offline_user`) e use aba nova.
+- `/propostas/nova` já emite "Maximum update depth exceeded" no `ProposalEditor` (pré-existente em 2026-11-19); só é regressão se a contagem subir.
+- Leitura do CRM como anon depende das policies `*_anon_*` em `client_portal_users`/`opportunities`, que expõem dados pessoais; não trate "lista carregou sem login" como sucesso.
 - `openreply/` e `scratch/` têm suítes próprias e não fazem parte do app; não rode a menos que o diff toque nelas.

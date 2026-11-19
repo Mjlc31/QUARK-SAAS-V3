@@ -33,7 +33,7 @@ import { useApp } from "@/components/app/app-context";
 import { useReward } from "@/components/app/rewards";
 import { Badge, Button, Card, CardHeader, Field, ImageField, Input, MoneyInput, NumberInput, Segmented, Select, Textarea, cx } from "@/components/ui";
 import { PROPOSAL_STATUS, ROOF_TYPES } from "@/lib/constants";
-import { useCrmLeads, logCrmNote, saveQuickLead, getLocalLeadById, type CrmLead } from "@/lib/crm-leads";
+import { useCrmLeads, findLead, logCrmNote, saveQuickLead, getLocalLeadById, type CrmLead } from "@/lib/crm-leads";
 import { servicesOf } from "@/lib/services";
 import { ViewsPill } from "@/components/ProposalViews";
 import { ViewStatus } from "@/components/proposal/ViewStatus";
@@ -42,7 +42,7 @@ import { MACEIO_TARIFF, effectiveTariff, mergeInputs, toStoredSettings, type Kit
 import { addDays, formatPhone, whatsappUrl } from "@/lib/format";
 import { brl, calcEnergy, calcPricing, fmtNum, type AmountMode, type PriceComponent, type ProposalInputs } from "@/lib/pricing";
 import { duplicateProposal, syncOpportunityAmount } from "@/lib/proposal-actions";
-import { supabase, supabaseAnon } from "@/lib/supabase/client";
+import { supabase } from "@/lib/supabase/client";
 import type { Proposal } from "@/lib/types";
 import { BillPreview, Checkout, StepNav } from "./checkout";
 import { NewLeadModal } from "./NewLeadModal";
@@ -84,7 +84,7 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
   current.current = proposal;
 
   
-  const lead = leads?.find((l) => l.id === leadId) ?? getLocalLeadById(leadId) ?? null;
+  const lead = findLead(leads, leadId) ?? getLocalLeadById(leadId) ?? null;
 
   // Novo orçamento: parte dos padrões configurados + dados de consumo do lead.
   useEffect(() => {
@@ -315,18 +315,6 @@ export function ProposalEditor({ proposal, initialLeadId }: { proposal?: Proposa
         }
       } catch (rpcEx) {
         console.warn("[ProposalEditor] save_proposal RPC failed, fallback to direct query:", rpcEx);
-      }
-
-      // 1.1 Fallback via supabaseAnon (garante persistência mesmo com sessão expirada ou 401)
-      if (!saved) {
-        try {
-          const { data: anonData, error: anonErr } = await supabaseAnon().rpc("save_proposal", { p_proposal: payloadToSave });
-          if (!anonErr && anonData && typeof anonData === "object" && (anonData as any).id) {
-            saved = anonData as Proposal;
-          }
-        } catch (anonEx) {
-          console.warn("[ProposalEditor] save_proposal via supabaseAnon falhou:", anonEx);
-        }
       }
 
       // 2. Fallback resiliente caso as chamadas RPC falhem
@@ -1237,7 +1225,7 @@ export function LeadPicker({
   const [q, setQ] = useState("");
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const selected = leads.find((l) => l.id === value) ?? getLocalLeadById(value);
+  const selected = findLead(leads, value) ?? getLocalLeadById(value);
 
   useEffect(() => {
     const close = (e: MouseEvent) => {

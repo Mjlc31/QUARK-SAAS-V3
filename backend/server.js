@@ -713,18 +713,20 @@ app.post('/api/public/proposal/:token', async (req, res) => {
       if (!['open', 'section', 'time', 'click'].includes(String(kind))) {
         return res.status(400).json({ error: 'invalid kind' });
       }
-      await sb.rpc('track_proposal_event', {
+      const { error } = await sb.rpc('track_proposal_event', {
         p_token: token,
         p_kind: kind,
         p_detail: String(detail || '').slice(0, 60),
         p_value: Math.round(Number(value) || 0),
         p_device: String(device || '').slice(0, 20),
       });
+      if (error) throw error;
       return res.json({ ok: true });
     }
 
     if (action === 'view') {
-      await sb.rpc('track_proposal_view', { p_token: token });
+      const { error } = await sb.rpc('track_proposal_view', { p_token: token });
+      if (error) throw error;
       return res.json({ ok: true });
     }
     

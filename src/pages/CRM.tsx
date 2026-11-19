@@ -12,7 +12,7 @@ import { useLive } from "../lib/live";
 import { brl, fmtNum } from "../lib/pricing";
 import type { ProposalView } from "../lib/proposal-tracking";
 import { SERVICES, servicesOf, type ServiceId } from "../lib/services";
-import { supabase, supabaseAnon } from "../lib/supabaseClient";
+import { supabase } from "../lib/supabaseClient";
 import { DEFAULT_CADENCE, renderCopy } from "../lib/cadence";
 import { recordXpEvent } from "../lib/gamification";
 
@@ -119,30 +119,6 @@ async function loadCrm(): Promise<CrmData> {
 
     let opps = ((oppRes?.data as Opportunity[]) || []).filter((o) => o && !o.deleted_at);
     let proposals = ((propRes?.data ?? []) as any[]) as OppProposal[];
-
-    if (opps.length === 0 || proposals.length === 0) {
-      try {
-        const [anonOppRes, anonPropRes] = await Promise.all([
-          supabaseAnon
-            .from("opportunities")
-            .select("id, title, client_name, status, pipeline_stage, amount, value, phone, email, city, cpf_cnpj, segment, source, temperature, notes, loss_reason, created_at, updated_at, services, system_power, consumption_kwh")
-            .is("deleted_at", null)
-            .order("created_at", { ascending: false }),
-          supabaseAnon
-            .from("proposals")
-            .select("id, number, lead_id, opportunity_id, client_name, title, status, final_price, power_kwp, public_token, created_at, updated_at")
-            .is("deleted_at", null)
-            .order("updated_at", { ascending: false })
-            .limit(100),
-        ]);
-        if (anonOppRes?.data && anonOppRes.data.length > 0) {
-          opps = anonOppRes.data.filter((o: any) => o && !o.deleted_at);
-        }
-        if (anonPropRes?.data && anonPropRes.data.length > 0) {
-          proposals = anonPropRes.data as OppProposal[];
-        }
-      } catch (_) {}
-    }
 
     if (opps.length > 0) {
       const result: CrmData = { opps, proposals, views: [] };

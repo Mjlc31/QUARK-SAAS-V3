@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Check, ChevronDown, FilePlus2, FileSignature, History, Loader2, Printer, Save, Search, Trash2, UserRound } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { Button, Card, Field, Input, cx } from "@/components/ui";
-import { useCrmLeads, type CrmLead } from "@/lib/crm-leads";
+import { useCrmLeads, findLead, type CrmLead } from "@/lib/crm-leads";
 import type { CompanySettings } from "@/lib/defaults";
 import { formatDateTime, formatPhone } from "@/lib/format";
 import { supabase } from "@/lib/supabaseClient";
@@ -367,7 +367,7 @@ function ClientPicker({ value, onPick }: { value: string | null; onPick: (l: Crm
   const { data: leads } = useCrmLeads();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
-  const selected = leads?.find((l) => l.id === value);
+  const selected = findLead(leads, value);
   const list = (leads ?? []).filter((l) => `${l.name} ${l.phone ?? ""} ${l.city ?? ""}`.toLowerCase().includes(q.toLowerCase())).slice(0, 40);
   return (
     <div className="relative min-w-[180px] flex-1 basis-full sm:basis-0">

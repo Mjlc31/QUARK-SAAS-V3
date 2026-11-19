@@ -1,11 +1,13 @@
 import { useLive } from "./live";
 import type { ConnectionType } from "./pricing";
-import { supabase, supabaseAnon } from "./supabaseClient";
+import { supabase } from "./supabaseClient";
 import { SAMPLE_CLIENTS } from "../hooks/useClients";
 
 /** Cliente do CRM (tabela `client_portal_users` ou `opportunities`) no formato usado pelos editores de orçamento. */
 export interface CrmLead {
   id: string;
+  /** IDs de registros duplicados (mesmo CPF/nome) escondidos da lista, mas que ainda resolvem para este lead. */
+  aliases?: string[];
   name: string;
   phone: string | null;
   email: string | null;
@@ -220,26 +222,6 @@ export function useCrmLeads() {
         // Continua com fallbacks
       }
 
-      // 1. Fallback via supabaseAnon (garante leitura pública dos leads ativos mesmo se JWT do usuário expirou)
-      if (clientsData.length === 0 || oppsData.length === 0) {
-        try {
-          const [anonClientsRes, anonOppsRes] = await Promise.allSettled([
-            clientsData.length === 0
-              ? supabaseAnon.from("client_portal_users").select("*").is("deleted_at", null).order("name", { ascending: true }).limit(1000)
-              : Promise.resolve({ data: clientsData }),
-            oppsData.length === 0
-              ? supabaseAnon.from("opportunities").select("*").is("deleted_at", null).order("created_at", { ascending: false }).limit(1000)
-              : Promise.resolve({ data: oppsData }),
-          ]);
-          if (clientsData.length === 0 && anonClientsRes.status === "fulfilled" && (anonClientsRes.value as any)?.data) {
-            clientsData = (anonClientsRes.value as any).data;
-          }
-          if (oppsData.length === 0 && anonOppsRes.status === "fulfilled" && (anonOppsRes.value as any)?.data) {
-            oppsData = (anonOppsRes.value as any).data;
-          }
-        } catch (_) {}
-      }
-
       // Se clientes remotos vazios, tenta buscar do backend
       if (clientsData.length === 0) {
         try {
@@ -280,19 +262,23 @@ export function useCrmLeads() {
         } catch (_) {}
       }
 
-      // Montagem do mapa unificado com indexação por ID e desduplicação por chave
+      // Montagem do mapa unificado: um lead por chave (CPF ou nome); duplicados viram aliases,
+      // assim a lista não repete o cliente e ?lead=opp_... continua resolvendo via findLead.
       const leadsMap = new Map<string, CrmLead>();
-      const seenKeys = new Set<string>();
+      const byKey = new Map<string, CrmLead>();
 
       const addUnique = (lead: CrmLead) => {
         if (!lead || !lead.name) return;
-        // Sempre indexa pelo ID exato do lead (essencial para resolver URLs como ?lead=opp_...)
-        leadsMap.set(lead.id, lead);
         const normName = lead.name.toLowerCase().trim().replace(/[^a-z0-9]/g, "");
         const normDoc = lead.document ? lead.document.replace(/\D/g, "") : "";
         const key = (normDoc && normDoc.length >= 11) ? normDoc : normName;
-        if (seenKeys.has(key)) return;
-        seenKeys.add(key);
+        const kept = byKey.get(key);
+        if (kept) {
+          if (kept.id !== lead.id && !kept.aliases?.includes(lead.id)) (kept.aliases ??= []).push(lead.id);
+          return;
+        }
+        byKey.set(key, lead);
+        leadsMap.set(lead.id, lead);
       };
 
       // 1. Clientes reais remotos (client_portal_users)
@@ -372,6 +358,12 @@ export function useCrmLeads() {
     [],
     ["client_portal_users", "opportunities"],
   );
+}
+
+/** Acha um lead pelo ID, incluindo IDs de registros duplicados que foram unificados nele. */
+export function findLead<T extends { id: string; aliases?: string[] }>(leads: T[] | null | undefined, id: string | null | undefined): T | undefined {
+  if (!id) return undefined;
+  return leads?.find((l) => l.id === id || l.aliases?.includes(id));
 }
 
 /** Registra um evento na linha do tempo do cliente no CRM. */
